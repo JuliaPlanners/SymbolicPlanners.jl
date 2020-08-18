@@ -23,17 +23,16 @@ bw_state = init_state(bw_problem)
 planner = BreadthFirstPlanner()
 plan, traj = planner(gridworld, gw_state, gw_problem.goal)
 @test satisfy(gw_problem.goal, traj[end], gridworld)[1] == true
-@test plan == @julog [down, down, right, right, up, up]
+@test plan == @pddl("down", "down", "right", "right", "up", "up")
 
 plan, traj = planner(doors_keys_gems, dkg_state, dkg_problem.goal)
 @test satisfy(dkg_problem.goal, traj[end], doors_keys_gems)[1] == true
-@test plan == @julog [down, pickup(key1), down, unlock(key1, right),
-                      right, right, up, up, pickup(gem1)]
+@test plan == @pddl("(down)", "(pickup key1)", "(down)", "(unlock key1 right)",
+                    "(right)", "(right)", "(up)", "(up)", "(pickup gem1)")
 
 plan, traj = planner(blocksworld, bw_state, bw_problem.goal)
 @test satisfy(bw_problem.goal, traj[end], blocksworld)[1] == true
-@test plan == [pddl"(pick-up a)", pddl"(stack a b)",
-               pddl"(pick-up c)", pddl"(stack c a)"]
+@test plan == @pddl("(pick-up a)", "(stack a b)", "(pick-up c)", "(stack c a)")
 
 end
 
@@ -45,19 +44,18 @@ clear_available_action_cache!()
 planner = UniformCostPlanner()
 plan, traj = planner(gridworld, gw_state, gw_problem.goal)
 @test satisfy(gw_problem.goal, traj[end], gridworld)[1] == true
-@test plan == @julog [down, down, right, right, up, up]
+@test plan == @pddl("down", "down", "right", "right", "up", "up")
 
 planner = UniformCostPlanner()
 plan, traj = planner(doors_keys_gems, dkg_state, dkg_problem.goal)
 @test satisfy(dkg_problem.goal, traj[end], doors_keys_gems)[1] == true
-@test plan == @julog [down, pickup(key1), down, unlock(key1, right),
-                      right, right, up, up, pickup(gem1)]
+@test plan == @pddl("(down)", "(pickup key1)", "(down)", "(unlock key1 right)",
+                    "(right)", "(right)", "(up)", "(up)", "(pickup gem1)")
 
 planner = UniformCostPlanner()
 plan, traj = planner(blocksworld, bw_state, bw_problem.goal)
 @test satisfy(bw_problem.goal, traj[end], blocksworld)[1] == true
-@test plan == [pddl"(pick-up a)", pddl"(stack a b)",
-               pddl"(pick-up c)", pddl"(stack c a)"]
+@test plan == @pddl("(pick-up a)", "(stack a b)", "(pick-up c)", "(stack c a)")
 
 end
 
@@ -66,22 +64,21 @@ end
 clear_heuristic_cache!()
 clear_available_action_cache!()
 
-planner = GreedyPlanner(ManhattanHeuristic(@julog[xpos, ypos]))
+planner = GreedyPlanner(ManhattanHeuristic(@pddl("xpos", "ypos")))
 plan, traj = planner(gridworld, gw_state, gw_problem.goal)
 @test satisfy(gw_problem.goal, traj[end], gridworld)[1] == true
-@test plan == @julog [down, down, right, right, up, up]
+@test plan == @pddl("down", "down", "right", "right", "up", "up")
 
 planner = GreedyPlanner(GoalCountHeuristic())
 plan, traj = planner(doors_keys_gems, dkg_state, dkg_problem.goal)
 @test satisfy(dkg_problem.goal, traj[end], doors_keys_gems)[1] == true
-@test plan == @julog [down, pickup(key1), down, unlock(key1, right),
-                      right, right, up, up, pickup(gem1)]
+@test plan == @pddl("(down)", "(pickup key1)", "(down)", "(unlock key1 right)",
+                    "(right)", "(right)", "(up)", "(up)", "(pickup gem1)")
 
 planner = GreedyPlanner(HAdd())
 plan, traj = planner(blocksworld, bw_state, bw_problem.goal)
 @test satisfy(bw_problem.goal, traj[end], blocksworld)[1] == true
-@test plan == [pddl"(pick-up a)", pddl"(stack a b)",
-               pddl"(pick-up c)", pddl"(stack c a)"]
+@test plan == @pddl("(pick-up a)", "(stack a b)", "(pick-up c)", "(stack c a)")
 
 end
 
@@ -90,22 +87,21 @@ end
 clear_heuristic_cache!()
 clear_available_action_cache!()
 
-planner = AStarPlanner(ManhattanHeuristic(@julog[xpos, ypos]))
+planner = AStarPlanner(ManhattanHeuristic(@pddl("xpos", "ypos")))
 plan, traj = planner(gridworld, gw_state, gw_problem.goal)
 @test satisfy(gw_problem.goal, traj[end], gridworld)[1] == true
-@test plan == @julog [down, down, right, right, up, up]
+@test plan == @pddl("down", "down", "right", "right", "up", "up")
 
 planner = AStarPlanner(GoalCountHeuristic())
 plan, traj = planner(doors_keys_gems, dkg_state, dkg_problem.goal)
 @test satisfy(dkg_problem.goal, traj[end], doors_keys_gems)[1] == true
-@test plan == @julog [down, pickup(key1), down, unlock(key1, right),
-                      right, right, up, up, pickup(gem1)]
+@test plan == @pddl("(down)", "(pickup key1)", "(down)", "(unlock key1 right)",
+                    "(right)", "(right)", "(up)", "(up)", "(pickup gem1)")
 
 planner = AStarPlanner(HAdd())
 plan, traj = planner(blocksworld, bw_state, bw_problem.goal)
 @test satisfy(bw_problem.goal, traj[end], blocksworld)[1] == true
-@test plan == [pddl"(pick-up a)", pddl"(stack a b)",
-               pddl"(pick-up c)", pddl"(stack c a)"]
+@test plan == @pddl("(pick-up a)", "(stack a b)", "(pick-up c)", "(stack c a)")
 
 end
 
@@ -117,8 +113,7 @@ clear_relevant_action_cache!()
 planner = BackwardPlanner(heuristic=HAddR())
 plan, traj = planner(blocksworld, bw_state, bw_problem.goal)
 @test issubset(traj[1], bw_state) == true
-@test plan == [pddl"(pick-up a)", pddl"(stack a b)",
-               pddl"(pick-up c)", pddl"(stack c a)"]
+@test plan == @pddl("(pick-up a)", "(stack a b)", "(pick-up c)", "(stack c a)")
 
 end
 

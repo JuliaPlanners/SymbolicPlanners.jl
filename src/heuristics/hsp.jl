@@ -79,8 +79,7 @@ function compute(heuristic::HSPHeuristic,
         actions = available(state, domain)
         for act in actions
             act_args = domain.actions[act.name].args
-            subst = Subst(var => val for (var, val) in
-                          zip(act_args, Julog.get_args(act)))
+            subst = Subst(var => val for (var, val) in zip(act_args, act.args))
             # Look-up preconds and substitute vars
             preconds = cache.preconds[act.name]
             preconds = [[substitute(t, subst) for t in c] for c in preconds]
@@ -135,7 +134,7 @@ function precompute(heuristic::HSPRHeuristic,
     for (act_name, act_def) in domain.actions
         # Convert preconditions to DNF without negated literals
         conds = get_preconditions(act_def; converter=to_dnf)
-        conds = [Julog.get_args(c) for c in Julog.get_args(conds)]
+        conds = [c.args for c in conds.args]
         for c in conds filter!(t -> t.name != :not, c) end
         preconds[act_name] = conds
         # Extract additions from each effect
@@ -162,8 +161,7 @@ function precompute(heuristic::HSPRHeuristic,
         actions = available(state, domain)
         for act in actions
             act_args = domain.actions[act.name].args
-            subst = Subst(var => val for (var, val) in
-                          zip(act_args, Julog.get_args(act)))
+            subst = Subst(var => val for (var, val) in zip(act_args, act.args))
             # Look-up preconds and substitute vars
             conds = preconds[act.name]
             conds = [[substitute(t, subst) for t in c] for c in conds]

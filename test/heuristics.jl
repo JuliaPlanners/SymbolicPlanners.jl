@@ -29,7 +29,7 @@ end
 
 @testset "Manhattan Heuristic" begin
 
-manhattan = ManhattanHeuristic(@julog[xpos, ypos])
+manhattan = ManhattanHeuristic(@pddl("xpos", "ypos"))
 @test manhattan(gridworld, gw_state, gw_problem.goal) == 2
 
 end
