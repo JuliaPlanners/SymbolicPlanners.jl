@@ -19,8 +19,8 @@ at the Julia package manager.
 ## Planners
 
 - [Forward breadth-first search](src/planners/bfs.jl)
-- [Forward A* search](src/planners/astar.jl)
-- [Backward (A*) search](src/planners/backward.jl)
+- [Forward best-first search (A*, Greedy, etc.)](src/planners/forward.jl)
+- [Backward best-first search (A*, Greedy, etc.)](src/planners/backward.jl)
 - [FastDownward wrapper](src/planners/external.jl)
 
 ## Heuristics
