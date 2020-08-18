@@ -1,15 +1,15 @@
-export BFSPlanner
+export BreadthFirstPlanner
 
 "Uninformed breadth-first search planner."
-@kwdef struct BFSPlanner <: Planner
+@kwdef struct BreadthFirstPlanner <: Planner
     max_nodes::Real = Inf
 end
 
-set_max_resource(planner::BFSPlanner, val) =
+set_max_resource(planner::BreadthFirstPlanner, val) =
     @set planner.max_nodes = val
 
 "Uninformed breadth-first search for a plan."
-function call(planner::BFSPlanner,
+function call(planner::BreadthFirstPlanner,
               domain::Domain, state::State, goal_spec::GoalSpec)
     @unpack goals, constraints = goal_spec
     # Initialize backpointers and queue
@@ -19,7 +19,7 @@ function call(planner::BFSPlanner,
     queue = [state_hash]
     count = 1
     while length(queue) > 0
-        # Get state with lowest estimated cost to goal
+        # Pop state off the queue
         state_hash = popfirst!(queue)
         state = state_dict[state_hash]
         # Return plan if max depth is reached or goals are satisfied

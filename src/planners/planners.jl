@@ -19,7 +19,7 @@ call(planner::Planner, domain::Domain, state::State, goal::Term) =
 set_max_resource(planner::Planner, val) = planner
 
 include("common.jl")
-include("astar.jl")
 include("bfs.jl")
+include("forward.jl")
 include("backward.jl")
 include("external.jl")

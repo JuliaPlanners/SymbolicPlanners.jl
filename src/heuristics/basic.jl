@@ -1,5 +1,12 @@
 ## Basic heuristics ##
-export GoalCountHeuristic, ManhattanHeuristic
+export NullHeuristic, GoalCountHeuristic, ManhattanHeuristic
+
+"Null heuristic that always returns zero."
+struct NullHeuristic <: Heuristic end
+
+Base.hash(::NullHeuristic, h::UInt) = hash(NullHeuristic, h)
+
+compute(h::NullHeuristic, domain::Domain, state::State, goal_spec::GoalSpec) = 0
 
 "Heuristic that counts the number of goals un/satisfied."
 struct GoalCountHeuristic <: Heuristic

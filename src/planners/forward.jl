@@ -1,20 +1,22 @@
-export AStarPlanner, ProbAStarPlanner
+export ForwardPlanner, BestFirstPlanner, UniformCostPlanner, GreedyPlanner
+export AStarPlanner, WeightedAStarPlanner
 
-"Deterministic A* (heuristic search) planner."
-@kwdef struct AStarPlanner <: Planner
+"Forward best-first search planner."
+@kwdef struct ForwardPlanner <: Planner
     heuristic::Heuristic = GoalCountHeuristic()
-    h_mult::Real = 1
+    g_mult::Real = 1 # Path cost multiplier
+    h_mult::Real = 1 # Heuristic multiplier
     max_nodes::Real = Inf
 end
 
-set_max_resource(planner::AStarPlanner, val) =
+set_max_resource(planner::ForwardPlanner, val) =
     @set planner.max_nodes = val
 
-"Deterministic A* search for a plan."
-function call(planner::AStarPlanner,
+"Deterministic best-first search for a plan."
+function call(planner::ForwardPlanner,
               domain::Domain, state::State, goal_spec::GoalSpec)
     @unpack goals, metric, constraints = goal_spec
-    @unpack max_nodes, h_mult, heuristic = planner
+    @unpack max_nodes, g_mult, h_mult, heuristic = planner
     # Perform any precomputation required by the heuristic
     heuristic = precompute(heuristic, domain, state, goal_spec)
     # Initialize path costs and priority queue
@@ -22,7 +24,7 @@ function call(planner::AStarPlanner,
     state_dict = Dict{UInt,State}(state_hash => state)
     parents = Dict{UInt,Tuple{UInt,Term}}()
     path_costs = Dict{UInt,Float64}(state_hash => 0)
-    est_cost = heuristic(domain, state, goal_spec)
+    est_cost = h_mult * heuristic(domain, state, goal_spec)
     queue = PriorityQueue{UInt,Float64}(state_hash => est_cost)
     count = 1
     while length(queue) > 0
@@ -56,9 +58,9 @@ function call(planner::AStarPlanner,
                 path_costs[next_hash] = path_cost
                 # Update estimated cost from next state to goal
                 if !(next_hash in keys(queue))
-                    est_remain_cost = heuristic(domain, next_state, goal_spec)
-                    est_remain_cost *= h_mult
-                    enqueue!(queue, next_hash, path_cost + est_remain_cost)
+                    g_val = g_mult * path_cost
+                    h_val = h_mult * heuristic(domain, next_state, goal_spec)
+                    enqueue!(queue, next_hash, g_val + h_val)
                 else
                     queue[next_hash] -= cost_diff
                 end
@@ -67,3 +69,23 @@ function call(planner::AStarPlanner,
     end
     return nothing, nothing
 end
+
+"Best-first search planner (alias for `ForwardPlanner`)."
+BestFirstPlanner(args...; kwargs...) =
+    ForwardPlanner(args...; kwargs...)
+
+"Uniform-cost search."
+UniformCostPlanner(;kwargs...) =
+    ForwardPlanner(;heuristic=NullHeuristic(), h_mult=0, kwargs...)
+
+"Greedy best-first search, with cycle checking."
+GreedyPlanner(heuristic::Heuristic; kwargs...) =
+    ForwardPlanner(;heuristic=heuristic, g_mult=0, kwargs...)
+
+"A* search."
+AStarPlanner(heuristic::Heuristic; kwargs...) =
+    ForwardPlanner(;heuristic=heuristic, kwargs...)
+
+"Weighted A* search."
+WeightedAStarPlanner(heuristic::Heuristic, h_mult::Real; kwargs...) =
+    ForwardPlanner(;heuristic=heuristic, h_mult=h_mult, kwargs...)
