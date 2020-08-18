@@ -16,8 +16,6 @@ blocksworld = load_domain(joinpath(path, "domain.pddl"))
 bw_problem = load_problem(joinpath(path, "problem-0.pddl"))
 bw_state = init_state(bw_problem)
 
-clear_heuristic_cache!()
-
 @testset "Goal Count Heuristic" begin
 
 goal_count = GoalCountHeuristic()
