@@ -1,13 +1,11 @@
 ## Interface for planning heuristics ##
 export Heuristic, precompute, compute
-export enable_heuristic_cache!, disable_heuristic_cache!, clear_heuristic_cache!
+export use_heuristic_cache!, clear_heuristic_cache!
 
 "Global flag as to whether heuristic cache is enabled."
 const _use_heuristic_cache = Ref(false)
-"Globally enable caching of heuristic values."
-enable_heuristic_cache!() = _use_heuristic_cache[] = true
-"Globally disable caching of heuristic values."
-disable_heuristic_cache!() = _use_heuristic_cache[] = false
+"Globally enable or disable caching of heuristic values."
+use_heuristic_cache!(val::Bool=true) = _use_heuristic_cache[] = val
 
 "Cached heuristic values."
 const _heuristic_cache = Dict{Tuple{UInt,Symbol,UInt,UInt}, Real}()
