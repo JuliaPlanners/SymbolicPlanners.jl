@@ -38,7 +38,6 @@ end
 
 @testset "Uniform Cost Planner" begin
 
-clear_heuristic_cache!()
 clear_available_action_cache!()
 
 planner = UniformCostPlanner()
@@ -61,7 +60,6 @@ end
 
 @testset "Greedy Planner" begin
 
-clear_heuristic_cache!()
 clear_available_action_cache!()
 
 planner = GreedyPlanner(ManhattanHeuristic(@pddl("xpos", "ypos")))
@@ -84,7 +82,6 @@ end
 
 @testset "A* Planner" begin
 
-clear_heuristic_cache!()
 clear_available_action_cache!()
 
 planner = AStarPlanner(ManhattanHeuristic(@pddl("xpos", "ypos")))
@@ -107,7 +104,6 @@ end
 
 @testset "Backward Planner" begin
 
-clear_heuristic_cache!()
 clear_relevant_action_cache!()
 
 planner = BackwardPlanner(heuristic=HAddR())
