@@ -29,3 +29,4 @@ at the Julia package manager.
 - Manhattan: L<sub>1</sub> distance for arbitrary numeric fluents
 - HSP heuristics: _h_<sub>add</sub>, _h_<sub>max</sub>, etc.
 - HSPr heuristics: the above, but for backward search
+- FF heuristic: length of a relaxed plan, used by the Fast-Forward planner

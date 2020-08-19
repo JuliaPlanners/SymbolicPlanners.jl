@@ -51,4 +51,11 @@ h_max_r = precompute(HMaxR(), blocksworld, bw_init, bw_problem.goal)
 
 end
 
+@testset "FF Heuristic" begin
+
+ff = precompute(FFHeuristic(), blocksworld, bw_state, bw_problem.goal)
+@test ff(blocksworld, bw_state, bw_problem.goal) == 4
+
+end
+
 end
