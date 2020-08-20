@@ -1,7 +1,7 @@
 export BreadthFirstPlanner
 
 "Uninformed breadth-first search planner."
-@kwdef struct BreadthFirstPlanner <: Planner
+@kwdef mutable struct BreadthFirstPlanner <: Planner
     max_nodes::Real = Inf
 end
 

@@ -2,7 +2,7 @@ export ForwardPlanner, BestFirstPlanner, UniformCostPlanner, GreedyPlanner
 export AStarPlanner, WeightedAStarPlanner
 
 "Forward best-first search planner."
-@kwdef struct ForwardPlanner <: Planner
+@kwdef mutable struct ForwardPlanner <: Planner
     heuristic::Heuristic = GoalCountHeuristic()
     g_mult::Real = 1 # Path cost multiplier
     h_mult::Real = 1 # Heuristic multiplier

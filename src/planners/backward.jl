@@ -1,7 +1,7 @@
 export BackwardPlanner, BackwardGreedyPlanner, BackwardAStarPlanner
 
 "Heuristic-guided backward best-first search."
-@kwdef struct BackwardPlanner <: Planner
+@kwdef mutable struct BackwardPlanner <: Planner
     heuristic::Heuristic = GoalCountHeuristic(:backward)
     g_mult::Real = 1 # Path cost multiplier
     h_mult::Real = 1 # Heuristic multiplier

@@ -1,7 +1,7 @@
 export FastDownwardPlanner
 
 "Wrapper to the FastDownward planning system."
-@kwdef struct FastDownwardPlanner <: Planner
+@kwdef mutable struct FastDownwardPlanner <: Planner
     search::String = "astar"
     heuristic::String = "add"
     h_params::Dict{String, String} = Dict()
