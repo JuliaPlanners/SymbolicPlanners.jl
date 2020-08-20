@@ -11,7 +11,7 @@ struct HSPCache
 end
 
 "HSP family of delete-relaxation heuristics."
-struct HSPHeuristic <: Heuristic
+mutable struct HSPHeuristic <: Heuristic
     op::Function # Aggregator (e.g. maximum, sum) for fact costs
     cache::HSPCache # Precomputed domain information
     HSPHeuristic(op) = new(op)
@@ -21,8 +21,8 @@ end
 Base.hash(heuristic::HSPHeuristic, h::UInt) =
     hash(heuristic.op, hash(HSPHeuristic, h))
 
-function precompute(heuristic::HSPHeuristic,
-                    domain::Domain, state::State, goal_spec::GoalSpec)
+function precompute!(heuristic::HSPHeuristic,
+                     domain::Domain, state::State, goal_spec::GoalSpec)
     # Check if cache has already been computed
     if isdefined(heuristic, :cache) return heuristic end
     domain = copy(domain) # Make a local copy of the domain
@@ -44,15 +44,15 @@ function precompute(heuristic::HSPHeuristic,
         diff = effect_diff(act_def.effect)
         additions[act_name] = diff.add
     end
-    cache = HSPCache(domain, axioms, preconds, additions)
-    return HSPHeuristic(heuristic.op, cache)
+    heuristic.cache = HSPCache(domain, axioms, preconds, additions)
+    return heuristic
 end
 
 function compute(heuristic::HSPHeuristic,
                  domain::Domain, state::State, goal_spec::GoalSpec)
     # Precompute if necessary
     if !isdefined(heuristic, :cache)
-        heuristic = precompute(heuristic, domain, state, goal_spec) end
+        precompute!(heuristic, domain, state, goal_spec) end
     @unpack op, cache = heuristic
     @unpack domain = cache
     @unpack goals = goal_spec
@@ -107,7 +107,7 @@ HMax(args...) = HSPHeuristic(maximum, args...)
 HAdd(args...) = HSPHeuristic(sum, args...)
 
 "HSPr family of delete-relaxation heuristics for regression search."
-struct HSPRHeuristic <: Heuristic
+mutable struct HSPRHeuristic <: Heuristic
     op::Function
     fact_costs::Dict{Term,Float64} # Est. cost of reaching each fact from goal
     HSPRHeuristic(op) = new(op)
@@ -117,8 +117,8 @@ end
 Base.hash(heuristic::HSPRHeuristic, h::UInt) =
     hash(heuristic.op, hash(HSPRHeuristic, h))
 
-function precompute(heuristic::HSPRHeuristic,
-                    domain::Domain, state::State, goal_spec::GoalSpec)
+function precompute!(heuristic::HSPRHeuristic,
+                     domain::Domain, state::State, goal_spec::GoalSpec)
     @unpack op = heuristic
     @unpack goals = goal_spec
     @unpack types, facts = state
@@ -180,14 +180,15 @@ function precompute(heuristic::HSPRHeuristic,
         if length(fact_costs) == length(facts) && keys(fact_costs) == facts
             break end
     end
-    return HSPRHeuristic(op, fact_costs)
+    heuristic.fact_costs = fact_costs
+    return heuristic
 end
 
 function compute(heuristic::HSPRHeuristic,
                  domain::Domain, state::State, goal_spec::GoalSpec)
     # Precompute if necessary
     if !isdefined(heuristic, :fact_costs)
-        heuristic = precompute(heuristic, domain, state, goal_spec) end
+        precompute!(heuristic, domain, state, goal_spec) end
     @unpack op, fact_costs = heuristic
     # Compute cost of achieving all facts in current state
     return op([0; [get(fact_costs, f, 0) for f in PDDL.get_facts(state)]])

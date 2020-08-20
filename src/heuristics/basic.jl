@@ -24,7 +24,7 @@ function compute(heuristic::GoalCountHeuristic,
 end
 
 "Computes Manhattan distance to the goal for the specified numeric fluents."
-struct ManhattanHeuristic <: Heuristic
+mutable struct ManhattanHeuristic <: Heuristic
     fluents::Vector{Term}
     goal_state::State
     ManhattanHeuristic(fluents) = new(fluents)
@@ -34,17 +34,17 @@ end
 Base.hash(heuristic::ManhattanHeuristic, h::UInt) =
     hash(heuristic.fluents, hash(ManhattanHeuristic, h))
 
-function precompute(heuristic::ManhattanHeuristic,
-                    domain::Domain, state::State, goal_spec::GoalSpec)
-    goal_state = State(goal_spec.goals)
-    return @set heuristic.goal_state = goal_state
+function precompute!(heuristic::ManhattanHeuristic,
+                     domain::Domain, state::State, goal_spec::GoalSpec)
+    heuristic.goal_state = State(goal_spec.goals)
+    return heuristic
 end
 
 function compute(heuristic::ManhattanHeuristic,
                  domain::Domain, state::State, goal_spec::GoalSpec)
     # Precompute if necessary
     if !isdefined(heuristic, :goal_state)
-        heuristic = precompute(heuristic, domain, state, goal_spec) end
+        precompute!(heuristic, domain, state, goal_spec) end
     @unpack fluents, goal_state = heuristic
     goal_vals = [goal_state[domain, f] for f in fluents]
     curr_vals = [state[domain, f] for f in fluents]

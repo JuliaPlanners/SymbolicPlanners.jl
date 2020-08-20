@@ -18,7 +18,7 @@ function call(planner::ForwardPlanner,
     @unpack goals, metric, constraints = goal_spec
     @unpack max_nodes, g_mult, h_mult, heuristic = planner
     # Perform any precomputation required by the heuristic
-    heuristic = precompute(heuristic, domain, state, goal_spec)
+    heuristic = precompute!(heuristic, domain, state, goal_spec)
     # Initialize path costs and priority queue
     state_hash = hash(state)
     state_dict = Dict{UInt,State}(state_hash => state)

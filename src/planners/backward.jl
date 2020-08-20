@@ -17,7 +17,7 @@ function call(planner::BackwardPlanner,
     @unpack goals, metric, constraints = goal_spec
     @unpack max_nodes, g_mult, h_mult, heuristic = planner
     # Perform any precomputation required by the heuristic
-    heuristic = precompute(heuristic, domain, state, goal_spec)
+    heuristic = precompute!(heuristic, domain, state, goal_spec)
     # Construct references to start and goal states
     start = state
     state = State(goal_spec.goals, PDDL.get_types(start))

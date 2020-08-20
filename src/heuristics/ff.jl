@@ -10,7 +10,7 @@ struct FFCache
 end
 
 "FastForward (FF) delete-relaxation heuristic."
-struct FFHeuristic <: Heuristic
+mutable struct FFHeuristic <: Heuristic
     cache::FFCache # Precomputed domain information
     FFHeuristic() = new()
     FFHeuristic(cache) = new(cache)
@@ -18,8 +18,8 @@ end
 
 Base.hash(heuristic::FFHeuristic, h::UInt) = hash(FFHeuristic, h)
 
-function precompute(heuristic::FFHeuristic,
-                    domain::Domain, state::State, goal_spec::GoalSpec)
+function precompute!(heuristic::FFHeuristic,
+                     domain::Domain, state::State, goal_spec::GoalSpec)
     # Check if cache has already been computed
     if isdefined(heuristic, :cache) return heuristic end
     domain = copy(domain) # Make a local copy of the domain
@@ -41,15 +41,15 @@ function precompute(heuristic::FFHeuristic,
         diff = effect_diff(act_def.effect)
         additions[act_name] = diff.add
     end
-    cache = FFCache(domain, axioms, preconds, additions)
-    return FFHeuristic(cache)
+    heuristic.cache = FFCache(domain, axioms, preconds, additions)
+    return heuristic
 end
 
 function compute(heuristic::FFHeuristic,
                  domain::Domain, state::State, goal_spec::GoalSpec)
     # Precompute if necessary
     if !isdefined(heuristic, :cache)
-        heuristic = precompute(heuristic, domain, state, goal_spec) end
+        precompute!(heuristic, domain, state, goal_spec) end
     @unpack cache = heuristic
     @unpack domain = cache
     @unpack goals = goal_spec
