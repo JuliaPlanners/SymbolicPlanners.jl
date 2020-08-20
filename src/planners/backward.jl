@@ -39,8 +39,8 @@ function call(planner::BackwardPlanner,
         if count >= max_nodes
             return nothing, nothing
         elseif issubset(state, start)
-            plan, traj = reconstruct_plan(state_hash, state_dict, parents)
-            return reverse!(plan), reverse!(traj)
+            plan, traj = extract_plan(state_hash, state_dict, parents)
+            return BasicSolution(reverse!(plan), reverse!(traj))
         end
         count += 1
         # Get list of relevant actions
@@ -74,7 +74,7 @@ function call(planner::BackwardPlanner,
             end
         end
     end
-    return nothing, nothing
+    return NullSolution()
 end
 
 "Backward greedy search, with cycle checking."

@@ -24,7 +24,9 @@ function call(planner::BreadthFirstPlanner,
         state = state_dict[state_hash]
         # Return plan if max depth is reached or goals are satisfied
         if count >= planner.max_nodes || satisfy(goals, state, domain)[1]
-            return reconstruct_plan(state_hash, state_dict, parents) end
+            plan, traj = extract_plan(state_hash, state_dict, parents)
+            return BasicSolution(plan, traj)
+        end
         count += 1
         # Iterate over available actions
         actions = available(state, domain)
@@ -43,5 +45,5 @@ function call(planner::BreadthFirstPlanner,
             push!(queue, next_hash)
         end
     end
-    return nothing, nothing
+    return NullSolution()
 end

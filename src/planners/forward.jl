@@ -33,7 +33,9 @@ function call(planner::ForwardPlanner,
         state = state_dict[state_hash]
         # Return plan if search budget is reached or goals are satisfied
         if count >= max_nodes || satisfy(goals, state, domain)[1]
-            return reconstruct_plan(state_hash, state_dict, parents) end
+            plan, traj = extract_plan(state_hash, state_dict, parents)
+            return BasicSolution(plan, traj)
+        end
         count += 1
         # Get list of available actions
         actions = available(state, domain)
@@ -67,7 +69,7 @@ function call(planner::ForwardPlanner,
             end
         end
     end
-    return nothing, nothing
+    return NullSolution()
 end
 
 "Best-first search planner (alias for `ForwardPlanner`)."

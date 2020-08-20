@@ -1,4 +1,4 @@
-## Abstract interface for planners ##
+## Abstract interface for planners and solutions ##
 export Planner
 export set_max_resource
 
@@ -17,6 +17,21 @@ call(planner::Planner, domain::Domain, state::State, goal::Term) =
 
 "Return copy of the planner with adjusted resource bound."
 set_max_resource(planner::Planner, val) = planner
+
+"Abstract solution type, which defines the interface for planner solutions."
+abstract type Solution end
+
+"Abstract type for ordered planner solutions."
+abstract type OrderedSolution <: Solution end
+
+# Ordered solutions should support indexing and iteration over action terms
+Base.iterate(::OrderedSolution) = error("Not implemented.")
+Base.iterate(::OrderedSolution, state) = error("Not implemented.")
+Base.getindex(::OrderedSolution, ::Int) = error("Not implemented.")
+Base.eltype(::Type{OrderedSolution}) = Term
+
+"Null solution that indicates no plan was found."
+struct NullSolution <: Solution end
 
 include("common.jl")
 include("bfs.jl")

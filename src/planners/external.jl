@@ -52,6 +52,5 @@ function call(planner::FastDownwardPlanner,
     plan = readlines("./sas_plan")[1:end-1]
     Base.Filesystem.rm("./sas_plan")
     plan = parse_pddl.(plan)
-    traj = PDDL.simulate(domain, state, plan)
-    return plan, traj
+    return BasicSolution(plan)
 end
