@@ -4,9 +4,9 @@ export AStarPlanner, WeightedAStarPlanner
 "Forward best-first search planner."
 @kwdef mutable struct ForwardPlanner <: Planner
     heuristic::Heuristic = GoalCountHeuristic()
-    g_mult::Real = 1 # Path cost multiplier
-    h_mult::Real = 1 # Heuristic multiplier
-    max_nodes::Real = Inf
+    g_mult::Float64 = 1.0 # Path cost multiplier
+    h_mult::Float64 = 1.0 # Heuristic multiplier
+    max_nodes::Int = typemax(Int)
 end
 
 set_max_resource(planner::ForwardPlanner, val) =
@@ -19,21 +19,20 @@ function call(planner::ForwardPlanner,
     @unpack max_nodes, g_mult, h_mult, heuristic = planner
     # Perform any precomputation required by the heuristic
     heuristic = precompute!(heuristic, domain, state, goal_spec)
-    # Initialize path costs and priority queue
+    # Initialize search tree and priority queue
     state_hash = hash(state)
-    state_dict = Dict{UInt,State}(state_hash => state)
-    parents = Dict{UInt,Tuple{UInt,Term}}()
-    path_costs = Dict{UInt,Float64}(state_hash => 0)
+    search_tree = Dict{UInt,SearchNode}(state_hash => SearchNode(state, 0))
     est_cost = h_mult * heuristic(domain, state, goal_spec)
     queue = PriorityQueue{UInt,Float64}(state_hash => est_cost)
     count = 1
     while length(queue) > 0
         # Get state with lowest estimated cost to goal
         state_hash = dequeue!(queue)
-        state = state_dict[state_hash]
+        curr_node = search_tree[state_hash]
+        state = curr_node.state
         # Return plan if search budget is reached or goals are satisfied
         if count >= max_nodes || satisfy(goals, state, domain)[1]
-            plan, traj = extract_plan(state_hash, state_dict, parents)
+            plan, traj = reconstruct(state_hash, search_tree)
             return BasicSolution(plan, traj)
         end
         count += 1
@@ -50,14 +49,14 @@ function call(planner::ForwardPlanner,
             # Compute path cost
             act_cost = metric == nothing ? 1 :
                 next_state[domain, metric] - state[domain, metric]
-            path_cost = path_costs[state_hash] + act_cost
+            path_cost = curr_node.path_cost + act_cost
             # Update path costs if new path is shorter
-            cost_diff = get(path_costs, next_hash, Inf) - path_cost
+            next_node = get!(search_tree, next_hash, SearchNode(next_state, Inf))
+            cost_diff = next_node.path_cost - path_cost
             if cost_diff > 0
-                if !(next_hash in keys(state_dict))
-                    state_dict[next_hash] = next_state end
-                parents[next_hash] = (state_hash, act)
-                path_costs[next_hash] = path_cost
+                next_node.parent_hash = state_hash
+                next_node.parent_action = act
+                next_node.path_cost = path_cost
                 # Update estimated cost from next state to goal
                 if !(next_hash in keys(queue))
                     g_val = g_mult * path_cost

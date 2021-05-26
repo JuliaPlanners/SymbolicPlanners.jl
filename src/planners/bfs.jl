@@ -2,7 +2,7 @@ export BreadthFirstPlanner
 
 "Uninformed breadth-first search planner."
 @kwdef mutable struct BreadthFirstPlanner <: Planner
-    max_nodes::Real = Inf
+    max_nodes::Int = typemax(Int)
 end
 
 set_max_resource(planner::BreadthFirstPlanner, val) =
@@ -14,17 +14,16 @@ function call(planner::BreadthFirstPlanner,
     @unpack goals, constraints = goal_spec
     # Initialize backpointers and queue
     state_hash = hash(state)
-    state_dict = Dict{UInt,State}(state_hash => state)
-    parents = Dict{UInt,Tuple{UInt,Term}}()
+    search_tree = Dict{UInt,SearchNode}(state_hash => SearchNode(state, 0))
     queue = [state_hash]
     count = 1
     while length(queue) > 0
         # Pop state off the queue
         state_hash = popfirst!(queue)
-        state = state_dict[state_hash]
+        state = search_tree[state_hash].state
         # Return plan if max depth is reached or goals are satisfied
         if count >= planner.max_nodes || satisfy(goals, state, domain)[1]
-            plan, traj = extract_plan(state_hash, state_dict, parents)
+            plan, traj = reconstruct(state_hash, search_tree)
             return BasicSolution(plan, traj)
         end
         count += 1
@@ -35,13 +34,12 @@ function call(planner::BreadthFirstPlanner,
             next_state = transition(domain, state, act; check=false)
             next_hash = hash(next_state)
             # Skip if state has already been encountered
-            if haskey(state_dict, next_hash) continue end
-            state_dict[next_hash] = next_state
+            if haskey(search_tree, next_hash) continue end
             # Check if next state satisfies trajectory constraints
             if !isempty(constraints) && !next_state[domain, constraints]
                 continue end
             # Update backpointer and add next state to queue
-            parents[next_hash] = (state_hash, act)
+            search_tree[next_hash] = SearchNode(next_state, 0, state_hash, act)
             push!(queue, next_hash)
         end
     end

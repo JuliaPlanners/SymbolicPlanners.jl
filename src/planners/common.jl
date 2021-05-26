@@ -11,23 +11,25 @@ Base.iterate(sol::BasicSolution, state) = iterate(sol.plan, state)
 Base.getindex(sol::BasicSolution, i::Int) = getindex(sol.plan, i)
 Base.length(sol::BasicSolution) = length(sol.plan)
 
-"Extract plan from current state and back-pointers."
-function extract_plan(state_hash::UInt, parents::Dict{UInt,Tuple{UInt,Term}})
-    plan = Term[]
-    while state_hash in keys(parents)
-        state_hash, act = parents[state_hash]
-        pushfirst!(plan, act)
-    end
-    return plan
+## Search utilities ##
+
+mutable struct SearchNode
+    state::State
+    path_cost::Float64
+    parent_hash::Union{UInt,Nothing}
+    parent_action::Union{Term,Nothing}
 end
 
-function extract_plan(state_hash::UInt, state_dict::Dict{UInt,State},
-                          parents::Dict{UInt,Tuple{UInt,Term}})
-    plan, traj = Term[], State[state_dict[state_hash]]
-    while state_hash in keys(parents)
-        state_hash, act = parents[state_hash]
-        pushfirst!(plan, act)
-        pushfirst!(traj, state_dict[state_hash])
+SearchNode(state, path_cost) = SearchNode(state, path_cost, nothing, nothing)
+
+function reconstruct(state_hash::UInt, search_tree::Dict{UInt,SearchNode})
+    plan, traj = Term[], State[search_tree[state_hash].state]
+    while state_hash in keys(search_tree)
+        node = search_tree[state_hash]
+        if node.parent_action === nothing break end
+        pushfirst!(plan, node.parent_action)
+        pushfirst!(traj, node.state)
+        state_hash = node.parent_hash
     end
     return plan, traj
 end

@@ -3,9 +3,9 @@ export BackwardPlanner, BackwardGreedyPlanner, BackwardAStarPlanner
 "Heuristic-guided backward best-first search."
 @kwdef mutable struct BackwardPlanner <: Planner
     heuristic::Heuristic = GoalCountHeuristic(:backward)
-    g_mult::Real = 1 # Path cost multiplier
-    h_mult::Real = 1 # Heuristic multiplier
-    max_nodes::Real = Inf
+    g_mult::Float64 = 1.0 # Path cost multiplier
+    h_mult::Float64 = 1.0 # Heuristic multiplier
+    max_nodes::Int = typemax(Int)
 end
 
 set_max_resource(planner::BackwardPlanner, val) =
@@ -23,23 +23,22 @@ function call(planner::BackwardPlanner,
     state = State(goal_spec.goals, PDDL.get_types(start))
     # Construct diff of constraints
     constraints = isempty(constraints) ? nothing : precond_diff(constraints)
-    # Initialize path costs and priority queue
+    # Initialize search tree and priority queue
     state_hash = hash(state)
-    state_dict = Dict{UInt,State}(state_hash => state)
-    parents = Dict{UInt,Tuple{UInt,Term}}()
-    path_costs = Dict{UInt,Float64}(state_hash => 0)
+    search_tree = Dict{UInt,SearchNode}(state_hash => SearchNode(state, 0))
     est_cost = heuristic(domain, state, goal_spec)
     queue = PriorityQueue{UInt,Float64}(state_hash => est_cost)
     count = 1
     while length(queue) > 0
         # Get state with lowest estimated cost to goal
         state_hash = dequeue!(queue)
-        state = state_dict[state_hash]
+        curr_node = search_tree[state_hash]
+        state = curr_node.state
         # Return plan if search budget is reached or initial state is implied
         if count >= max_nodes
             return nothing, nothing
         elseif issubset(state, start)
-            plan, traj = extract_plan(state_hash, state_dict, parents)
+            plan, traj = reconstruct(state_hash, search_tree)
             return BasicSolution(reverse!(plan), reverse!(traj))
         end
         count += 1
@@ -55,14 +54,14 @@ function call(planner::BackwardPlanner,
             # Compute path cost
             act_cost = metric == nothing ? 1 :
                 state[domain, metric] - prev_state[domain, metric]
-            path_cost = path_costs[state_hash] + act_cost
+            path_cost = curr_node.path_cost + act_cost
             # Update path costs if new path is shorter
-            cost_diff = get(path_costs, prev_hash, Inf) - path_cost
+            prev_node = get!(search_tree, prev_hash, SearchNode(prev_state, Inf))
+            cost_diff = prev_node.path_cost - path_cost
             if cost_diff > 0
-                if !(prev_hash in keys(state_dict))
-                    state_dict[prev_hash] = prev_state end
-                parents[prev_hash] = (state_hash, act)
-                path_costs[prev_hash] = path_cost
+                prev_node.parent_hash = state_hash
+                prev_node.parent_action = act
+                prev_node.path_cost = path_cost
                 # Update estimated cost from prev state to start
                 if !(prev_hash in keys(queue))
                     g_val = g_mult * path_cost
