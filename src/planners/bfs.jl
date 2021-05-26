@@ -5,9 +5,6 @@ export BreadthFirstPlanner
     max_nodes::Int = typemax(Int)
 end
 
-set_max_resource(planner::BreadthFirstPlanner, val) =
-    @set planner.max_nodes = val
-
 "Uninformed breadth-first search for a plan."
 function call(planner::BreadthFirstPlanner,
               domain::Domain, state::State, goal_spec::GoalSpec)

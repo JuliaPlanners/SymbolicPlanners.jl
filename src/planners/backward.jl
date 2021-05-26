@@ -8,9 +8,6 @@ export BackwardPlanner, BackwardGreedyPlanner, BackwardAStarPlanner
     max_nodes::Int = typemax(Int)
 end
 
-set_max_resource(planner::BackwardPlanner, val) =
-    @set planner.max_nodes = val
-
 "Backward A* search for a plan."
 function call(planner::BackwardPlanner,
               domain::Domain, state::State, goal_spec::GoalSpec)

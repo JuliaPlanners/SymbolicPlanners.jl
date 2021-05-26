@@ -1,6 +1,5 @@
 ## Abstract interface for planners and solutions ##
 export Planner
-export set_max_resource
 
 "Abstract planner type, which defines the interface for planners."
 abstract type Planner end
@@ -14,9 +13,6 @@ call(planner::Planner, domain::Domain, state::State, goals::Vector{<:Term}) =
     call(planner, domain, state, GoalSpec(goals))
 call(planner::Planner, domain::Domain, state::State, goal::Term) =
     call(planner, domain, state, GoalSpec(goal))
-
-"Return copy of the planner with adjusted resource bound."
-set_max_resource(planner::Planner, val) = planner
 
 "Abstract solution type, which defines the interface for planner solutions."
 abstract type Solution end

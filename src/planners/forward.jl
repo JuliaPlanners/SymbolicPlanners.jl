@@ -9,9 +9,6 @@ export AStarPlanner, WeightedAStarPlanner
     max_nodes::Int = typemax(Int)
 end
 
-set_max_resource(planner::ForwardPlanner, val) =
-    @set planner.max_nodes = val
-
 "Deterministic best-first search for a plan."
 function call(planner::ForwardPlanner,
               domain::Domain, state::State, goal_spec::GoalSpec)

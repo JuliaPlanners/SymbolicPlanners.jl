@@ -9,9 +9,6 @@ export FastDownwardPlanner
     verbose::Bool = false
 end
 
-set_max_resource(planner::FastDownwardPlanner, val) =
-    @set planner.timeout = val
-
 "Calls the FastDownward planning system to produce a plan."
 function call(planner::FastDownwardPlanner,
               domain::Domain, state::State, goal_spec::GoalSpec)
