@@ -6,13 +6,14 @@ export BackwardPlanner, BackwardGreedyPlanner, BackwardAStarPlanner
     g_mult::Float64 = 1.0 # Path cost multiplier
     h_mult::Float64 = 1.0 # Heuristic multiplier
     max_nodes::Int = typemax(Int)
+    save_search::Bool = false # Flag to save search info
 end
 
 "Backward A* search for a plan."
 function call(planner::BackwardPlanner,
               domain::Domain, state::State, goal_spec::GoalSpec)
     @unpack goals, metric, constraints = goal_spec
-    @unpack max_nodes, g_mult, h_mult, heuristic = planner
+    @unpack max_nodes, g_mult, h_mult, heuristic, save_search = planner
     # Perform any precomputation required by the heuristic
     heuristic = precompute!(heuristic, domain, state, goal_spec)
     # Construct references to start and goal states
@@ -22,7 +23,7 @@ function call(planner::BackwardPlanner,
     constraints = isempty(constraints) ? nothing : precond_diff(constraints)
     # Initialize search tree and priority queue
     state_hash = hash(state)
-    search_tree = Dict{UInt,SearchNode}(state_hash => SearchNode(state, 0))
+    search_tree = SearchTree(state_hash => SearchNode(state, 0))
     est_cost = heuristic(domain, state, goal_spec)
     queue = PriorityQueue{UInt,Float64}(state_hash => est_cost)
     count = 1
@@ -31,12 +32,17 @@ function call(planner::BackwardPlanner,
         state_hash = dequeue!(queue)
         curr_node = search_tree[state_hash]
         state = curr_node.state
-        # Return plan if search budget is reached or initial state is implied
-        if count >= max_nodes
-            return nothing, nothing
-        elseif issubset(state, start)
+        # Return if initial state is implied or search budget is reached
+        if issubset(state, start)
             plan, traj = reconstruct(state_hash, search_tree)
-            return BasicSolution(reverse!(plan), reverse!(traj))
+            reverse!(plan); reverse!(traj)
+            return save_search ?
+                SearchSolution(:success, plan, traj, search_tree, queue) :
+                SearchSolution(:success, plan, traj)
+        elseif count >= max_nodes
+            return save_search ?
+                SearchSolution(:max_nodes, [], [], search_tree, queue) :
+                NullSolution()
         end
         count += 1
         # Get list of relevant actions
@@ -70,7 +76,8 @@ function call(planner::BackwardPlanner,
             end
         end
     end
-    return NullSolution()
+    return save_search ?
+        SearchSolution(:failure, [], [], search_tree, queue) : NullSolution()
 end
 
 "Backward greedy search, with cycle checking."

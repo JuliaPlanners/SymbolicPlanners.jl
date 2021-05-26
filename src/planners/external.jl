@@ -13,7 +13,8 @@ end
 function call(planner::FastDownwardPlanner,
               domain::Domain, state::State, goal_spec::GoalSpec)
     if !haskey(ENV, "FD_PATH")
-        error("FD_PATH not set to location of fast_downward.py") end
+        error("FD_PATH not set to location of fast_downward.py")
+    end
     @unpack search, heuristic, h_params, timeout, verbose = planner
     # Write temporary domain and problem files
     @unpack goals, metric = goal_spec
@@ -35,7 +36,9 @@ function call(planner::FastDownwardPlanner,
     if process_running(proc)
         @debug "Planner timed out."
         Base.Filesystem.rm(domain_path); Base.Filesystem.rm(problem_path)
-        kill(proc); close(out.in); return nothing, nothing end
+        kill(proc); close(out.in)
+        return NullSolution()
+    end
     # Read output and check if solution was found
     close(out.in)
     output = read(out, String)
@@ -43,11 +46,13 @@ function call(planner::FastDownwardPlanner,
     if verbose println(output) end
     if !occursin("Solution found", output)
         if occursin("aborting after translate", output)
-            error("Could not translate domain and problem files.") end
-        return nothing, nothing end
+            error("Could not translate domain and problem files.")
+        end
+        return NullSolution()
+    end
     # Read plan from file
     plan = readlines("./sas_plan")[1:end-1]
     Base.Filesystem.rm("./sas_plan")
     plan = parse_pddl.(plan)
-    return BasicSolution(plan)
+    return SearchSolution(plan)
 end

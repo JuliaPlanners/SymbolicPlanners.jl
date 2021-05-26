@@ -7,18 +7,19 @@ export AStarPlanner, WeightedAStarPlanner
     g_mult::Float64 = 1.0 # Path cost multiplier
     h_mult::Float64 = 1.0 # Heuristic multiplier
     max_nodes::Int = typemax(Int)
+    save_search::Bool = false # Flag to save search info
 end
 
 "Deterministic best-first search for a plan."
 function call(planner::ForwardPlanner,
               domain::Domain, state::State, goal_spec::GoalSpec)
     @unpack goals, metric, constraints = goal_spec
-    @unpack max_nodes, g_mult, h_mult, heuristic = planner
+    @unpack max_nodes, g_mult, h_mult, heuristic, save_search = planner
     # Perform any precomputation required by the heuristic
     heuristic = precompute!(heuristic, domain, state, goal_spec)
     # Initialize search tree and priority queue
     state_hash = hash(state)
-    search_tree = Dict{UInt,SearchNode}(state_hash => SearchNode(state, 0))
+    search_tree = SearchTree(state_hash => SearchNode(state, 0))
     est_cost = h_mult * heuristic(domain, state, goal_spec)
     queue = PriorityQueue{UInt,Float64}(state_hash => est_cost)
     count = 1
@@ -28,9 +29,13 @@ function call(planner::ForwardPlanner,
         curr_node = search_tree[state_hash]
         state = curr_node.state
         # Return plan if search budget is reached or goals are satisfied
-        if count >= max_nodes || satisfy(goals, state, domain)[1]
+        success = satisfy(goals, state, domain)[1]
+        if success || count >= max_nodes
             plan, traj = reconstruct(state_hash, search_tree)
-            return BasicSolution(plan, traj)
+            status = success ? :success : :max_nodes
+            return save_search ?
+                SearchSolution(status, plan, traj, search_tree, queue) :
+                SearchSolution(status, plan, traj)
         end
         count += 1
         # Get list of available actions
@@ -65,7 +70,8 @@ function call(planner::ForwardPlanner,
             end
         end
     end
-    return NullSolution()
+    return save_search ?
+        SearchSolution(:failure, [], [], search_tree, queue) : NullSolution()
 end
 
 "Best-first search planner (alias for `ForwardPlanner`)."

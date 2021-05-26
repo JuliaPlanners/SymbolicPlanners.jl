@@ -1,5 +1,5 @@
 ## Abstract interface for planners and solutions ##
-export Planner
+export Planner, Solution, OrderedSolution
 
 "Abstract planner type, which defines the interface for planners."
 abstract type Planner end
