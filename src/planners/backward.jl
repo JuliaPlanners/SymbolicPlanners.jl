@@ -12,72 +12,95 @@ end
 "Backward A* search for a plan."
 function call(planner::BackwardPlanner,
               domain::Domain, state::State, goal_spec::GoalSpec)
-    @unpack goals, metric, constraints = goal_spec
-    @unpack max_nodes, g_mult, h_mult, heuristic, save_search = planner
-    # Perform any precomputation required by the heuristic
-    heuristic = precompute!(heuristic, domain, state, goal_spec)
+    @unpack goals = goal_spec
+    @unpack h_mult, heuristic, save_search = planner
     # Construct references to start and goal states
     start = state
     state = State(goal_spec.goals, PDDL.get_types(start))
-    # Construct diff of constraints
-    constraints = isempty(constraints) ? nothing : precond_diff(constraints)
     # Initialize search tree and priority queue
-    state_hash = hash(state)
-    search_tree = SearchTree(state_hash => SearchNode(state, 0))
-    est_cost = heuristic(domain, state, goal_spec)
-    queue = PriorityQueue{UInt,Float64}(state_hash => est_cost)
+    node_id = hash(state)
+    search_tree = SearchTree(node_id => SearchNode(node_id, state, 0))
+    est_cost = h_mult * heuristic(domain, state, goal_spec)
+    queue = PriorityQueue{UInt,Float64}(node_id => est_cost)
+    # Run the search
+    status, node_id =
+        search!(planner, domain, goal_spec, start, search_tree, queue)
+    # Reconstruct plan and return solution
+    if status != :failure
+        plan, traj = reconstruct(node_id, search_tree)
+        reverse!(plan); reverse!(traj)
+        if save_search
+            return SearchSolution(status, plan, traj, search_tree, queue)
+        else
+            return SearchSolution(status, plan, traj)
+        end
+    elseif save_search
+        return SearchSolution(status, [], [], search_tree, queue)
+    else
+        return NullSolution()
+    end
+end
+
+function search!(planner::BackwardPlanner,
+                 domain::Domain, goal_spec::GoalSpec, start::State,
+                 search_tree::SearchTree, queue::PriorityQueue)
+    @unpack constraints = goal_spec
+    constraints = isempty(constraints) ? nothing : precond_diff(constraints)
     count = 1
     while length(queue) > 0
-        # Get state with lowest estimated cost to goal
-        state_hash = dequeue!(queue)
-        curr_node = search_tree[state_hash]
-        state = curr_node.state
-        # Return if initial state is implied or search budget is reached
-        if issubset(state, start)
-            plan, traj = reconstruct(state_hash, search_tree)
-            reverse!(plan); reverse!(traj)
-            return save_search ?
-                SearchSolution(:success, plan, traj, search_tree, queue) :
-                SearchSolution(:success, plan, traj)
-        elseif count >= max_nodes
-            return save_search ?
-                SearchSolution(:max_nodes, [], [], search_tree, queue) :
-                NullSolution()
+        # Get state with lowest estimated cost to start state
+        node_id = dequeue!(queue)
+        node = search_tree[node_id]
+        # Return status and current state if search terminates
+        if issubset(node.state, start)
+            return :success, node_id # Start state reached
+        elseif count >= planner.max_nodes
+            return :max_nodes, node_id # Node budget reached
         end
         count += 1
-        # Get list of relevant actions
-        actions = relevant(state, domain)
-        # Iterate over actions
-        for act in actions
-            # Regress (reverse-execute) the action
-            prev_state = regress(act, state, domain; check=false)
-            # Add constraints to regression state
-            if (constraints != nothing) update!(prev_state, constraints) end
-            prev_hash = hash(prev_state)
-            # Compute path cost
-            act_cost = metric == nothing ? 1 :
-                state[domain, metric] - prev_state[domain, metric]
-            path_cost = curr_node.path_cost + act_cost
-            # Update path costs if new path is shorter
-            prev_node = get!(search_tree, prev_hash, SearchNode(prev_state, Inf))
-            cost_diff = prev_node.path_cost - path_cost
-            if cost_diff > 0
-                prev_node.parent_hash = state_hash
-                prev_node.parent_action = act
-                prev_node.path_cost = path_cost
-                # Update estimated cost from prev state to start
-                if !(prev_hash in keys(queue))
-                    g_val = g_mult * path_cost
-                    h_val = h_mult * heuristic(domain, prev_state, goal_spec)
-                    enqueue!(queue, prev_hash, g_val + h_val)
-                else
-                    queue[prev_hash] -= cost_diff
-                end
+        # Expand current node
+        expand!(planner, node, search_tree, queue,
+                domain, goal_spec, constraints)
+    end
+    return :failure, nothing
+end
+
+function expand!(planner::BackwardPlanner, node::SearchNode,
+                 search_tree::SearchTree, queue::PriorityQueue,
+                 domain::Domain, goal_spec::GoalSpec, constraints)
+    @unpack g_mult, h_mult, heuristic = planner
+    @unpack metric = goal_spec
+    state = node.state
+    # Iterate over relevant actions
+    actions = relevant(state, domain)
+    for act in actions
+        # Regress (reverse-execute) the action
+        next_state = regress(act, state, domain; check=false)
+        # Add constraints to regression state
+        if (constraints !== nothing) update!(next_state, constraints) end
+        next_id = hash(next_state)
+        # Compute path cost
+        act_cost = metric == nothing ? 1 :
+            state[domain, metric] - next_state[domain, metric]
+        path_cost = node.path_cost + act_cost
+        # Update path costs if new path is shorter
+        next_node = get!(search_tree, next_id,
+                         SearchNode(next_id, next_state, Inf))
+        cost_diff = next_node.path_cost - path_cost
+        if cost_diff > 0
+            next_node.parent_id = node.id
+            next_node.parent_action = act
+            next_node.path_cost = path_cost
+            # Update estimated cost from next state to start
+            if !(next_id in keys(queue))
+                g_val = g_mult * path_cost
+                h_val = h_mult * heuristic(domain, next_state, goal_spec)
+                enqueue!(queue, next_id, g_val + h_val)
+            else
+                queue[next_id] -= cost_diff
             end
         end
     end
-    return save_search ?
-        SearchSolution(:failure, [], [], search_tree, queue) : NullSolution()
 end
 
 "Backward greedy search, with cycle checking."
