@@ -5,14 +5,14 @@ export Planner, Solution, OrderedSolution
 abstract type Planner end
 
 (planner::Planner)(domain::Domain, state::State, goal_spec) =
-    call(planner, domain, state, goal_spec)
+    solve(planner, domain, state, goal_spec)
 
-call(planner::Planner, domain::Domain, state::State, goal::GoalSpec) =
+solve(planner::Planner, domain::Domain, state::State, goal::GoalSpec) =
     error("Not implemented.")
-call(planner::Planner, domain::Domain, state::State, goals::Vector{<:Term}) =
-    call(planner, domain, state, GoalSpec(goals))
-call(planner::Planner, domain::Domain, state::State, goal::Term) =
-    call(planner, domain, state, GoalSpec(goal))
+solve(planner::Planner, domain::Domain, state::State, goals::Vector{<:Term}) =
+    solve(planner, domain, state, GoalSpec(goals))
+solve(planner::Planner, domain::Domain, state::State, goal::Term) =
+    solve(planner, domain, state, GoalSpec(goal))
 
 "Abstract solution type, which defines the interface for planner solutions."
 abstract type Solution end

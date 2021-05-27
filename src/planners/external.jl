@@ -10,7 +10,7 @@ export FastDownwardPlanner
 end
 
 "Calls the FastDownward planning system to produce a plan."
-function call(planner::FastDownwardPlanner,
+function solve(planner::FastDownwardPlanner,
               domain::Domain, state::State, goal_spec::GoalSpec)
     if !haskey(ENV, "FD_PATH")
         error("FD_PATH not set to location of fast_downward.py")

@@ -10,7 +10,7 @@ export BackwardPlanner, BackwardGreedyPlanner, BackwardAStarPlanner
 end
 
 "Backward A* search for a plan."
-function call(planner::BackwardPlanner,
+function solve(planner::BackwardPlanner,
               domain::Domain, state::State, goal_spec::GoalSpec)
     @unpack goals = goal_spec
     @unpack h_mult, heuristic, save_search = planner

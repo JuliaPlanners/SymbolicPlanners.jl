@@ -11,7 +11,7 @@ export AStarPlanner, WeightedAStarPlanner
 end
 
 "Deterministic best-first search for a plan."
-function call(planner::ForwardPlanner,
+function solve(planner::ForwardPlanner,
               domain::Domain, state::State, goal_spec::GoalSpec)
     @unpack h_mult, heuristic, save_search = planner
     # Initialize search tree and priority queue
