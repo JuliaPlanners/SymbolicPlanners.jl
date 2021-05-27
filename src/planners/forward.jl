@@ -10,6 +10,26 @@ export AStarPlanner, WeightedAStarPlanner
     save_search::Bool = false # Flag to save search info
 end
 
+"Best-first search planner (alias for `ForwardPlanner`)."
+BestFirstPlanner(args...; kwargs...) =
+    ForwardPlanner(args...; kwargs...)
+
+"Uniform-cost search."
+UniformCostPlanner(;kwargs...) =
+    ForwardPlanner(;heuristic=NullHeuristic(), h_mult=0, kwargs...)
+
+"Greedy best-first search, with cycle checking."
+GreedyPlanner(heuristic::Heuristic; kwargs...) =
+    ForwardPlanner(;heuristic=heuristic, g_mult=0, kwargs...)
+
+"A* search."
+AStarPlanner(heuristic::Heuristic; kwargs...) =
+    ForwardPlanner(;heuristic=heuristic, kwargs...)
+
+"Weighted A* search."
+WeightedAStarPlanner(heuristic::Heuristic, h_mult::Real; kwargs...) =
+    ForwardPlanner(;heuristic=heuristic, h_mult=h_mult, kwargs...)
+
 "Deterministic best-first search for a plan."
 function solve(planner::ForwardPlanner,
               domain::Domain, state::State, goal_spec::GoalSpec)
@@ -95,23 +115,3 @@ function expand!(planner::ForwardPlanner, node::SearchNode,
         end
     end
 end
-
-"Best-first search planner (alias for `ForwardPlanner`)."
-BestFirstPlanner(args...; kwargs...) =
-    ForwardPlanner(args...; kwargs...)
-
-"Uniform-cost search."
-UniformCostPlanner(;kwargs...) =
-    ForwardPlanner(;heuristic=NullHeuristic(), h_mult=0, kwargs...)
-
-"Greedy best-first search, with cycle checking."
-GreedyPlanner(heuristic::Heuristic; kwargs...) =
-    ForwardPlanner(;heuristic=heuristic, g_mult=0, kwargs...)
-
-"A* search."
-AStarPlanner(heuristic::Heuristic; kwargs...) =
-    ForwardPlanner(;heuristic=heuristic, kwargs...)
-
-"Weighted A* search."
-WeightedAStarPlanner(heuristic::Heuristic, h_mult::Real; kwargs...) =
-    ForwardPlanner(;heuristic=heuristic, h_mult=h_mult, kwargs...)

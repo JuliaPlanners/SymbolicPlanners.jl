@@ -1,6 +1,6 @@
 export BackwardPlanner, BackwardGreedyPlanner, BackwardAStarPlanner
 
-"Heuristic-guided backward best-first search."
+"Heuristic-guided best-first backward search."
 @kwdef mutable struct BackwardPlanner <: Planner
     heuristic::Heuristic = GoalCountHeuristic(:backward)
     g_mult::Float64 = 1.0 # Path cost multiplier
@@ -8,6 +8,14 @@ export BackwardPlanner, BackwardGreedyPlanner, BackwardAStarPlanner
     max_nodes::Int = typemax(Int)
     save_search::Bool = false # Flag to save search info
 end
+
+"Backward greedy search, with cycle checking."
+BackwardGreedyPlanner(heuristic::Heuristic; kwargs...) =
+    BackwardPlanner(;heuristic=heuristic, g_mult=0, kwargs...)
+
+"Backward A* search."
+BackwardAStarPlanner(heuristic::Heuristic; kwargs...) =
+    BackwardPlanner(;heuristic=heuristic, kwargs...)
 
 "Backward A* search for a plan."
 function solve(planner::BackwardPlanner,
@@ -102,11 +110,3 @@ function expand!(planner::BackwardPlanner, node::SearchNode,
         end
     end
 end
-
-"Backward greedy search, with cycle checking."
-BackwardGreedyPlanner(heuristic::Heuristic; kwargs...) =
-    BackwardPlanner(;heuristic=heuristic, g_mult=0, kwargs...)
-
-"Backward A* search."
-BackwardAStarPlanner(heuristic::Heuristic; kwargs...) =
-    BackwardPlanner(;heuristic=heuristic, kwargs...)
