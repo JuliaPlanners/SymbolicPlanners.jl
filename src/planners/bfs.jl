@@ -6,9 +6,8 @@ export BreadthFirstPlanner
     save_search::Bool = false # Flag to save search info
 end
 
-"Uninformed breadth-first search for a plan."
 function solve(planner::BreadthFirstPlanner,
-              domain::Domain, state::State, goal_spec::GoalSpec)
+               domain::Domain, state::State, goal_spec::GoalSpec)
     @unpack goals, constraints = goal_spec
     @unpack max_nodes, save_search = planner
     # Initialize backpointers and queue

@@ -30,9 +30,8 @@ AStarPlanner(heuristic::Heuristic; kwargs...) =
 WeightedAStarPlanner(heuristic::Heuristic, h_mult::Real; kwargs...) =
     ForwardPlanner(;heuristic=heuristic, h_mult=h_mult, kwargs...)
 
-"Deterministic best-first search for a plan."
 function solve(planner::ForwardPlanner,
-              domain::Domain, state::State, goal_spec::GoalSpec)
+               domain::Domain, state::State, goal_spec::GoalSpec)
     @unpack h_mult, heuristic, save_search = planner
     # Initialize search tree and priority queue
     node_id = hash(state)

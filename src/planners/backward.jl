@@ -17,9 +17,8 @@ BackwardGreedyPlanner(heuristic::Heuristic; kwargs...) =
 BackwardAStarPlanner(heuristic::Heuristic; kwargs...) =
     BackwardPlanner(;heuristic=heuristic, kwargs...)
 
-"Backward A* search for a plan."
 function solve(planner::BackwardPlanner,
-              domain::Domain, state::State, goal_spec::GoalSpec)
+               domain::Domain, state::State, goal_spec::GoalSpec)
     @unpack goals = goal_spec
     @unpack h_mult, heuristic, save_search = planner
     # Construct references to start and goal states

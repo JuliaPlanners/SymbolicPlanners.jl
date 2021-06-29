@@ -29,7 +29,7 @@ end
 
 ## Common solution types ##
 
-"Basic solution type that stores the computed plan and state trajectory."
+"Solution type for search-based planners that produce fully ordered plans."
 mutable struct SearchSolution{T} <: OrderedSolution
     status::Symbol
     plan::Vector{Term}
