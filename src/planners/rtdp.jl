@@ -15,12 +15,12 @@ const RTDP = RealTimeDynamicPlanner
 function solve(planner::RealTimeDynamicPlanner,
                domain::Domain, state::State, goal_spec::GoalSpec)
     # Intialize then refine solution
-    sol = ValuePolicySolution()
+    sol = PolicyValueSolution()
     sol.V[hash(state)] = -planner.heuristic(domain, state, goal_spec)
     return solve!(planner, sol, domain, state, goal_spec)
 end
 
-function solve!(planner::RealTimeDynamicPlanner, sol::ValuePolicySolution,
+function solve!(planner::RealTimeDynamicPlanner, sol::PolicyValueSolution,
                 domain::Domain, state::State, goal_spec::GoalSpec)
     @unpack goals, metric = goal_spec
     @unpack heuristic, discount, action_noise = planner
@@ -28,11 +28,11 @@ function solve!(planner::RealTimeDynamicPlanner, sol::ValuePolicySolution,
     # Value update subroutine
     function update!(sol, s)
         actions = available(s, domain)
-        state_id = hash(s)
+        s_id = hash(s)
         if satisfy(goals, state, domain)[1]
             qs = zeros(length(actions))
-            sol.Q[state_id] = Dict{Term,Float64}(zip(actions, qs))
-            sol.V[state_id] = 0.0
+            sol.Q[s_id] = Dict{Term,Float64}(zip(actions, qs))
+            sol.V[s_id] = 0.0
             return
         end
         qs = map(actions) do act
@@ -42,8 +42,8 @@ function solve!(planner::RealTimeDynamicPlanner, sol::ValuePolicySolution,
             h_val = heuristic(domain, next_s, goal_spec)
             return discount * get!(sol.V, hash(next_s), -h_val) - act_cost
         end
-        sol.Q[state_id] = Dict{Term,Float64}(zip(actions, qs))
-        sol.V[state_id] = action_noise == 0 ?
+        sol.Q[s_id] = Dict{Term,Float64}(zip(actions, qs))
+        sol.V[s_id] = action_noise == 0 ?
             maximum(qs) : sum(softmax(qs ./ action_noise) .* qs)
     end
     # Perform rollouts from initial state
@@ -66,6 +66,7 @@ function solve!(planner::RealTimeDynamicPlanner, sol::ValuePolicySolution,
             update!(sol, state)
         end
     end
+
     # Update action noise and return solution
     sol.action_noise = action_noise
     return sol

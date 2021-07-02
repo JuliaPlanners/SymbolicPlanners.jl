@@ -37,12 +37,12 @@ function solve(planner::BackwardPlanner,
         plan, traj = reconstruct(node_id, search_tree)
         reverse!(plan); reverse!(traj)
         if save_search
-            return SearchSolution(status, plan, traj, search_tree, queue)
+            return OrderedSearchSolution(status, plan, traj, search_tree, queue)
         else
-            return SearchSolution(status, plan, traj)
+            return OrderedSearchSolution(status, plan, traj)
         end
     elseif save_search
-        return SearchSolution(status, [], [], search_tree, queue)
+        return OrderedSearchSolution(status, [], [], search_tree, queue)
     else
         return NullSolution()
     end
