@@ -152,4 +152,34 @@ actions, trajectory = rollout(sol, bw_state, blocksworld, bw_problem.goal)
 
 end
 
+@testset "Monte Carlo Tree Search" begin
+
+clear_available_action_cache!()
+Random.seed!(0)
+
+heuristic = ManhattanHeuristic(@pddl("xpos", "ypos"))
+planner = MCTS(heuristic=heuristic, n_rollouts=50, discount=0.9)
+sol = planner(gridworld, gw_state, gw_problem.goal)
+actions, trajectory = rollout(sol, gw_state, gridworld, gw_problem.goal)
+@test satisfy(gw_problem.goal, trajectory[end], gridworld)[1] == true
+@test actions == @pddl("down", "down", "right", "right", "up", "up")
+
+heuristic = GoalCountHeuristic()
+planner = MCTS(heuristic=heuristic, n_rollouts=50, discount=0.9)
+sol = planner(doors_keys_gems, dkg_state, dkg_problem.goal)
+actions, trajectory = rollout(sol, dkg_state, doors_keys_gems, dkg_problem.goal)
+@test satisfy(dkg_problem.goal, trajectory[end], doors_keys_gems)[1] == true
+@test actions == @pddl("(down)", "(pickup key1)", "(down)",
+                       "(unlock key1 right)", "(right)", "(right)",
+                        "(up)", "(up)", "(pickup gem1)")
+
+planner = MCTS(heuristic=HAdd(), n_rollouts=25, discount=0.9)
+sol = planner(blocksworld, bw_state, bw_problem.goal)
+actions, trajectory = rollout(sol, bw_state, blocksworld, bw_problem.goal)
+@test satisfy(bw_problem.goal, trajectory[end], blocksworld)[1] == true
+@test actions == @pddl("(pick-up a)", "(stack a b)",
+                       "(pick-up c)", "(stack c a)")
+
+end
+
 end

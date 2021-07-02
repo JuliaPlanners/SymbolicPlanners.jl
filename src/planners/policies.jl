@@ -22,7 +22,7 @@ function rollout(sol::PolicySolution,
     trajectory = State[state]
     for t in 1:n_steps
         act = rand_action(sol, state)
-        state = transition(domain, state, action)
+        state = transition(domain, state, act)
         push!(actions, act)
         push!(trajectory, state)
     end

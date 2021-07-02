@@ -30,6 +30,7 @@ include("backward.jl")
 # Policy-based planners
 include("policies.jl")
 include("rtdp.jl")
+include("mcts.jl")
 
 # External planners
 include("external.jl")
