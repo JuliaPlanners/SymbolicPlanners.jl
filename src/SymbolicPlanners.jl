@@ -10,6 +10,7 @@ using Random, Julog, PDDL
 
 include("specifications.jl")
 include("solutions.jl")
+include("simulators.jl")
 include("heuristics.jl")
 include("planners.jl")
 

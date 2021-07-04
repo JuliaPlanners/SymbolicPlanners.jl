@@ -1,5 +1,5 @@
 export Solution, OrderedSolution, PolicySolution
-export get_action, best_action, rand_action, rollout
+export get_action, best_action, rand_action
 
 "Abstract solution type."
 abstract type Solution end
@@ -9,6 +9,8 @@ get_action(sol::Solution, t::Int, state::State) = error("Not implemented.")
 
 "Null solution that indicates no plan was found."
 struct NullSolution <: Solution end
+
+## Ordered solutions ##
 
 "Abstract type for ordered planner solutions."
 abstract type OrderedSolution <: Solution end
@@ -25,11 +27,13 @@ Base.eltype(::Type{OrderedSolution}) = Term
 
 include("solutions/ordered_plan.jl")
 
+## Policy-based solutions ##
+
 "Abstract type for policy-based solutions."
 abstract type PolicySolution <: Solution end
 
 "Return action for the given state."
-get_action(sol::PolicySolution, state::State) = error("Not implemented.")
+get_action(sol::PolicySolution, state::State) = best_action(sol, state)
 get_action(sol::PolicySolution, ::Int, state::State) = get_action(sol, state)
 
 "Returns the best action for the given state."
@@ -44,36 +48,6 @@ get_value(::PolicySolution, ::State, ::Term) = error("Not implemented.")
 
 "Return Q-values of actions for the given state as an iterator over pairs."
 get_action_values(::PolicySolution, ::State) = error("Not implemented.")
-
-"Rollout a policy from the given state."
-function rollout(sol::PolicySolution,
-                 state::State, domain::Domain, n_steps::Int)
-    actions = Term[]
-    trajectory = State[state]
-    for t in 1:n_steps
-        act = rand_action(sol, state)
-        state = transition(domain, state, act)
-        push!(actions, act)
-        push!(trajectory, state)
-    end
-    return actions, trajectory
-end
-
-function rollout(sol::PolicySolution,
-                 state::State, domain::Domain, spec::Specification)
-    actions = Term[]
-    trajectory = State[state]
-    while !is_goal(spec, domain, state)
-        act = rand_action(sol, state)
-        state = transition(domain, state, act)
-        push!(actions, act)
-        push!(trajectory, state)
-    end
-    return actions, trajectory
-end
-
-rollout(sol::PolicySolution, state::State, domain::Domain, goal) =
-    rollout(sol, state, domain, Specification(goal))
 
 include("solutions/policy_value.jl")
 include("solutions/random_policy.jl")
