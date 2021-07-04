@@ -62,7 +62,7 @@ function compute(heuristic::HSPHeuristic,
     while true
         facts = Set(keys(fact_costs))
         state = State(types, facts, Dict{Symbol,Any}())
-        if satisfy(goals, state, domain)[1]
+        if is_goal(goal_spec, domain, state)
             return op([0; [fact_costs[g] for g in goals]]) end
         # Compute costs of one-step derivations of domain axioms
         for ax in cache.axioms

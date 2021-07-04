@@ -62,7 +62,7 @@ function compute(heuristic::FFHeuristic,
         facts = Set(keys(levels))
         state = State(types, facts, Dict{Symbol,Any}())
         # Break out of loop once all goals are achieved
-        if satisfy(goals, state, domain)[1] break end
+        if is_goal(goal_spec, domain, state) break end
         cur_level += 1
         # Add all one-step derivations of domain axioms
         for ax in cache.axioms

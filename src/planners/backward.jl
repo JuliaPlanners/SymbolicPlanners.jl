@@ -76,7 +76,6 @@ function expand!(planner::BackwardPlanner, node::SearchNode,
                  search_tree::SearchTree, queue::PriorityQueue,
                  domain::Domain, goal_spec::GoalSpec, constraints)
     @unpack g_mult, h_mult, heuristic = planner
-    @unpack metric = goal_spec
     state = node.state
     # Iterate over relevant actions
     actions = relevant(state, domain)
@@ -87,8 +86,7 @@ function expand!(planner::BackwardPlanner, node::SearchNode,
         if (constraints !== nothing) update!(next_state, constraints) end
         next_id = hash(next_state)
         # Compute path cost
-        act_cost = metric == nothing ? 1 :
-            state[domain, metric] - next_state[domain, metric]
+        act_cost = get_cost(goal_spec, domain, state, act, next_state)
         path_cost = node.path_cost + act_cost
         # Update path costs if new path is shorter
         next_node = get!(search_tree, next_id,

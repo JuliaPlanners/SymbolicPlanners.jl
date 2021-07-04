@@ -64,7 +64,7 @@ function search!(planner::ForwardPlanner,
         node_id = dequeue!(queue)
         node = search_tree[node_id]
         # Return status and current state if search terminates
-        if satisfy(goal_spec.goals, node.state, domain)[1]
+        if is_goal(goal_spec, domain, node.state)
             return :success, node_id # Goal reached
         elseif count >= planner.max_nodes
             return :max_nodes, node_id # Node budget reached
@@ -80,7 +80,6 @@ function expand!(planner::ForwardPlanner, node::SearchNode,
                  search_tree::SearchTree, queue::PriorityQueue,
                  domain::Domain, goal_spec::GoalSpec)
     @unpack g_mult, h_mult, heuristic = planner
-    @unpack metric, constraints = goal_spec
     state = node.state
     # Iterate over available actions
     actions = available(state, domain)
@@ -89,11 +88,9 @@ function expand!(planner::ForwardPlanner, node::SearchNode,
         next_state = transition(domain, state, act; check=false)
         next_id = hash(next_state)
         # Check if next state satisfies trajectory constraints
-        if !isempty(constraints) && !next_state[domain, constraints]
-            continue end
+        if is_violated(goal_spec, domain, state) continue end
         # Compute path cost
-        act_cost = metric == nothing ? 1 :
-            next_state[domain, metric] - state[domain, metric]
+        act_cost = get_cost(goal_spec, domain, state, act, next_state)
         path_cost = node.path_cost + act_cost
         # Update path costs if new path is shorter
         next_node = get!(search_tree, next_id,

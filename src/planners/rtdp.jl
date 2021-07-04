@@ -22,14 +22,13 @@ end
 
 function solve!(planner::RealTimeDynamicPlanner, sol::PolicyValueSolution,
                 domain::Domain, state::State, goal_spec::GoalSpec)
-    @unpack goals, metric = goal_spec
     @unpack heuristic, discount, action_noise = planner
     @unpack n_rollouts, rollout_depth, rollout_noise = planner
     # Value update subroutine
     function update!(sol, s)
         actions = available(s, domain)
         s_id = hash(s)
-        if satisfy(goals, state, domain)[1]
+        if is_goal(goal_spec, domain, state)
             qs = zeros(length(actions))
             sol.Q[s_id] = Dict{Term,Float64}(zip(actions, qs))
             sol.V[s_id] = 0.0
@@ -37,10 +36,9 @@ function solve!(planner::RealTimeDynamicPlanner, sol::PolicyValueSolution,
         end
         qs = map(actions) do act
             next_s = transition(domain, s, act)
-            act_cost = metric === nothing ? 1 :
-                next_s[domain, metric] - s[domain, metric]
+            reward = get_reward(goal_spec, domain, s, act, next_s)
             h_val = heuristic(domain, next_s, goal_spec)
-            return discount * get!(sol.V, hash(next_s), -h_val) - act_cost
+            return discount * get!(sol.V, hash(next_s), -h_val) + reward
         end
         sol.Q[s_id] = Dict{Term,Float64}(zip(actions, qs))
         sol.V[s_id] = action_noise == 0 ?
@@ -55,7 +53,7 @@ function solve!(planner::RealTimeDynamicPlanner, sol::PolicyValueSolution,
         # Rollout until maximum depth
         for t in 1:rollout_depth
             push!(visited, state)
-            if satisfy(goals, state, domain)[1] break end
+            if is_goal(goal_spec, domain, state) break end
             update!(sol, state)
             act = rand_action(sol, state)
             state = transition(domain, state, act)

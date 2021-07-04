@@ -8,7 +8,7 @@ abstract type Planner end
 (planner::Planner)(domain::Domain, state::State, goal_spec) =
     solve(planner, domain, state, goal_spec)
 
-solve(planner::Planner, domain::Domain, state::State, goal::GoalSpec) =
+solve(planner::Planner, domain::Domain, state::State, spec::Specification) =
     error("Not implemented.")
 solve(planner::Planner, domain::Domain, state::State, goals::Vector{<:Term}) =
     solve(planner, domain, state, GoalSpec(goals))

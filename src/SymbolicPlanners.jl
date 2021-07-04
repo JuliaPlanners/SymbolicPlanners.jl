@@ -7,7 +7,7 @@ using DataStructures: PriorityQueue, OrderedDict, enqueue!, dequeue!
 using StatsBase: sample, weights
 using Random, Julog, PDDL
 
-include("goals.jl")
+include("specifications.jl")
 include("heuristics/heuristics.jl")
 include("planners/planners.jl")
 

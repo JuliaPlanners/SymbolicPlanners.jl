@@ -40,7 +40,7 @@ function search!(planner::BreadthFirstPlanner,
         node_id = popfirst!(queue)
         node = search_tree[node_id]
         # Return if max nodes are reached or goals are satisfied
-        if satisfy(goal_spec.goals, node.state, domain)[1]
+        if is_goal(goal_spec, domain, node.state)
             return :success, node_id
         elseif count >= planner.max_nodes
             return :max_nodes, node_id
@@ -55,7 +55,6 @@ end
 function expand!(planner::BreadthFirstPlanner, node::SearchNode,
                  search_tree::SearchTree, queue::Vector{UInt},
                  domain::Domain, goal_spec::GoalSpec)
-    @unpack constraints = goal_spec
     state = node.state
     # Iterate over available actions
     actions = available(state, domain)
@@ -66,8 +65,7 @@ function expand!(planner::BreadthFirstPlanner, node::SearchNode,
         # Skip if state has already been encountered
         if haskey(search_tree, next_id) continue end
         # Check if next state satisfies trajectory constraints
-        if !isempty(constraints) && !next_state[domain, constraints]
-            continue end
+        if is_violated(goal_spec, domain, state) continue end
         # Update backpointer and add next state to queue
         search_tree[next_id] = SearchNode(next_id, next_state, 0, node.id, act)
         push!(queue, next_id)

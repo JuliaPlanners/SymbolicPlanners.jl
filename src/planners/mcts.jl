@@ -26,7 +26,6 @@ rand_action(rng::AbstractRNG, sol::PolicyTreeSolution, state::State) =
 
 function solve(planner::MonteCarloTreeSearch,
 			   domain::Domain, state::State, goal_spec::GoalSpec)
-    @unpack goals, metric = goal_spec
 	@unpack n_rollouts, rollout_depth = planner
 	@unpack heuristic, discount, explore_noise = planner
     # Initialize solution
@@ -46,7 +45,7 @@ function solve(planner::MonteCarloTreeSearch,
         # Rollout until maximum depth
         for t in 1:rollout_depth
 			# Terminate if rollout reaches goal
-            if satisfy(goals, state, domain)[1]
+            if is_goal(goal_spec, domain, state)
 				rollout_val = 100 * discount^t
 				break # TODO : Handle general goal rewards
 			end
@@ -110,7 +109,7 @@ end
 function rollout_estimator(domain, state, goal_spec, depth, discount)
 	reward = 0
     for t in 1:depth
-		if satisfy(goal_spec.goals, state, domain)[1]
+		if is_goal(goal_spec, domain, state)
 			reward += discount * 100 # TODO: Handle general goal rewards
 			break
 		end
