@@ -55,5 +55,5 @@ function solve(planner::FastDownwardPlanner,
     plan = readlines("./sas_plan")[1:end-1]
     Base.Filesystem.rm("./sas_plan")
     plan = parse_pddl.(plan)
-    return OrderedSearchSolution(plan)
+    return OrderedPlan(plan)
 end

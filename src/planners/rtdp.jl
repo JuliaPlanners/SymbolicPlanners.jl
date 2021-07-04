@@ -15,12 +15,15 @@ const RTDP = RealTimeDynamicPlanner
 function solve(planner::RealTimeDynamicPlanner,
                domain::Domain, state::State, spec::Specification)
     # Intialize then refine solution
-    sol = PolicyValueSolution()
+    sol = PolicyValue()
     sol.V[hash(state)] = -planner.heuristic(domain, state, spec)
-    return solve!(planner, sol, domain, state, spec)
+    sol = solve!(planner, sol, domain, state, spec)
+    # Wrap in Boltzmann policy if needed
+    return planner.action_noise == 0 ?
+        sol : BoltzmannPolicy(sol, planner.action_noise)
 end
 
-function solve!(planner::RealTimeDynamicPlanner, sol::PolicyValueSolution,
+function solve!(planner::RealTimeDynamicPlanner, sol::PolicyValue,
                 domain::Domain, state::State, spec::Specification)
     @unpack heuristic, discount, action_noise = planner
     @unpack n_rollouts, rollout_depth, rollout_noise = planner
@@ -46,7 +49,7 @@ function solve!(planner::RealTimeDynamicPlanner, sol::PolicyValueSolution,
     end
     # Perform rollouts from initial state
     initial_state = state
-    sol.action_noise = rollout_noise
+    ro_policy = rollout_noise == 0 ? sol : BoltzmannPolicy(sol, rollout_noise)
     visited = State[]
     for n in 1:n_rollouts
         state = initial_state
@@ -55,7 +58,7 @@ function solve!(planner::RealTimeDynamicPlanner, sol::PolicyValueSolution,
             push!(visited, state)
             if is_goal(spec, domain, state) break end
             update!(sol, state)
-            act = rand_action(sol, state)
+            act = rand_action(ro_policy, state)
             state = transition(domain, state, act)
         end
         # Post-rollout update
@@ -64,8 +67,12 @@ function solve!(planner::RealTimeDynamicPlanner, sol::PolicyValueSolution,
             update!(sol, state)
         end
     end
-
-    # Update action noise and return solution
-    sol.action_noise = action_noise
     return sol
+end
+
+function solve!(planner::RealTimeDynamicPlanner,
+                sol::BoltzmannPolicy{PolicyValue},
+                domain::Domain, state::State, spec::Specification)
+    sol = solve!(planner, sol.policy, domain, state, spec)
+    return BoltzmannPolicy(sol, planner.action_noise)
 end

@@ -26,9 +26,9 @@ abstract type Goal <: Specification end
 get_goal_terms(spec::Goal) =
     error("Not implemented.")
 
-include("min_steps.jl")
-include("min_metric.jl")
-include("state_constrained.jl")
+include("specifications/min_steps.jl")
+include("specifications/min_metric.jl")
+include("specifications/state_constrained.jl")
 
 # Convenience constructors
 Specification(problem::Problem) = problem.metric === nothing ?

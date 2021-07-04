@@ -21,7 +21,7 @@ end
 best_action(sol::PolicyTreeSolution, state::State) =
     argmax(sol.Q[hash(state)])
 
-rand_action(rng::AbstractRNG, sol::PolicyTreeSolution, state::State) =
+rand_action(sol::PolicyTreeSolution, state::State) =
 	best_action(sol, state)
 
 function solve(planner::MonteCarloTreeSearch,
@@ -102,7 +102,7 @@ function ucb_selection(sol, state, domain, c)
 		return val
 	end
 	probs = softmax(ucb_vals ./ 1.0)
-    act = sample(actions, weights(probs))
+    act = sample(actions, Weights(probs, 1.0))
 	return act
 end
 

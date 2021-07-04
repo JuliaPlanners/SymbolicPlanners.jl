@@ -1,6 +1,5 @@
 ## Abstract interface for planners and solutions ##
 export Planner
-export Solution, NullSolution
 
 "Abstract planner type, which defines the interface for planners."
 abstract type Planner end
@@ -15,22 +14,15 @@ solve(planner::Planner, domain::Domain, state::State, goals::Vector{<:Term}) =
 solve(planner::Planner, domain::Domain, state::State, goal::Term) =
     solve(planner, domain, state, Specification(goal))
 
-"Abstract solution type, which defines the interface for planner solutions."
-abstract type Solution end
+# Path-search planning algorithms
+include("planners/path_search.jl")
+include("planners/bfs.jl")
+include("planners/forward.jl")
+include("planners/backward.jl")
 
-"Null solution that indicates no plan was found."
-struct NullSolution <: Solution end
-
-# Planners and solution types for ordered plans
-include("ordered.jl")
-include("bfs.jl")
-include("forward.jl")
-include("backward.jl")
-
-# Policy-based planners
-include("policies.jl")
-include("rtdp.jl")
-include("mcts.jl")
+# Policy-based planning algorithms
+include("planners/rtdp.jl")
+include("planners/mcts.jl")
 
 # External planners
-include("external.jl")
+include("planners/external.jl")

@@ -35,7 +35,7 @@ function solve(planner::ForwardPlanner,
     @unpack h_mult, heuristic, save_search = planner
     # Initialize search tree and priority queue
     node_id = hash(state)
-    search_tree = SearchTree(node_id => SearchNode(node_id, state, 0))
+    search_tree = Dict{UInt,PathNode}(node_id => PathNode(node_id, state, 0))
     est_cost = h_mult * heuristic(domain, state, spec)
     queue = PriorityQueue{UInt,Float64}(node_id => est_cost)
     # Run the search
@@ -44,12 +44,12 @@ function solve(planner::ForwardPlanner,
     if status != :failure
         plan, traj = reconstruct(node_id, search_tree)
         if save_search
-            return OrderedSearchSolution(status, plan, traj, search_tree, queue)
+            return PathSearchSolution(status, plan, traj, search_tree, queue)
         else
-            return OrderedSearchSolution(status, plan, traj)
+            return PathSearchSolution(status, plan, traj)
         end
     elseif save_search
-        return OrderedSearchSolution(status, [], [], search_tree, queue)
+        return PathSearchSolution(status, [], [], search_tree, queue)
     else
         return NullSolution()
     end
@@ -57,7 +57,7 @@ end
 
 function search!(planner::ForwardPlanner,
                  domain::Domain, spec::Specification,
-                 search_tree::SearchTree, queue::PriorityQueue)
+                 search_tree::Dict{UInt,PathNode}, queue::PriorityQueue)
     count = 1
     while length(queue) > 0
         # Get state with lowest estimated cost to goal
@@ -76,8 +76,8 @@ function search!(planner::ForwardPlanner,
     return :failure, nothing
 end
 
-function expand!(planner::ForwardPlanner, node::SearchNode,
-                 search_tree::SearchTree, queue::PriorityQueue,
+function expand!(planner::ForwardPlanner, node::PathNode,
+                 search_tree::Dict{UInt,PathNode}, queue::PriorityQueue,
                  domain::Domain, spec::Specification)
     @unpack g_mult, h_mult, heuristic = planner
     state = node.state
@@ -94,7 +94,7 @@ function expand!(planner::ForwardPlanner, node::SearchNode,
         path_cost = node.path_cost + act_cost
         # Update path costs if new path is shorter
         next_node = get!(search_tree, next_id,
-                         SearchNode(next_id, next_state, Inf))
+                         PathNode(next_id, next_state, Inf))
         cost_diff = next_node.path_cost - path_cost
         if cost_diff > 0
             next_node.parent_id = node.id
