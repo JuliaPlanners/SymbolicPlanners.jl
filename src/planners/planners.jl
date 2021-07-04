@@ -5,15 +5,15 @@ export Solution, NullSolution
 "Abstract planner type, which defines the interface for planners."
 abstract type Planner end
 
-(planner::Planner)(domain::Domain, state::State, goal_spec) =
-    solve(planner, domain, state, goal_spec)
+(planner::Planner)(domain::Domain, state::State, spec) =
+    solve(planner, domain, state, spec)
 
 solve(planner::Planner, domain::Domain, state::State, spec::Specification) =
     error("Not implemented.")
 solve(planner::Planner, domain::Domain, state::State, goals::Vector{<:Term}) =
-    solve(planner, domain, state, GoalSpec(goals))
+    solve(planner, domain, state, Specification(goals))
 solve(planner::Planner, domain::Domain, state::State, goal::Term) =
-    solve(planner, domain, state, GoalSpec(goal))
+    solve(planner, domain, state, Specification(goal))
 
 "Abstract solution type, which defines the interface for planner solutions."
 abstract type Solution end

@@ -22,7 +22,7 @@ Base.hash(heuristic::HSPHeuristic, h::UInt) =
     hash(heuristic.op, hash(HSPHeuristic, h))
 
 function precompute!(heuristic::HSPHeuristic,
-                     domain::Domain, state::State, goal_spec::GoalSpec)
+                     domain::Domain, state::State, spec::Specification)
     # Check if cache has already been computed
     if isdefined(heuristic, :cache) return heuristic end
     domain = copy(domain) # Make a local copy of the domain
@@ -49,20 +49,20 @@ function precompute!(heuristic::HSPHeuristic,
 end
 
 function compute(heuristic::HSPHeuristic,
-                 domain::Domain, state::State, goal_spec::GoalSpec)
+                 domain::Domain, state::State, spec::Specification)
     # Precompute if necessary
     if !isdefined(heuristic, :cache)
-        precompute!(heuristic, domain, state, goal_spec) end
+        precompute!(heuristic, domain, state, spec) end
     @unpack op, cache = heuristic
     @unpack domain = cache
-    @unpack goals = goal_spec
     @unpack types, facts = state
+    goals = get_goal_terms(spec)
     # Initialize fact costs in a GraphPlan-style graph
     fact_costs = Dict{Term,Float64}(f => 0 for f in facts)
     while true
         facts = Set(keys(fact_costs))
         state = State(types, facts, Dict{Symbol,Any}())
-        if is_goal(goal_spec, domain, state)
+        if is_goal(spec, domain, state)
             return op([0; [fact_costs[g] for g in goals]]) end
         # Compute costs of one-step derivations of domain axioms
         for ax in cache.axioms
@@ -118,10 +118,10 @@ Base.hash(heuristic::HSPRHeuristic, h::UInt) =
     hash(heuristic.op, hash(HSPRHeuristic, h))
 
 function precompute!(heuristic::HSPRHeuristic,
-                     domain::Domain, state::State, goal_spec::GoalSpec)
+                     domain::Domain, state::State, spec::Specification)
     @unpack op = heuristic
-    @unpack goals = goal_spec
     @unpack types, facts = state
+    goals = get_goal_terms(spec)
     # Preprocess domain and axioms
     domain = copy(domain)
     axioms = regularize_clauses(domain.axioms)
@@ -185,10 +185,10 @@ function precompute!(heuristic::HSPRHeuristic,
 end
 
 function compute(heuristic::HSPRHeuristic,
-                 domain::Domain, state::State, goal_spec::GoalSpec)
+                 domain::Domain, state::State, spec::Specification)
     # Precompute if necessary
     if !isdefined(heuristic, :fact_costs)
-        precompute!(heuristic, domain, state, goal_spec) end
+        precompute!(heuristic, domain, state, spec) end
     @unpack op, fact_costs = heuristic
     # Compute cost of achieving all facts in current state
     return op([0; [get(fact_costs, f, 0) for f in PDDL.get_facts(state)]])

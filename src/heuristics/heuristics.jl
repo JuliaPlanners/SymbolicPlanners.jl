@@ -16,36 +16,36 @@ clear_heuristic_cache!() = empty!(_heuristic_cache)
 abstract type Heuristic end
 
 "Precomputes heuristic information given a domain, state, and goal."
-precompute!(h::Heuristic, domain::Domain, state::State, goal_spec::GoalSpec) =
+precompute!(h::Heuristic, domain::Domain, state::State, spec::Specification) =
     h # Return the heuristic unmodified by default
-precompute!(h::Heuristic, domain::Domain, state::State, goal_spec) =
-    precompute!(h, domain, state, GoalSpec(goal_spec))
+precompute!(h::Heuristic, domain::Domain, state::State, spec) =
+    precompute!(h, domain, state, Specification(spec))
 precompute!(h::Heuristic, domain::Domain, state::State) =
-    precompute!(h, domain, state, GoalSpec(goals=Term[]))
+    precompute!(h, domain, state, Specification(goals=Term[]))
 precompute!(h::Heuristic, domain::Domain) =
-    precompute!(h, domain, State(Term[]), GoalSpec(goals=Term[]))
+    precompute!(h, domain, State(Term[]), Specification(goals=Term[]))
 
 "Computes the heuristic value of state relative to a goal in a given domain."
-compute(h::Heuristic, domain::Domain, state::State, goal_spec::GoalSpec) =
+compute(h::Heuristic, domain::Domain, state::State, spec::Specification) =
     error("Not implemented.")
-compute(h::Heuristic, domain::Domain, state::State, goal_spec) =
-    compute(h, domain, state, GoalSpec(goal_spec))
+compute(h::Heuristic, domain::Domain, state::State, spec) =
+    compute(h, domain, state, Specification(spec))
 
 "Computes the heuristic value of state relative to a goal in a given domain."
-function (h::Heuristic)(domain::Domain, state::State, goal_spec::GoalSpec;
+function (h::Heuristic)(domain::Domain, state::State, spec::Specification;
                         cache::Bool=_use_heuristic_cache[])
     if (cache)
-        key = (hash(h), domain.name, hash(state), hash(goal_spec))
+        key = (hash(h), domain.name, hash(state), hash(spec))
         if haskey(_heuristic_cache, key) return _heuristic_cache[key] end
     end
-    val = compute(h, domain, state, goal_spec)
+    val = compute(h, domain, state, spec)
     if (cache) _heuristic_cache[key] = val end
     return val
 end
 
-(h::Heuristic)(domain::Domain, state::State, goal_spec;
+(h::Heuristic)(domain::Domain, state::State, spec;
                cache::Bool=_use_heuristic_cache[]) =
-    h(domain, state, GoalSpec(goal_spec); cache=cache)
+    h(domain, state, Specification(spec); cache=cache)
 
 include("basic.jl")
 include("hsp.jl")

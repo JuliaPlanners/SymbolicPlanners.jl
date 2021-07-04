@@ -1,5 +1,33 @@
 export BackwardPlanner, BackwardGreedyPlanner, BackwardAStarPlanner
 
+"Goal specification for backward search."
+struct BackwardSearchGoal{G <: Goal,C} <: Goal
+    goal::G # Original goal specification
+    start::State # Start state to be reached via backward search
+    constraint_diff::C # State constraints as a diff, if any
+end
+
+BackwardSearchGoal(goal::Goal, start::State) =
+    BackwardSearchGoal(goal, start, nothing)
+BackwardSearchGoal(goal::StateConstrainedGoal, start::State) =
+    BackwardSearchGoal(goal, start, precond_diff(constraints))
+
+is_goal(spec::BackwardSearchGoal, domain::Domain, state::State) =
+    issubset(state, spec.start)
+is_violated(spec::BackwardSearchGoal, domain::Domain, state::State) =
+    is_violated(spec.goal, domain, state)
+get_cost(spec::BackwardSearchGoal, domain::Domain, s1::State, a::Term, s2::State) =
+    get_cost(spec.goal, domain, s2, a, s1)
+get_reward(spec::BackwardSearchGoal, domain::Domain, s1::State, a::Term, s2::State) =
+    get_reward(spec.goal, domain, s2, a, s1)
+get_goal_terms(spec::BackwardSearchGoal) =
+    get_goal_terms(spec.goal)
+
+add_constraints!(spec::BackwardSearchGoal, state::State) =
+    nothing
+add_constraints!(spec::BackwardSearchGoal{G,PDDL.Diff}, state::State) where {G} =
+    update!(state, spec.constraint_diff)
+
 "Heuristic-guided best-first backward search."
 @kwdef mutable struct BackwardPlanner <: Planner
     heuristic::Heuristic = GoalCountHeuristic(:backward)
@@ -18,20 +46,18 @@ BackwardAStarPlanner(heuristic::Heuristic; kwargs...) =
     BackwardPlanner(;heuristic=heuristic, kwargs...)
 
 function solve(planner::BackwardPlanner,
-               domain::Domain, state::State, goal_spec::GoalSpec)
-    @unpack goals = goal_spec
+               domain::Domain, state::State, spec::Specification)
     @unpack h_mult, heuristic, save_search = planner
-    # Construct references to start and goal states
-    start = state
-    state = State(goal_spec.goals, PDDL.get_types(start))
+    # Convert to backward search goal specification
+    spec = BackwardSearchGoal(spec, state)
+    state = State(get_goal_terms(spec), PDDL.get_types(state))
     # Initialize search tree and priority queue
     node_id = hash(state)
     search_tree = SearchTree(node_id => SearchNode(node_id, state, 0))
-    est_cost = h_mult * heuristic(domain, state, goal_spec)
+    est_cost = h_mult * heuristic(domain, state, spec)
     queue = PriorityQueue{UInt,Float64}(node_id => est_cost)
     # Run the search
-    status, node_id =
-        search!(planner, domain, goal_spec, start, search_tree, queue)
+    status, node_id = search!(planner, domain, spec, search_tree, queue)
     # Reconstruct plan and return solution
     if status != :failure
         plan, traj = reconstruct(node_id, search_tree)
@@ -49,32 +75,29 @@ function solve(planner::BackwardPlanner,
 end
 
 function search!(planner::BackwardPlanner,
-                 domain::Domain, goal_spec::GoalSpec, start::State,
+                 domain::Domain, spec::BackwardSearchGoal,
                  search_tree::SearchTree, queue::PriorityQueue)
-    @unpack constraints = goal_spec
-    constraints = isempty(constraints) ? nothing : precond_diff(constraints)
     count = 1
     while length(queue) > 0
         # Get state with lowest estimated cost to start state
         node_id = dequeue!(queue)
         node = search_tree[node_id]
         # Return status and current state if search terminates
-        if issubset(node.state, start)
+        if is_goal(spec, domain, node.state)
             return :success, node_id # Start state reached
         elseif count >= planner.max_nodes
             return :max_nodes, node_id # Node budget reached
         end
         count += 1
         # Expand current node
-        expand!(planner, node, search_tree, queue,
-                domain, goal_spec, constraints)
+        expand!(planner, node, search_tree, queue, domain, spec)
     end
     return :failure, nothing
 end
 
 function expand!(planner::BackwardPlanner, node::SearchNode,
                  search_tree::SearchTree, queue::PriorityQueue,
-                 domain::Domain, goal_spec::GoalSpec, constraints)
+                 domain::Domain, spec::BackwardSearchGoal)
     @unpack g_mult, h_mult, heuristic = planner
     state = node.state
     # Iterate over relevant actions
@@ -83,10 +106,10 @@ function expand!(planner::BackwardPlanner, node::SearchNode,
         # Regress (reverse-execute) the action
         next_state = regress(act, state, domain; check=false)
         # Add constraints to regression state
-        if (constraints !== nothing) update!(next_state, constraints) end
+        add_constraints!(spec, state)
         next_id = hash(next_state)
         # Compute path cost
-        act_cost = get_cost(goal_spec, domain, state, act, next_state)
+        act_cost = get_cost(spec, domain, state, act, next_state)
         path_cost = node.path_cost + act_cost
         # Update path costs if new path is shorter
         next_node = get!(search_tree, next_id,
@@ -99,7 +122,7 @@ function expand!(planner::BackwardPlanner, node::SearchNode,
             # Update estimated cost from next state to start
             if !(next_id in keys(queue))
                 g_val = g_mult * path_cost
-                h_val = h_mult * heuristic(domain, next_state, goal_spec)
+                h_val = h_mult * heuristic(domain, next_state, spec)
                 enqueue!(queue, next_id, g_val + h_val)
             else
                 queue[next_id] -= cost_diff

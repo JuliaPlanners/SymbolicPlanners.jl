@@ -30,10 +30,10 @@ function rollout(sol::PolicySolution,
 end
 
 function rollout(sol::PolicySolution,
-                 state::State, domain::Domain, goal_spec::GoalSpec)
+                 state::State, domain::Domain, spec::Specification)
     actions = Term[]
     trajectory = State[state]
-    while !satisfy(goal_spec.goals, state, domain)[1]
+    while !is_goal(spec, domain, state)
         act = rand_action(sol, state)
         state = transition(domain, state, act)
         push!(actions, act)
@@ -43,7 +43,7 @@ function rollout(sol::PolicySolution,
 end
 
 rollout(sol::PolicySolution, state::State, domain::Domain, goal) =
-    rollout(sol, state, domain, GoalSpec(goal))
+    rollout(sol, state, domain, Specification(goal))
 
 "Convert vector of scores to probabiities."
 function softmax(scores)

@@ -19,7 +19,7 @@ end
 Base.hash(heuristic::FFHeuristic, h::UInt) = hash(FFHeuristic, h)
 
 function precompute!(heuristic::FFHeuristic,
-                     domain::Domain, state::State, goal_spec::GoalSpec)
+                     domain::Domain, state::State, spec::Specification)
     # Check if cache has already been computed
     if isdefined(heuristic, :cache) return heuristic end
     domain = copy(domain) # Make a local copy of the domain
@@ -46,14 +46,14 @@ function precompute!(heuristic::FFHeuristic,
 end
 
 function compute(heuristic::FFHeuristic,
-                 domain::Domain, state::State, goal_spec::GoalSpec)
+                 domain::Domain, state::State, spec::Specification)
     # Precompute if necessary
     if !isdefined(heuristic, :cache)
-        precompute!(heuristic, domain, state, goal_spec) end
+        precompute!(heuristic, domain, state, spec) end
     @unpack cache = heuristic
     @unpack domain = cache
-    @unpack goals = goal_spec
     @unpack types, facts = state
+    goals = get_goal_terms(spec)
     # Initialize fact levels and achievers in a GraphPlan-style planning graph
     levels = Dict{Term,Int}(f => 1 for f in facts)
     achievers = Dict{Term,Vector{Term}}(f => Term[] for f in facts)
@@ -62,7 +62,7 @@ function compute(heuristic::FFHeuristic,
         facts = Set(keys(levels))
         state = State(types, facts, Dict{Symbol,Any}())
         # Break out of loop once all goals are achieved
-        if is_goal(goal_spec, domain, state) break end
+        if is_goal(spec, domain, state) break end
         cur_level += 1
         # Add all one-step derivations of domain axioms
         for ax in cache.axioms

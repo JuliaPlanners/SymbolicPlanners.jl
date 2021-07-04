@@ -25,13 +25,13 @@ rand_action(rng::AbstractRNG, sol::PolicyTreeSolution, state::State) =
 	best_action(sol, state)
 
 function solve(planner::MonteCarloTreeSearch,
-			   domain::Domain, state::State, goal_spec::GoalSpec)
+			   domain::Domain, state::State, spec::Specification)
 	@unpack n_rollouts, rollout_depth = planner
 	@unpack heuristic, discount, explore_noise = planner
     # Initialize solution
 	sol = PolicyTreeSolution()
 	state_id = hash(state)
-	h_val = -heuristic(domain, state, goal_spec) + 1
+	h_val = -heuristic(domain, state, spec) + 1
 	actions = available(state, domain)
 	sol.state_visits[state_id] = 0
 	sol.action_visits[state_id] = Dict{Term,Int}(a => 0 for a in actions)
@@ -45,7 +45,7 @@ function solve(planner::MonteCarloTreeSearch,
         # Rollout until maximum depth
         for t in 1:rollout_depth
 			# Terminate if rollout reaches goal
-            if is_goal(goal_spec, domain, state)
+            if is_goal(spec, domain, state)
 				rollout_val = 100 * discount^t
 				break # TODO : Handle general goal rewards
 			end
@@ -58,14 +58,14 @@ function solve(planner::MonteCarloTreeSearch,
 			state_id = hash(state)
 			# Insert search node
 			if !(state_id in keys(sol.state_visits))
-				h_val = -heuristic(domain, state, goal_spec) + 1
+				h_val = -heuristic(domain, state, spec) + 1
 				actions = available(state, domain)
 				sol.Q[state_id] =
 					Dict{Term,Float64}(a => h_val for a in actions)
 				sol.action_visits[state_id] =
 					Dict{Term,Int}(a => 0 for a in actions)
 				sol.state_visits[state_id] = 0
-				rollout_val = rollout_estimator(domain, state, goal_spec,
+				rollout_val = rollout_estimator(domain, state, spec,
 				  								rollout_depth-t, discount)
 				if (discount < 1) rollout_val *= discount^t end
 				break
@@ -106,10 +106,10 @@ function ucb_selection(sol, state, domain, c)
 	return act
 end
 
-function rollout_estimator(domain, state, goal_spec, depth, discount)
+function rollout_estimator(domain, state, spec, depth, discount)
 	reward = 0
     for t in 1:depth
-		if is_goal(goal_spec, domain, state)
+		if is_goal(spec, domain, state)
 			reward += discount * 100 # TODO: Handle general goal rewards
 			break
 		end

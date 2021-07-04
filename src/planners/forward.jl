@@ -31,15 +31,15 @@ WeightedAStarPlanner(heuristic::Heuristic, h_mult::Real; kwargs...) =
     ForwardPlanner(;heuristic=heuristic, h_mult=h_mult, kwargs...)
 
 function solve(planner::ForwardPlanner,
-               domain::Domain, state::State, goal_spec::GoalSpec)
+               domain::Domain, state::State, spec::Specification)
     @unpack h_mult, heuristic, save_search = planner
     # Initialize search tree and priority queue
     node_id = hash(state)
     search_tree = SearchTree(node_id => SearchNode(node_id, state, 0))
-    est_cost = h_mult * heuristic(domain, state, goal_spec)
+    est_cost = h_mult * heuristic(domain, state, spec)
     queue = PriorityQueue{UInt,Float64}(node_id => est_cost)
     # Run the search
-    status, node_id = search!(planner, domain, goal_spec, search_tree, queue)
+    status, node_id = search!(planner, domain, spec, search_tree, queue)
     # Reconstruct plan and return solution
     if status != :failure
         plan, traj = reconstruct(node_id, search_tree)
@@ -56,7 +56,7 @@ function solve(planner::ForwardPlanner,
 end
 
 function search!(planner::ForwardPlanner,
-                 domain::Domain, goal_spec::GoalSpec,
+                 domain::Domain, spec::Specification,
                  search_tree::SearchTree, queue::PriorityQueue)
     count = 1
     while length(queue) > 0
@@ -64,21 +64,21 @@ function search!(planner::ForwardPlanner,
         node_id = dequeue!(queue)
         node = search_tree[node_id]
         # Return status and current state if search terminates
-        if is_goal(goal_spec, domain, node.state)
+        if is_goal(spec, domain, node.state)
             return :success, node_id # Goal reached
         elseif count >= planner.max_nodes
             return :max_nodes, node_id # Node budget reached
         end
         count += 1
         # Expand current node
-        expand!(planner, node, search_tree, queue, domain, goal_spec)
+        expand!(planner, node, search_tree, queue, domain, spec)
     end
     return :failure, nothing
 end
 
 function expand!(planner::ForwardPlanner, node::SearchNode,
                  search_tree::SearchTree, queue::PriorityQueue,
-                 domain::Domain, goal_spec::GoalSpec)
+                 domain::Domain, spec::Specification)
     @unpack g_mult, h_mult, heuristic = planner
     state = node.state
     # Iterate over available actions
@@ -88,9 +88,9 @@ function expand!(planner::ForwardPlanner, node::SearchNode,
         next_state = transition(domain, state, act; check=false)
         next_id = hash(next_state)
         # Check if next state satisfies trajectory constraints
-        if is_violated(goal_spec, domain, state) continue end
+        if is_violated(spec, domain, state) continue end
         # Compute path cost
-        act_cost = get_cost(goal_spec, domain, state, act, next_state)
+        act_cost = get_cost(spec, domain, state, act, next_state)
         path_cost = node.path_cost + act_cost
         # Update path costs if new path is shorter
         next_node = get!(search_tree, next_id,
@@ -103,7 +103,7 @@ function expand!(planner::ForwardPlanner, node::SearchNode,
             # Update estimated cost from next state to goal
             if !(next_id in keys(queue))
                 g_val = g_mult * path_cost
-                h_val = h_mult * heuristic(domain, next_state, goal_spec)
+                h_val = h_mult * heuristic(domain, next_state, spec)
                 enqueue!(queue, next_id, g_val + h_val)
             else
                 queue[next_id] -= cost_diff
