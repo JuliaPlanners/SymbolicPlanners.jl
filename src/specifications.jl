@@ -37,8 +37,7 @@ get_discount(::NullSpecification) = 1.0
 abstract type Goal <: Specification end
 
 "Return goal terms."
-get_goal_terms(spec::Goal) =
-    error("Not implemented.")
+get_goal_terms(spec::Goal) = error("Not implemented.")
 
 # No discounting for goal specifications by default
 get_discount(spec::Goal) = 1.0
@@ -47,6 +46,7 @@ include("specifications/min_steps.jl")
 include("specifications/min_metric.jl")
 include("specifications/max_metric.jl")
 include("specifications/state_constrained.jl")
+include("specifications/discounted.jl")
 include("specifications/goal_reward.jl")
 
 # Convenience constructors

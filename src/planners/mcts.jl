@@ -5,7 +5,7 @@ export MonteCarloTreeSearch, MCTS
 	heuristic::Heuristic = GoalCountHeuristic()
 	explore_noise::Float64 = 2.0
 	n_rollouts::Int64 = 50
-	rollout_depth::Int64 = 50
+	max_depth::Int64 = 50
 end
 
 const MCTS = MonteCarloTreeSearch
@@ -25,7 +25,7 @@ rand_action(sol::PolicyTreeSolution, state::State) =
 
 function solve(planner::MonteCarloTreeSearch,
 			   domain::Domain, state::State, spec::Specification)
-	@unpack n_rollouts, rollout_depth = planner
+	@unpack n_rollouts, max_depth = planner
 	@unpack heuristic, explore_noise = planner
 	discount = get_discount(spec)
     # Initialize solution
@@ -43,7 +43,7 @@ function solve(planner::MonteCarloTreeSearch,
 		state, state_id = initial_state, hash(initial_state)
 		rollout_val = 0.0
         # Rollout until maximum depth
-        for t in 1:rollout_depth
+        for t in 1:max_depth
 			# Terminate if rollout reaches goal
             if is_goal(spec, domain, state)
 				rollout_val = 1.0 * discount^t
@@ -66,7 +66,7 @@ function solve(planner::MonteCarloTreeSearch,
 					Dict{Term,Int}(a => 0 for a in actions)
 				sol.state_visits[state_id] = 0
 				rollout_val =
-					rollout_estimator(domain, state, spec, rollout_depth-t)
+					rollout_estimator(domain, state, spec, max_depth-t)
 				if (discount < 1) rollout_val *= discount^t end
 				break
 			end

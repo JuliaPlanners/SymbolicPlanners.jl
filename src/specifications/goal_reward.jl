@@ -20,7 +20,11 @@ get_cost(spec::GoalReward, domain::Domain, s1::State, a::Term, s2::State) =
     -get_reward(spec, domain, s1, a, s2)
 get_reward(spec::GoalReward, domain::Domain, s1::State, a::Term, s2::State) =
     is_goal(spec, domain, s2) ? spec.reward : 0.0
+get_discount(spec::GoalReward) = spec.discount
 get_goal_terms(spec::GoalReward) = spec.terms
+
+discounted(spec::GoalReward, discount::Float64) =
+    GoalReward(spec.terms, spec.reward, discount * spec.discount)
 
 "Wrapper specification that delivers additional reward upon reaching goal."
 @kwdef struct BonusGoalReward{G <: Goal} <: Goal
@@ -31,6 +35,8 @@ end
 
 BonusGoalReward(spec::Goal) = BonusGoalReward(spec, 1.0, 1.0)
 BonusGoalReward(spec::Goal, reward) = BonusGoalReward(spec, reward, 1.0)
+BonusGoalReward(spec::BonusGoalReward, reward, discount) =
+    BonusGoalReward(spec.goal, reward + spec.reward, discount * spec.discount)
 
 is_goal(spec::BonusGoalReward, domain::Domain, state::State) =
     is_goal(spec.goal, domain, state)
@@ -41,5 +47,8 @@ get_cost(spec::BonusGoalReward, domain::Domain, s1::State, a::Term, s2::State) =
 get_reward(spec::BonusGoalReward, domain::Domain, s1::State, a::Term, s2::State) =
     get_reward(spec.goal, domain, s1, a, s2) +
     is_goal(spec, domain, s2) ? spec.reward : 0.0
-get_goal_terms(spec::BonusGoalReward) =
-    get_goal_terms(spec.goal)
+get_discount(spec::BonusGoalReward) = spec.discount
+get_goal_terms(spec::BonusGoalReward) = get_goal_terms(spec.goal)
+
+discounted(spec::BonusGoalReward, discount::Float64) =
+    BonusGoalReward(spec.goal, spec.reward, discount * spec.discount)
