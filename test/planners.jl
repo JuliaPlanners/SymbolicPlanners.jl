@@ -163,24 +163,22 @@ clear_available_action_cache!()
 Random.seed!(0)
 simulator = StateActionRecorder(100)
 
-heuristic = ManhattanHeuristic(@pddl("xpos", "ypos"))
-planner = MCTS(heuristic=heuristic, n_rollouts=50)
-sol = planner(gridworld, gw_state, gw_problem.goal)
+planner = MCTS(n_rollouts=50)
+sol = planner(gridworld, gw_state, GoalReward(gw_problem.goal, 100))
 actions, trajectory = simulator(sol, gridworld, gw_state, gw_spec)
 @test is_goal(gw_spec, gridworld, trajectory[end])
 @test actions == @pddl("down", "down", "right", "right", "up", "up")
 
-heuristic = GoalCountHeuristic()
-planner = MCTS(heuristic=heuristic, n_rollouts=50)
-sol = planner(doors_keys_gems, dkg_state, dkg_problem.goal)
+planner = MCTS(n_rollouts=50)
+sol = planner(doors_keys_gems, dkg_state, GoalReward(dkg_problem.goal, 100))
 actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
 @test is_goal(dkg_spec, doors_keys_gems, trajectory[end])
 @test actions == @pddl("(down)", "(pickup key1)", "(down)",
                        "(unlock key1 right)", "(right)", "(right)",
                         "(up)", "(up)", "(pickup gem1)")
 
-planner = MCTS(heuristic=HAdd(), n_rollouts=50)
-sol = planner(blocksworld, bw_state, bw_problem.goal)
+planner = MCTS(n_rollouts=50)
+sol = planner(blocksworld, bw_state, GoalReward(bw_problem.goal, 100))
 actions, trajectory = simulator(sol, blocksworld, bw_state, bw_spec)
 @test is_goal(bw_spec, blocksworld, trajectory[end])
 @test actions == @pddl("(pick-up a)", "(stack a b)",

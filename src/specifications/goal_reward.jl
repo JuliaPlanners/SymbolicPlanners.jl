@@ -8,10 +8,10 @@ export GoalReward, BonusGoalReward
 end
 
 GoalReward(problem::Problem) = GoalReward(flatten_conjs(problem.goal), 1.0, 0.9)
-GoalReward(terms) = GoalReward(terms, 1.0, 0.9)
 GoalReward(terms, reward) = GoalReward(terms, reward, 0.9)
-GoalReward(term::Term, reward) = GoalReward(flatten_conjs(term), reward, 0.9)
-GoalReward(term::Term) = GoalReward(flatten_conjs(term), 1.0, 0.9)
+GoalReward(terms) = GoalReward(terms, 1.0, 0.9)
+GoalReward(term::Term, reward, discount) =
+    GoalReward(flatten_conjs(term), reward, discount)
 
 is_goal(spec::GoalReward, domain::Domain, state::State) =
     satisfy(spec.terms, state, domain)[1]
