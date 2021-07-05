@@ -3,7 +3,7 @@ export MinMetricGoal
 "Goal specification where costs are differences in a state-based metric."
 struct MinMetricGoal <: Goal
     terms::Vector{Term} # Goal terms to be satisfied
-    metric::Term # Metric to be minimized
+    metric::Term # Cost metric to be minimized
 end
 
 function MinMetricGoal(problem::Problem)

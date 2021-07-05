@@ -6,7 +6,7 @@ struct RandomPolicy{R <: AbstractRNG} <: PolicySolution
     rng::R
 end
 
-RandomPolicy(domain) = RandomPolicy(domian, Random.GLOBAL_RNG)
+RandomPolicy(domain) = RandomPolicy(domain, Random.GLOBAL_RNG)
 
 get_action(sol::RandomPolicy, state::State) =
     rand_action(sol, state)

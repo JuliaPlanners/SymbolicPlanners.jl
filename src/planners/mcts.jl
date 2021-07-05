@@ -3,7 +3,6 @@ export MonteCarloTreeSearch, MCTS
 "Planner that uses Monte Carlo Tree Search (MCTS)."
 @kwdef mutable struct MonteCarloTreeSearch <: Planner
 	heuristic::Heuristic = GoalCountHeuristic()
-	discount::Float64 = 0.9
 	explore_noise::Float64 = 2.0
 	n_rollouts::Int64 = 50
 	rollout_depth::Int64 = 50
@@ -27,7 +26,8 @@ rand_action(sol::PolicyTreeSolution, state::State) =
 function solve(planner::MonteCarloTreeSearch,
 			   domain::Domain, state::State, spec::Specification)
 	@unpack n_rollouts, rollout_depth = planner
-	@unpack heuristic, discount, explore_noise = planner
+	@unpack heuristic, explore_noise = planner
+	discount = get_discount(spec)
     # Initialize solution
 	sol = PolicyTreeSolution()
 	state_id = hash(state)
@@ -46,7 +46,7 @@ function solve(planner::MonteCarloTreeSearch,
         for t in 1:rollout_depth
 			# Terminate if rollout reaches goal
             if is_goal(spec, domain, state)
-				rollout_val = 100 * discount^t
+				rollout_val = 1.0 * discount^t
 				break # TODO : Handle general goal rewards
 			end
 			# Select action
@@ -65,8 +65,8 @@ function solve(planner::MonteCarloTreeSearch,
 				sol.action_visits[state_id] =
 					Dict{Term,Int}(a => 0 for a in actions)
 				sol.state_visits[state_id] = 0
-				rollout_val = rollout_estimator(domain, state, spec,
-				  								rollout_depth-t, discount)
+				rollout_val =
+					rollout_estimator(domain, state, spec, rollout_depth-t)
 				if (discount < 1) rollout_val *= discount^t end
 				break
 			end
@@ -87,6 +87,11 @@ function solve(planner::MonteCarloTreeSearch,
 	return sol
 end
 
+solve(planner::MCTS, domain::Domain, state::State, goals::Vector{<:Term}) =
+    solve(planner, domain, state, GoalReward(goals))
+solve(planner::MCTS, domain::Domain, state::State, goal::Term) =
+    solve(planner, domain, state, GoalReward(goal))
+
 function ucb_selection(sol, state, domain, c)
 	actions = available(state, domain)
 	state_id = hash(state)
@@ -106,17 +111,8 @@ function ucb_selection(sol, state, domain, c)
 	return act
 end
 
-function rollout_estimator(domain, state, spec, depth, discount)
-	reward = 0
-    for t in 1:depth
-		if is_goal(spec, domain, state)
-			reward += discount * 100 # TODO: Handle general goal rewards
-			break
-		end
-        act = rand(available(state, domain))
-        next_state = transition(domain, state, act)
-		reward -= discount * 0 # TODO: Handle general action costs
-		discount *= discount
-    end
-    return reward
+function rollout_estimator(domain, state, spec, depth)
+	sim = RewardAccumulator(depth)
+	policy = RandomPolicy(domain)
+	return sim(policy, domain, state, spec)
 end
