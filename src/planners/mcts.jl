@@ -1,7 +1,10 @@
-export MonteCarloTreeSearch, MCTS
+export MonteCarloTreeSearch, MCTS, MCTSTreeSolution
+export MCTSNodeSelector, MaxUCBSelector, BoltzmannUCBSelector
+
+## MCTS solution type ##
 
 "MCTS policy solution."
-@kwdef struct MCTSTreeSolution <: PolicySolution
+@kwdef mutable struct MCTSTreeSolution <: PolicySolution
 	Q::Dict{UInt64,Dict{Term,Float64}} = Dict()
 	s_visits::Dict{UInt64,Int} = Dict()
 	a_visits::Dict{UInt64,Dict{Term,Float64}} = Dict()
@@ -13,16 +16,123 @@ best_action(sol::MCTSTreeSolution, state::State) =
     argmax(sol.Q[hash(state)])
 rand_action(sol::MCTSTreeSolution, state::State) =
     best_action(sol, state)
+get_value(sol::MCTSTreeSolution, state::State) =
+    maximum(sol.Q[hash(state)])
+get_value(sol::MCTSTreeSolution, state::State, action::Term) =
+    sol.Q[hash(state)][action]
+get_action_values(sol::MCTSTreeSolution, state::State) =
+    pairs(sol.Q[hash(state)])
 
 has_state_node(sol::MCTSTreeSolution, state::State) =
 	hash(state) in keys(sol.s_visits)
 
+## Selection strategies for leaf nodes ##
+
+"Max upper-confidence bound (UCB) action policy."
+struct MaxUCBPolicy <: PolicySolution
+	tree::MCTSTreeSolution
+	confidence::Float64
+end
+
+function get_action_values(sol::MaxUCBPolicy, state::State)
+	state_id = hash(state)
+	s_visits = sol.tree.s_visits[state_id]
+	vals = map(collect(sol.tree.Q[state_id])) do (act, val)
+		a_visits = sol.tree.a_visits[state_id][act]
+		if s_visits != 0 && !(s_visits == 1 && a_visits == 0)
+			val += sol.confidence * sqrt(log(s_visits) / a_visits)
+		end
+		return act => val
+	end
+	return vals
+end
+
+function best_action(sol::MaxUCBPolicy, state::State)
+    a_vals = get_action_values(sol, state)
+	best_idx = argmax(last.(a_vals))
+	return first(a_vals[best_idx])
+end
+
+get_action(sol::MaxUCBPolicy, state::State) =
+    best_action(sol, state)
+rand_action(sol::MaxUCBPolicy, state::State) =
+    best_action(sol, state)
+get_value(sol::MaxUCBPolicy, state::State) =
+    maximum(last, get_action_values(sol, state))
+get_value(sol::MaxUCBPolicy, state::State, action::Term) =
+    findfirst(x -> first(x) == action, get_action_values(sol, state))
+
+BoltzmannUCBPolicy(tree::MCTSTreeSolution, confidence, temperature) =
+	BoltzmannPolicy(MaxUCBPolicy(tree, confidence), temperature)
+
+"Abstract type for MCTS node selection strategies."
+abstract type MCTSNodeSelector end
+
+(sel::MCTSNodeSelector)(tree::MCTSTreeSolution, domain::Domain, state::State) =
+	error("Not implemented.")
+
+"Max UCB selection strategy."
+@kwdef struct MaxUCBSelector <: MCTSNodeSelector
+	confidence::Float64 = 2.0
+end
+
+(sel::MaxUCBSelector)(tree::MCTSTreeSolution, ::Domain, state::State) =
+ 	get_action(MaxUCBPolicy(tree, sel.confidence), state)
+
+"Boltzmann UCB selection strategy."
+@kwdef struct BoltzmannUCBSelector <: MCTSNodeSelector
+	confidence::Float64 = 2.0
+	temperature::Float64 = 1.0
+end
+
+(sel::BoltzmannUCBSelector)(tree::MCTSTreeSolution, ::Domain, state::State) =
+ 	get_action(BoltzmannUCBPolicy(tree, sel.confidence, sel.temperature), state)
+
+## Leaf node estimators ##
+
+"Abstract type for MCTS leaf value estimators."
+abstract type MCTSLeafEstimator end
+
+(e::MCTSLeafEstimator)(::Domain, ::State, ::Specification, depth::Int) =
+	error("Not implemented.")
+
+"Estimates value as a constant."
+struct ConstantEstimator{C <: Real} <: MCTSLeafEstimator
+	value::C
+end
+
+(e::ConstantEstimator)(::Domain, ::State, ::Specification, ::Int) = e.value
+
+"Estimates value via uniform random rollouts."
+struct RandomRolloutEstimator <: MCTSLeafEstimator end
+
+function (e::RandomRolloutEstimator)(domain::Domain, state::State,
+								     spec::Specification, depth::Int)
+	sim = RewardAccumulator(depth)
+	policy = RandomPolicy(domain)
+	return sim(policy, domain, state, spec)
+end
+
+"Estimates value via policy rollouts."
+struct PolicyRolloutEstimator{P <: PolicySolution} <: MCTSLeafEstimator
+	policy::P
+end
+
+function (e::PolicyRolloutEstimator)(domain::Domain, state::State,
+									 spec::Specification, depth::Int)
+	sim = RewardAccumulator(depth)
+	return sim(e.policy, domain, state, spec)
+end
+
+## Main algorithm ##
+
 "Planner that uses Monte Carlo Tree Search (MCTS)."
-@kwdef mutable struct MonteCarloTreeSearch <: Planner
-	heuristic::Heuristic = GoalCountHeuristic()
+@kwdef mutable struct MonteCarloTreeSearch{S,E} <: Planner
 	n_rollouts::Int64 = 50
 	max_depth::Int64 = 50
-	explore_noise::Float64 = 2.0
+	heuristic::Heuristic = GoalCountHeuristic() # Initial value heuristic
+	selector::S = BoltzmannUCBSelector() # Node selection strategy
+	estimator::E = RandomRolloutEstimator() # Leaf node value estimator
 end
 
 const MCTS = MonteCarloTreeSearch
@@ -30,11 +140,11 @@ const MCTS = MonteCarloTreeSearch
 function solve(planner::MonteCarloTreeSearch,
 			   domain::Domain, state::State, spec::Specification)
 	@unpack n_rollouts, max_depth = planner
-	@unpack heuristic, explore_noise = planner
+	@unpack heuristic, selector, estimator = planner
 	discount = get_discount(spec)
     # Initialize solution
 	sol = MCTSTreeSolution()
-	insert_node!(planner, sol, domain, state, spec)
+	sol = insert_node!(planner, sol, domain, state, spec)
 	# Perform rollouts from initial state
 	a_visited, s_visited = Term[], State[]
 	initial_state = state
@@ -46,16 +156,16 @@ function solve(planner::MonteCarloTreeSearch,
 			# Terminate if rollout reaches goal
             if is_goal(spec, domain, state) break end
 			# Select action
-			act = ucb_selection(sol, state, domain, explore_noise)
+			act = selector(sol, domain, state)
 			push!(s_visited, state)
 			push!(a_visited, act)
 			# Transition to next state
             state = transition(domain, state, act)
-			# Insert search node
+			# Insert leaf node and evaluate
 			if !has_state_node(sol, state)
 				insert_node!(planner, sol, domain, state, spec)
 				value = get_discount(spec)^t *
-					rollout_estimator(domain, state, spec, max_depth-t)
+						estimator(domain, state, spec, max_depth-t)
 				break
 			end
         end
@@ -92,29 +202,5 @@ function insert_node!(planner::MonteCarloTreeSearch, sol::MCTSTreeSolution,
     sol.Q[state_id] = Dict{Term,Float64}(zip(actions, qs))
 	sol.a_visits[state_id] = Dict{Term,Int}(a => 0 for a in actions)
 	sol.s_visits[state_id] = 0
-end
-
-function ucb_selection(sol, state, domain, c)
-	actions = available(state, domain)
-	state_id = hash(state)
-	s_visits = sol.s_visits[state_id]
-	ucb_vals = map(actions) do act
-		act_visits = sol.a_visits[state_id][act]
-		q_val = sol.Q[state_id][act]
-		if c == 0 || s_visits == 0 || (s_visits == 1 && act_visits == 0)
-			val = q_val
-		else
-			val = q_val + c*sqrt(log(s_visits) / act_visits)
-		end
-		return val
-	end
-	probs = softmax(ucb_vals ./ 1.0)
-    act = sample(actions, Weights(probs, 1.0))
-	return act
-end
-
-function rollout_estimator(domain, state, spec, depth)
-	sim = RewardAccumulator(depth)
-	policy = RandomPolicy(domain)
-	return sim(policy, domain, state, spec)
+	return sol
 end

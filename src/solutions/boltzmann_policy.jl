@@ -28,8 +28,11 @@ get_value(sol::BoltzmannPolicy, state::State, action::Term) =
 get_action_values(sol::BoltzmannPolicy, state::State) =
     get_action_values(sol.policy, state)
 
+unzip_pairs(ps::AbstractDict) = unzip_pairs(collect(ps))
+unzip_pairs(ps::AbstractArray{<:Pair}) = first.(ps), last.(ps)
+
 function rand_action(sol::BoltzmannPolicy, state::State)
-    actions, q_values = unzip(get_action_values(sol.policy, state))
+    actions, q_values = unzip_pairs(get_action_values(sol, state))
     if sol.temperature == 0
         probs = zeros(length(actions))
         probs[argmax(q_values)] = 1.0
