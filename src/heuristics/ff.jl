@@ -1,5 +1,5 @@
 ## FastForward (FF) delete-relaxation heuristic ##
-export FFHeuristic, FFRHeuristic
+export FFHeuristic
 
 "Precomputed domain information for FF heuristic."
 struct FFCache
@@ -12,16 +12,17 @@ end
 "FastForward (FF) delete-relaxation heuristic."
 mutable struct FFHeuristic <: Heuristic
     cache::FFCache # Precomputed domain information
+    pre_key::UInt64 # Key to check if information needs to be precomputed again
     FFHeuristic() = new()
-    FFHeuristic(cache) = new(cache)
 end
 
 Base.hash(heuristic::FFHeuristic, h::UInt) = hash(FFHeuristic, h)
 
-function precompute!(heuristic::FFHeuristic,
+function precompute!(h::FFHeuristic,
                      domain::Domain, state::State, spec::Specification)
     # Check if cache has already been computed
-    if isdefined(heuristic, :cache) return heuristic end
+    if is_precomputed(h, domain, state, spec) return h end
+    h.pre_key = objectid(domain) # Precomputed data is unique to each domain
     domain = copy(domain) # Make a local copy of the domain
     # Preprocess axioms
     axioms = regularize_clauses(domain.axioms) # Regularize domain axioms
@@ -41,16 +42,21 @@ function precompute!(heuristic::FFHeuristic,
         diff = effect_diff(act_def.effect)
         additions[act_name] = diff.add
     end
-    heuristic.cache = FFCache(domain, axioms, preconds, additions)
-    return heuristic
+    h.cache = FFCache(domain, axioms, preconds, additions)
+    return h
 end
 
-function compute(heuristic::FFHeuristic,
+function is_precomputed(h::FFHeuristic,
+                        domain::Domain, state::State, spec::Specification)
+    return (isdefined(h, :cache) && objectid(domain) == h.pre_key)
+end
+
+function compute(h::FFHeuristic,
                  domain::Domain, state::State, spec::Specification)
     # Precompute if necessary
-    if !isdefined(heuristic, :cache)
-        precompute!(heuristic, domain, state, spec) end
-    @unpack cache = heuristic
+    if !is_precomputed(h, domain, state, spec)
+        precompute!(h, domain, state, spec) end
+    @unpack cache = h
     @unpack domain = cache
     @unpack types, facts = state
     goals = get_goal_terms(spec)

@@ -11,7 +11,7 @@ end
 
 "Calls the FastDownward planning system to produce a plan."
 function solve(planner::FastDownwardPlanner,
-              domain::Domain, state::State, spec::Specification)
+               domain::Domain, state::State, spec::Specification)
     if !haskey(ENV, "FD_PATH")
         error("FD_PATH not set to location of fast_downward.py")
     end

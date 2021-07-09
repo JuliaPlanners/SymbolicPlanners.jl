@@ -42,12 +42,23 @@ get_goal_terms(spec::Goal) = error("Not implemented.")
 # No discounting for goal specifications by default
 get_discount(spec::Goal) = 1.0
 
+"Null goal specification."
+struct NullGoal <: Goal end
+
+is_goal(::NullGoal, ::Domain, ::State) = true
+is_violated(::NullGoal, ::Domain, ::State) = false
+get_cost(::NullGoal, ::Domain, ::State, ::Term, ::State) = 0.0
+get_reward(::NullGoal, ::Domain, ::State, ::Term, ::State) = 0.0
+get_discount(::NullGoal) = 1.0
+get_goal_terms(::NullGoal) = Term[]
+
 include("specifications/min_steps.jl")
 include("specifications/min_metric.jl")
 include("specifications/max_metric.jl")
 include("specifications/state_constrained.jl")
 include("specifications/discounted.jl")
 include("specifications/goal_reward.jl")
+include("specifications/backward.jl")
 
 # Convenience constructors
 Specification(problem::Problem) = problem.metric === nothing ?

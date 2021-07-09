@@ -13,6 +13,12 @@ GoalReward(terms) = GoalReward(terms, 1.0, 0.9)
 GoalReward(term::Term, reward, discount) =
     GoalReward(flatten_conjs(term), reward, discount)
 
+Base.hash(spec::GoalReward, h::UInt) =
+    hash(spec.reward, hash(spec.discount, hash(Set(spec.terms), h)))
+Base.isequal(s1::GoalReward, s2::GoalReward) =
+    s1.reward == s2.reward && s1.discount == s2.discount &&
+    Set(s1.terms) == Set(s2.terms)
+
 is_goal(spec::GoalReward, domain::Domain, state::State) =
     satisfy(spec.terms, state, domain)[1]
 is_violated(spec::GoalReward, domain::Domain, state::State) = false

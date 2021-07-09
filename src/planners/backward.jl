@@ -1,33 +1,5 @@
 export BackwardPlanner, BackwardGreedyPlanner, BackwardAStarPlanner
 
-"Goal specification for backward search."
-struct BackwardSearchGoal{G <: Goal,C} <: Goal
-    goal::G # Original goal specification
-    start::State # Start state to be reached via backward search
-    constraint_diff::C # State constraints as a diff, if any
-end
-
-BackwardSearchGoal(goal::Goal, start::State) =
-    BackwardSearchGoal(goal, start, nothing)
-BackwardSearchGoal(goal::StateConstrainedGoal, start::State) =
-    BackwardSearchGoal(goal, start, precond_diff(constraints))
-
-is_goal(spec::BackwardSearchGoal, domain::Domain, state::State) =
-    issubset(state, spec.start)
-is_violated(spec::BackwardSearchGoal, domain::Domain, state::State) =
-    is_violated(spec.goal, domain, state)
-get_cost(spec::BackwardSearchGoal, domain::Domain, s1::State, a::Term, s2::State) =
-    get_cost(spec.goal, domain, s2, a, s1)
-get_reward(spec::BackwardSearchGoal, domain::Domain, s1::State, a::Term, s2::State) =
-    get_reward(spec.goal, domain, s2, a, s1)
-get_goal_terms(spec::BackwardSearchGoal) =
-    get_goal_terms(spec.goal)
-
-add_constraints!(spec::BackwardSearchGoal, state::State) =
-    nothing
-add_constraints!(spec::BackwardSearchGoal{G,PDDL.Diff}, state::State) where {G} =
-    update!(state, spec.constraint_diff)
-
 "Heuristic-guided best-first backward search."
 @kwdef mutable struct BackwardPlanner <: Planner
     heuristic::Heuristic = GoalCountHeuristic(:backward)
@@ -48,6 +20,8 @@ BackwardAStarPlanner(heuristic::Heuristic; kwargs...) =
 function solve(planner::BackwardPlanner,
                domain::Domain, state::State, spec::Specification)
     @unpack h_mult, heuristic, save_search = planner
+    # Precompute heuristic information
+    precompute!(heuristic, domain, state, spec)
     # Convert to backward search goal specification
     spec = BackwardSearchGoal(spec, state)
     state = State(get_goal_terms(spec), PDDL.get_types(state))

@@ -17,38 +17,44 @@ end
 
 Base.hash(::GoalCountHeuristic, h::UInt) = hash(GoalCountHeuristic, h)
 
-function compute(heuristic::GoalCountHeuristic,
+function compute(h::GoalCountHeuristic,
                  domain::Domain, state::State, spec::Specification)
     goals = get_goal_terms(spec)
     count = sum([!state[domain, g] for g in goals])
-    return heuristic.dir == :backward ? length(goals) - count : count
+    return h.dir == :backward ? length(goals) - count : count
 end
 
 "Computes Manhattan distance to the goal for the specified numeric fluents."
 mutable struct ManhattanHeuristic <: Heuristic
     fluents::Vector{Term}
     goal_state::State
+    pre_key::UInt64 # Key to check if information needs to be precomputed again
     ManhattanHeuristic(fluents) = new(fluents)
-    ManhattanHeuristic(fluents, goal_state) = new(fluents, goal_state)
 end
 
 Base.hash(heuristic::ManhattanHeuristic, h::UInt) =
     hash(heuristic.fluents, hash(ManhattanHeuristic, h))
 
-function precompute!(heuristic::ManhattanHeuristic,
+function precompute!(h::ManhattanHeuristic,
                      domain::Domain, state::State, spec::Specification)
-    heuristic.goal_state = State(get_goal_terms(spec))
-    return heuristic
+    h.goal_state = State(get_goal_terms(spec))
+    h.pre_key = objectid(spec)
+    return h
 end
 
-function compute(heuristic::ManhattanHeuristic,
+function is_precomputed(h::ManhattanHeuristic,
+                        domain::Domain, state::State, spec::Specification)
+    return (isdefined(h, :goal_state) && objectid(spec) == h.pre_key)
+end
+
+function compute(h::ManhattanHeuristic,
                  domain::Domain, state::State, spec::Specification)
     # Precompute if necessary
-    if !isdefined(heuristic, :goal_state)
-        precompute!(heuristic, domain, state, spec) end
-    @unpack fluents, goal_state = heuristic
-    goal_vals = [goal_state[domain, f] for f in fluents]
-    curr_vals = [state[domain, f] for f in fluents]
+    if !is_precomputed(h, domain, state, spec)
+        precompute!(h, domain, state, spec) end
+    # Compute L1 distance between fluents in the current and goal state
+    goal_vals = [h.goal_state[domain, f] for f in h.fluents]
+    curr_vals = [state[domain, f] for f in h.fluents]
     dist = sum(abs.(goal_vals - curr_vals))
     return dist
 end

@@ -7,7 +7,7 @@ struct StateConstrainedGoal{G <: Goal} <: Goal
 end
 
 Base.hash(spec::StateConstrainedGoal, h::UInt) =
-    hash(spec.constraints, hash(G, h))
+    hash(spec.constraints, hash(spec.goal, h))
 Base.isequal(s1::StateConstrainedGoal, s2::StateConstrainedGoal) =
     Set(s1.constraints) == Set(s2.constraints) && s1.goal == s2.goal
 

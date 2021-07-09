@@ -10,6 +10,11 @@ DiscountedReward(spec) = DiscountedReward(spec, 1.0, 1.0)
 DiscountedReward(spec::DiscountedReward, discount) =
     DiscountedReward(spec.spec, discount * spec.discount)
 
+Base.hash(spec::DiscountedReward, h::UInt) =
+    hash(spec.discount, hash(spec.spec, h))
+Base.isequal(s1::DiscountedReward, s2::DiscountedReward) =
+    s1.discount == s2.discount && s1.spec == s2.spec
+
 is_goal(spec::DiscountedReward, domain::Domain, state::State) =
     is_goal(spec.spec, domain, state)
 is_violated(spec::DiscountedReward, domain::Domain, state::State) =

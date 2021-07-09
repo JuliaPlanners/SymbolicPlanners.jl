@@ -26,6 +26,8 @@ function solve!(planner::RealTimeDynamicPlanner, sol::PolicyValue,
                 domain::Domain, state::State, spec::Specification)
     @unpack heuristic, action_noise = planner
     @unpack n_rollouts, max_depth, rollout_noise = planner
+    # Precompute heuristic information
+    precompute!(heuristic, domain, state, spec)
     # Perform rollouts from initial state
     initial_state = state
     ro_policy = rollout_noise == 0 ? sol : BoltzmannPolicy(sol, rollout_noise)

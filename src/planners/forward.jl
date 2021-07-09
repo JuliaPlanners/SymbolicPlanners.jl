@@ -33,6 +33,8 @@ WeightedAStarPlanner(heuristic::Heuristic, h_mult::Real; kwargs...) =
 function solve(planner::ForwardPlanner,
                domain::Domain, state::State, spec::Specification)
     @unpack h_mult, heuristic, save_search = planner
+    # Precompute heuristic information
+    precompute!(heuristic, domain, state, spec)
     # Initialize search tree and priority queue
     node_id = hash(state)
     search_tree = Dict{UInt,PathNode}(node_id => PathNode(node_id, state, 0))

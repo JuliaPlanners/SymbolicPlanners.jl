@@ -130,7 +130,7 @@ end
 @kwdef mutable struct MonteCarloTreeSearch{S,E} <: Planner
 	n_rollouts::Int64 = 50
 	max_depth::Int64 = 50
-	heuristic::Heuristic = GoalCountHeuristic() # Initial value heuristic
+	heuristic::Heuristic = NullHeuristic() # Initial value heuristic
 	selector::S = BoltzmannUCBSelector() # Node selection strategy
 	estimator::E = RandomRolloutEstimator() # Leaf node value estimator
 end
@@ -142,6 +142,8 @@ function solve(planner::MonteCarloTreeSearch,
 	@unpack n_rollouts, max_depth = planner
 	@unpack heuristic, selector, estimator = planner
 	discount = get_discount(spec)
+	# Precompute heuristic information
+    precompute!(heuristic, domain, state, spec)
     # Initialize solution
 	sol = MCTSTreeSolution()
 	sol = insert_node!(planner, sol, domain, state, spec)
