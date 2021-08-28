@@ -6,19 +6,19 @@
 path = joinpath(dirname(pathof(SymbolicPlanners)), "..", "domains", "gridworld")
 gridworld = load_domain(joinpath(path, "domain.pddl"))
 gw_problem = load_problem(joinpath(path, "problem-1.pddl"))
-gw_state = init_state(gw_problem)
+gw_state = initstate(gridworld, gw_problem)
 gw_spec = Specification(gw_problem)
 
 path = joinpath(dirname(pathof(SymbolicPlanners)), "..", "domains", "doors-keys-gems")
 doors_keys_gems = load_domain(joinpath(path, "domain.pddl"))
 dkg_problem = load_problem(joinpath(path, "problem-1.pddl"))
-dkg_state = init_state(dkg_problem)
+dkg_state = initstate(doors_keys_gems, dkg_problem)
 dkg_spec = Specification(dkg_problem)
 
 path = joinpath(dirname(pathof(SymbolicPlanners)), "..", "domains", "blocksworld")
 blocksworld = load_domain(joinpath(path, "domain.pddl"))
 bw_problem = load_problem(joinpath(path, "problem-0.pddl"))
-bw_state = init_state(bw_problem)
+bw_state = initstate(blocksworld, bw_problem)
 bw_spec = Specification(bw_problem)
 
 @testset "Breadth-First Planner" begin
@@ -43,8 +43,6 @@ end
 
 @testset "Uniform Cost Planner" begin
 
-clear_available_action_cache!()
-
 planner = UniformCostPlanner()
 sol = planner(gridworld, gw_state, gw_spec)
 @test is_goal(gw_spec, gridworld, sol.trajectory[end])
@@ -66,8 +64,6 @@ sol = planner(blocksworld, bw_state, bw_spec)
 end
 
 @testset "Greedy Planner" begin
-
-clear_available_action_cache!()
 
 planner = GreedyPlanner(ManhattanHeuristic(@pddl("xpos", "ypos")))
 sol = planner(gridworld, gw_state, gw_spec)
@@ -91,8 +87,6 @@ end
 
 @testset "A* Planner" begin
 
-clear_available_action_cache!()
-
 planner = AStarPlanner(ManhattanHeuristic(@pddl("xpos", "ypos")))
 sol = planner(gridworld, gw_state, gw_spec)
 @test is_goal(gw_spec, gridworld, sol.trajectory[end])
@@ -115,8 +109,6 @@ end
 
 @testset "Backward Planner" begin
 
-clear_relevant_action_cache!()
-
 planner = BackwardPlanner(heuristic=HAddR())
 sol = planner(blocksworld, bw_state, bw_spec)
 spec = SymbolicPlanners.BackwardSearchGoal(bw_spec, bw_state)
@@ -128,7 +120,6 @@ end
 
 @testset "Real Time Dynamic Programming" begin
 
-clear_available_action_cache!()
 Random.seed!(0)
 simulator = StateActionRecorder(100)
 
@@ -159,7 +150,6 @@ end
 
 @testset "Monte Carlo Tree Search" begin
 
-clear_available_action_cache!()
 Random.seed!(0)
 simulator = StateActionRecorder(100)
 

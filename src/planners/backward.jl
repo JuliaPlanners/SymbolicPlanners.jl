@@ -24,10 +24,10 @@ function solve(planner::BackwardPlanner,
     precompute!(heuristic, domain, state, spec)
     # Convert to backward search goal specification
     spec = BackwardSearchGoal(spec, state)
-    state = State(get_goal_terms(spec), PDDL.get_types(state))
+    state = goalstate(domain, state, get_goal_terms(spec))
     # Initialize search tree and priority queue
     node_id = hash(state)
-    search_tree = Dict{UInt,PathNode}(node_id => PathNode(node_id, state, 0))
+    search_tree = Dict{UInt,PathNode}(node_id => PathNode(node_id, state, 0.0))
     est_cost = h_mult * heuristic(domain, state, spec)
     queue = PriorityQueue{UInt,Float64}(node_id => est_cost)
     # Run the search
@@ -75,10 +75,9 @@ function expand!(planner::BackwardPlanner, node::PathNode,
     @unpack g_mult, h_mult, heuristic = planner
     state = node.state
     # Iterate over relevant actions
-    actions = relevant(state, domain)
-    for act in actions
+    for act in relevant(domain, state)
         # Regress (reverse-execute) the action
-        next_state = regress(act, state, domain; check=false)
+        next_state = regress(domain, state, act; check=false)
         # Add constraints to regression state
         add_constraints!(spec, state)
         next_id = hash(next_state)

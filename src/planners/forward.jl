@@ -37,7 +37,7 @@ function solve(planner::ForwardPlanner,
     precompute!(heuristic, domain, state, spec)
     # Initialize search tree and priority queue
     node_id = hash(state)
-    search_tree = Dict{UInt,PathNode}(node_id => PathNode(node_id, state, 0))
+    search_tree = Dict(node_id => PathNode(node_id, state, 0.0))
     est_cost = h_mult * heuristic(domain, state, spec)
     queue = PriorityQueue{UInt,Float64}(node_id => est_cost)
     # Run the search
@@ -51,7 +51,8 @@ function solve(planner::ForwardPlanner,
             return PathSearchSolution(status, plan, traj)
         end
     elseif save_search
-        return PathSearchSolution(status, [], [], search_tree, queue)
+        S = typeof(state)
+        return PathSearchSolution(status, Term[], S[], search_tree, queue)
     else
         return NullSolution()
     end
@@ -59,7 +60,7 @@ end
 
 function search!(planner::ForwardPlanner,
                  domain::Domain, spec::Specification,
-                 search_tree::Dict{UInt,PathNode}, queue::PriorityQueue)
+                 search_tree::Dict{UInt,<:PathNode}, queue::PriorityQueue)
     count = 1
     while length(queue) > 0
         # Get state with lowest estimated cost to goal
@@ -79,15 +80,14 @@ function search!(planner::ForwardPlanner,
 end
 
 function expand!(planner::ForwardPlanner, node::PathNode,
-                 search_tree::Dict{UInt,PathNode}, queue::PriorityQueue,
+                 search_tree::Dict{UInt,<:PathNode}, queue::PriorityQueue,
                  domain::Domain, spec::Specification)
     @unpack g_mult, h_mult, heuristic = planner
     state = node.state
     # Iterate over available actions
-    actions = available(state, domain)
-    for act in actions
+    for act in available(domain, state)
         # Execute action and trigger all post-action events
-        next_state = transition(domain, state, act; check=false)
+        next_state = execute(domain, state, act; check=false)
         next_id = hash(next_state)
         # Check if next state satisfies trajectory constraints
         if is_violated(spec, domain, state) continue end

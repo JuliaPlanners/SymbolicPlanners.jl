@@ -21,7 +21,7 @@ Base.isequal(s1::MaxMetricGoal, s2::MaxMetricGoal) =
     s1.metric == s2.metric && Set(s1.terms) == Set(s2.terms)
 
 is_goal(spec::MaxMetricGoal, domain::Domain, state::State) =
-    satisfy(spec.terms, state, domain)[1]
+    satisfy(domain, state, spec.terms)
 is_violated(spec::MaxMetricGoal, domain::Domain, state::State) = false
 get_cost(spec::MaxMetricGoal, domain::Domain, s1::State, ::Term, s2::State) =
     s1[domain, spec.metric] - s2[domain, spec.metric]

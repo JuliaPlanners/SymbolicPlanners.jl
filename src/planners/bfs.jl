@@ -11,7 +11,7 @@ function solve(planner::BreadthFirstPlanner,
     @unpack max_nodes, save_search = planner
     # Initialize backpointers and queue
     node_id = hash(state)
-    search_tree = Dict{UInt,PathNode}(node_id => PathNode(node_id, state, 0))
+    search_tree = Dict(node_id => PathNode(node_id, state, 0.0))
     queue = [node_id]
     # Run the search
     status, node_id = search!(planner, domain, spec, search_tree, queue)
@@ -24,7 +24,8 @@ function solve(planner::BreadthFirstPlanner,
             return PathSearchSolution(status, plan, traj)
         end
     elseif save_search
-        return PathSearchSolution(status, [], [], search_tree, queue)
+        S = typeof(state)
+        return PathSearchSolution(status, Term[], S[], search_tree, queue)
     else
         return NullSolution()
     end
@@ -32,7 +33,7 @@ end
 
 function search!(planner::BreadthFirstPlanner,
                  domain::Domain, spec::Specification,
-                 search_tree::Dict{UInt,PathNode}, queue::Vector{UInt})
+                 search_tree::Dict{UInt,<:PathNode}, queue::Vector{UInt})
     count = 1
     while length(queue) > 0
         # Pop state off the queue
@@ -52,21 +53,20 @@ function search!(planner::BreadthFirstPlanner,
 end
 
 function expand!(planner::BreadthFirstPlanner, node::PathNode,
-                 search_tree::Dict{UInt,PathNode}, queue::Vector{UInt},
+                 search_tree::Dict{UInt,<:PathNode}, queue::Vector{UInt},
                  domain::Domain, spec::Specification)
     state = node.state
     # Iterate over available actions
-    actions = available(state, domain)
-    for act in actions
+    for act in available(domain, state)
         # Execute actions on state
-        next_state = transition(domain, state, act; check=false)
+        next_state = execute(domain, state, act, check=false)
         next_id = hash(next_state)
         # Skip if state has already been encountered
         if haskey(search_tree, next_id) continue end
         # Check if next state satisfies trajectory constraints
         if is_violated(spec, domain, state) continue end
         # Update backpointer and add next state to queue
-        search_tree[next_id] = PathNode(next_id, next_state, 0, node.id, act)
+        search_tree[next_id] = PathNode(next_id, next_state, 0.0, node.id, act)
         push!(queue, next_id)
     end
 end

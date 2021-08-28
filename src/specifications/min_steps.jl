@@ -14,7 +14,7 @@ Base.isequal(s1::MinStepsGoal, s2::MinStepsGoal) =
     Set(s1.terms) == Set(s2.terms)
 
 is_goal(spec::MinStepsGoal, domain::Domain, state::State) =
-    satisfy(spec.terms, state, domain)[1]
+    satisfy(domain, state, spec.terms)
 is_violated(spec::MinStepsGoal, domain::Domain, state::State) = false
 get_cost(spec::MinStepsGoal, ::Domain, ::State, ::Term, ::State) = 1
 get_reward(spec::MinStepsGoal, ::Domain, ::State, ::Term, ::State) = -1

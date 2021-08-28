@@ -11,4 +11,4 @@ RandomPolicy(domain) = RandomPolicy(domain, Random.GLOBAL_RNG)
 get_action(sol::RandomPolicy, state::State) =
     rand_action(sol, state)
 rand_action(sol::RandomPolicy, state::State) =
-    rand(sol.rng, available(state, sol.domain))
+    rand(sol.rng, collect(available(sol.domain, state)))

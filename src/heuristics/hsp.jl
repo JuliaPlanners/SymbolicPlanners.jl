@@ -4,10 +4,8 @@ export HSPRHeuristic, HAddR, HMaxR
 
 "Precomputed domain information for HSP heuristic."
 struct HSPCache
-    domain::Domain # Preprocessed domain
-    axioms::Vector{Clause} # Preprocessed axioms
-    preconds::Dict{Symbol,Vector{Vector{Term}}} # Preconditions in DNF
-    additions::Dict{Symbol,Vector{Term}} # Action add lists
+    domain::AbstractedDomain # Preprocessed domain
+    depgraph::DependencyGraph # Domain dependency graph
 end
 
 "HSP family of delete-relaxation heuristics."
@@ -26,26 +24,9 @@ function precompute!(h::HSPHeuristic,
     # Check if cache has already been computed
     if is_precomputed(h, domain, state, spec) return h end
     h.pre_key = objectid(domain) # Precomputed data is unique to each domain
-    domain = copy(domain) # Make a local copy of the domain
-    # Preprocess axioms
-    axioms = regularize_clauses(domain.axioms) # Regularize domain axioms
-    axioms = [Clause(ax.head, [t for t in ax.body if t.name != :not])
-              for ax in axioms] # Remove negative literals
-    domain.axioms = Clause[] # Remove axioms so they do not affect execution
-    # Preprocess actions
-    preconds = Dict{Symbol,Vector{Vector{Term}}}()
-    additions = Dict{Symbol,Vector{Term}}()
-    for (act_name, act_def) in domain.actions
-        # Convert preconditions to DNF without negated literals
-        conds = get_preconditions(act_def; converter=to_dnf)
-        conds = [c.args for c in conds.args]
-        for c in conds filter!(t -> t.name != :not, c) end
-        preconds[act_name] = conds
-        # Extract additions from each effect
-        diff = effect_diff(act_def.effect)
-        additions[act_name] = diff.add
-    end
-    h.cache = HSPCache(domain, axioms, preconds, additions)
+    # Store abstracted domain and dependency graph
+    absdom = abstracted(domain; abstractions=Dict())
+    h.cache = HSPCache(absdom, dependency_graph(domain))
     return h
 end
 
@@ -60,57 +41,50 @@ function compute(h::HSPHeuristic,
     if !is_precomputed(h, domain, state, spec)
         precompute!(h, domain, state, spec) end
     @unpack op, cache = h
-    @unpack domain = cache
-    @unpack types, facts = state
+    @unpack domain, depgraph = cache
     goals = get_goal_terms(spec)
     # Initialize fact costs in a GraphPlan-style graph
-    fact_costs = Dict{Term,Float64}(f => 0 for f in facts)
+    fact_costs = Dict{Term,Float64}(f => 0 for f in PDDL.get_facts(state))
+    # Iterate until we reach the goal or a fixpoint
     while true
-        facts = Set(keys(fact_costs))
-        state = State(types, facts, Dict{Symbol,Any}())
-        if is_goal(spec, domain, state)
-            return op([0; [fact_costs[g] for g in goals]]) end
         # Compute costs of one-step derivations of domain axioms
-        for ax in cache.axioms
-            _, subst = resolve(ax.body, [Clause(f, []) for f in facts])
-            for s in subst
-                body = [substitute(t, s) for t in ax.body]
-                cost = op([0; [get(fact_costs, f, 0) for f in body]])
-                derived = substitute(ax.head, s)
-                if cost < get(fact_costs, derived, Inf)
-                    fact_costs[derived] = cost end
-            end
-        end
+        # TODO: derivable(domain, state)
         # Compute costs of all effects of available actions
-        actions = available(state, domain)
-        for act in actions
-            act_args = domain.actions[act.name].args
-            subst = Subst(var => val for (var, val) in zip(act_args, act.args))
-            # Look-up preconds and substitute vars
-            preconds = cache.preconds[act.name]
-            preconds = [[substitute(t, subst) for t in c] for c in preconds]
+        next_state = state
+        for act in available(domain, state)
+            act_vars = PDDL.get_actions(domain)[act.name] |> PDDL.get_argvars
+            subst = Subst(var => val for (var, val) in zip(act_vars, act.args))
+            # Look-up parent conditions and substitute vars
+            parents = depgraph.actions[act.name].parents
+            parents = ((substitute(t, subst) for t in c) for c in parents)
             # Compute cost of reaching each action
-            cost = minimum([[op([0; [get(fact_costs, f, 0) for f in conj]])
-                             for conj in preconds]; Inf])
-            # Compute cost of reaching each added fact
-            additions = [substitute(a, subst) for a in cache.additions[act.name]]
+            conj_costs = (reduce(op, (get(fact_costs, f, 0) for f in c), init=0)
+                          for c in parents)
+            cost = reduce(min, conj_costs, init=Inf)
+            # Compute cost of reaching each child effect
+            children = depgraph.actions[act.name].children
             cost = cost + 1 # TODO: Handle arbitrary action costs
-            for fact in additions
-                if cost < get(fact_costs, fact, Inf)
-                    fact_costs[fact] = cost end
+            for f in (substitute(t, subst) for t in children)
+                if cost < get(fact_costs, f, Inf) fact_costs[f] = cost end
             end
+            # Execute action and widen state
+            next_state = execute(domain, next_state, act, check=false)
         end
-        # Terminate if there's no change to the number of facts
-        if length(fact_costs) == length(facts) && keys(fact_costs) == facts
-            return Inf end
+        # Terminate if goal is achieved or fixpoint is reached
+        if is_goal(spec, domain, next_state)
+            return reduce(op, (fact_costs[g] for g in goals), init=0)
+        elseif next_state.facts == state.facts
+            return Inf
+        end
+        state = next_state
     end
 end
 
 "HSP heuristic where a fact's cost is the maximum cost of its dependencies."
-HMax(args...) = HSPHeuristic(maximum, args...)
+HMax(args...) = HSPHeuristic(max, args...)
 
 "HSP heuristic where a fact's cost is the summed cost of its dependencies."
-HAdd(args...) = HSPHeuristic(sum, args...)
+HAdd(args...) = HSPHeuristic(+, args...)
 
 "HSPr family of delete-relaxation heuristics for regression search."
 mutable struct HSPRHeuristic <: Heuristic
@@ -129,66 +103,40 @@ function precompute!(h::HSPRHeuristic,
     if is_precomputed(h, domain, state, spec) return h end
     # Precomputed data is tied to all three inputs
     h.pre_key = (objectid(domain), hash(state), hash(spec))
-    @unpack op = h
-    @unpack types, facts = state
-    goals = get_goal_terms(spec)
-    # Preprocess domain and axioms
-    domain = copy(domain)
-    axioms = regularize_clauses(domain.axioms)
-    axioms = [Clause(ax.head, [t for t in ax.body if t.name != :not])
-              for ax in axioms]
-    domain.axioms = Clause[]
-    # Preprocess actions
-    preconds = Dict{Symbol,Vector{Vector{Term}}}()
-    additions = Dict{Symbol,Vector{Term}}()
-    for (act_name, act_def) in domain.actions
-        # Convert preconditions to DNF without negated literals
-        conds = get_preconditions(act_def; converter=to_dnf)
-        conds = [c.args for c in conds.args]
-        for c in conds filter!(t -> t.name != :not, c) end
-        preconds[act_name] = conds
-        # Extract additions from each effect
-        diff = effect_diff(act_def.effect)
-        additions[act_name] = diff.add
-    end
+    # Abstract domain and compute dependency graph
+    domain = abstracted(domain; abstractions=Dict())
+    depgraph = dependency_graph(domain)
     # Initialize fact costs in a GraphPlan-style graph
-    fact_costs = Dict{Term,Float64}(f => 0 for f in PDDL.get_facts(state))
+    fact_costs = Dict{Term,Float64}(f => 0 for f in keys(state)
+                                    if PDDL.is_pred(f, domain))
+    # Iterate until we reach the goal or a fixpoint
     while true
-        facts = Set(keys(fact_costs))
-        state = State(types, facts, Dict{Symbol,Any}())
         # Compute costs of one-step derivations of domain axioms
-        for ax in axioms
-            _, subst = resolve(ax.body, [Clause(f, []) for f in facts])
-            for s in subst
-                body = [substitute(t, s) for t in ax.body]
-                cost = op([0; [get(fact_costs, f, 0) for f in body]])
-                derived = substitute(ax.head, s)
-                if cost < get(fact_costs, derived, Inf)
-                    fact_costs[derived] = cost end
-            end
-        end
+        # TODO: derivable(domain, state)
         # Compute costs of all effects of available actions
-        actions = available(state, domain)
-        for act in actions
-            act_args = domain.actions[act.name].args
-            subst = Subst(var => val for (var, val) in zip(act_args, act.args))
-            # Look-up preconds and substitute vars
-            conds = preconds[act.name]
-            conds = [[substitute(t, subst) for t in c] for c in conds]
+        next_state = state
+        for act in available(domain, state)
+            act_vars = PDDL.get_actions(domain)[act.name] |> PDDL.get_argvars
+            subst = Subst(var => val for (var, val) in zip(act_vars, act.args))
+            # Look-up parent conditions and substitute vars
+            parents = depgraph.actions[act.name].parents
+            parents = ((substitute(t, subst) for t in c) for c in parents)
             # Compute cost of reaching each action
-            cost = minimum([[op([0; [get(fact_costs, f, 0) for f in conj]])
-                             for conj in conds]; Inf])
-            # Compute cost of reaching each added fact
-            added = [substitute(a, subst) for a in additions[act.name]]
+            conj_costs = (reduce(h.op, (get(fact_costs, f, 0) for f in c), init=0)
+                          for c in parents)
+            cost = reduce(min, conj_costs, init=Inf)
+            # Compute cost of reaching each child effect
+            children = depgraph.actions[act.name].children
             cost = cost + 1 # TODO: Handle arbitrary action costs
-            for fact in added
-                if cost < get(fact_costs, fact, Inf)
-                    fact_costs[fact] = cost end
+            for f in (substitute(t, subst) for t in children)
+                if cost < get(fact_costs, f, Inf) fact_costs[f] = cost end
             end
+            # Execute action and widen state
+            next_state = execute(domain, next_state, act, check=false)
         end
-        # Terminate when there's no change to the number of facts
-        if length(fact_costs) == length(facts) && keys(fact_costs) == facts
-            break end
+        # Terminate if  fixpoint is reached
+        if next_state.facts == state.facts break end
+        state = next_state
     end
     h.fact_costs = fact_costs
     return h
@@ -203,11 +151,12 @@ end
 function compute(h::HSPRHeuristic,
                  domain::Domain, state::State, spec::Specification)
     # Compute cost of achieving all facts in current state
-    return h.op([0; [get(h.fact_costs, f, 0) for f in PDDL.get_facts(state)]])
+    facts = PDDL.get_facts(state)
+    return reduce(h.op, (get(h.fact_costs, f, 0) for f in facts), init=0)
 end
 
 "HSPr heuristic where a fact's cost is the maximum cost of its dependencies."
-HMaxR(args...) = HSPRHeuristic(maximum, args...)
+HMaxR(args...) = HSPRHeuristic(max, args...)
 
 "HSPr heuristic where a fact's cost is the summed cost of its dependencies."
-HAddR(args...) = HSPRHeuristic(sum, args...)
+HAddR(args...) = HSPRHeuristic(+, args...)

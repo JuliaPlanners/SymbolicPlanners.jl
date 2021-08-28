@@ -14,7 +14,7 @@ Base.isequal(s1::StateConstrainedGoal, s2::StateConstrainedGoal) =
 is_goal(spec::StateConstrainedGoal, domain::Domain, state::State) =
     is_goal(spec.goal, domain, state)
 is_violated(spec::StateConstrainedGoal, domain::Domain, state::State) =
-    !satisfy(spec.constraints, state, domain)[1] ||
+    !satisfy(domain, state, spec.constraints) ||
     is_violated(spec.goal, domain, state)
 get_cost(spec::StateConstrainedGoal, d::Domain, s1::State, a::Term, s2::State) =
     get_cost(spec.goal, d, s1, a, s2)

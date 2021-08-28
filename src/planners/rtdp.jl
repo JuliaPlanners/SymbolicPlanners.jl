@@ -60,11 +60,11 @@ end
 
 function update_values!(planner::RealTimeDynamicPlanner, sol::PolicyValue,
                         domain::Domain, state::State, spec::Specification)
-    actions = available(state, domain)
+    actions = available(domain, state)
     state_id = hash(state)
     if is_goal(spec, domain, state)
         qs = zeros(length(actions))
-        sol.Q[state_id] = Dict{Term,Float64}(zip(actions, qs))
+        sol.Q[state_id] = Dict{Term,Float64}(a => 0 for a in actions)
         sol.V[state_id] = 0.0
         return
     end

@@ -24,7 +24,7 @@ get_action_values(sol::EpsilonGreedyPolicy, state::State) =
 
 function rand_action(sol::EpsilonGreedyPolicy, state::State)
     best_act = best_action(sol.policy, state)
-    actions = [available(state, sol.domain); best_act]
+    actions = [collect(available(sol.domain, state)); best_act]
     probs = ones(length(actions)) * sol.epsilon
     probs[end] = 1 - sol.epsilon
     return sample(sol.rng, actions, Weights(probs, 1.0))

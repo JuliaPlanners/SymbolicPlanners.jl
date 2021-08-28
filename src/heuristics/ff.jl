@@ -39,7 +39,7 @@ function precompute!(h::FFHeuristic,
         for c in conds filter!(t -> t.name != :not, c) end
         preconds[act_name] = conds
         # Extract additions from each effect
-        diff = effect_diff(act_def.effect)
+        diff = effect_diff(domain, state, act_def.effect)
         additions[act_name] = diff.add
     end
     h.cache = FFCache(domain, axioms, preconds, additions)
@@ -66,7 +66,7 @@ function compute(h::FFHeuristic,
     cur_level = 1
     while true
         facts = Set(keys(levels))
-        state = State(types, facts, Dict{Symbol,Any}())
+        state = GenericState(types, facts, Dict{Symbol,Any}())
         # Break out of loop once all goals are achieved
         if is_goal(spec, domain, state) break end
         cur_level += 1
@@ -81,7 +81,7 @@ function compute(h::FFHeuristic,
             end
         end
         # Add effects of available actions
-        actions = available(state, domain)
+        actions = available(domain, state)
         for act in actions
             act_vars = domain.actions[act.name].args
             subst = Subst(var => val for (var, val) in zip(act_vars, act.args))

@@ -20,7 +20,7 @@ Base.isequal(s1::GoalReward, s2::GoalReward) =
     Set(s1.terms) == Set(s2.terms)
 
 is_goal(spec::GoalReward, domain::Domain, state::State) =
-    satisfy(spec.terms, state, domain)[1]
+    satisfy(domain, state, spec.terms)
 is_violated(spec::GoalReward, domain::Domain, state::State) = false
 get_cost(spec::GoalReward, domain::Domain, s1::State, a::Term, s2::State) =
     -get_reward(spec, domain, s1, a, s2)

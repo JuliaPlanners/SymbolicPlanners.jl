@@ -193,7 +193,7 @@ end
 
 function insert_node!(planner::MonteCarloTreeSearch, sol::MCTSTreeSolution,
 			   		  domain::Domain, state::State, spec::Specification)
-	actions = available(state, domain)
+	actions = available(domain, state)
 	qs = map(actions) do act
         next_state = transition(domain, state, act)
         r = get_reward(spec, domain, state, act, next_state)

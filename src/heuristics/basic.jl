@@ -20,14 +20,14 @@ Base.hash(::GoalCountHeuristic, h::UInt) = hash(GoalCountHeuristic, h)
 function compute(h::GoalCountHeuristic,
                  domain::Domain, state::State, spec::Specification)
     goals = get_goal_terms(spec)
-    count = sum([!state[domain, g] for g in goals])
+    count = sum([!satisfy(domain, state, g) for g in goals])
     return h.dir == :backward ? length(goals) - count : count
 end
 
 "Computes Manhattan distance to the goal for the specified numeric fluents."
 mutable struct ManhattanHeuristic <: Heuristic
     fluents::Vector{Term}
-    goal_state::State
+    goal::State
     pre_key::UInt64 # Key to check if information needs to be precomputed again
     ManhattanHeuristic(fluents) = new(fluents)
 end
@@ -37,14 +37,14 @@ Base.hash(heuristic::ManhattanHeuristic, h::UInt) =
 
 function precompute!(h::ManhattanHeuristic,
                      domain::Domain, state::State, spec::Specification)
-    h.goal_state = State(get_goal_terms(spec))
+    h.goal = goalstate(domain, state, get_goal_terms(spec))
     h.pre_key = objectid(spec)
     return h
 end
 
 function is_precomputed(h::ManhattanHeuristic,
                         domain::Domain, state::State, spec::Specification)
-    return (isdefined(h, :goal_state) && objectid(spec) == h.pre_key)
+    return (isdefined(h, :goal) && objectid(spec) == h.pre_key)
 end
 
 function compute(h::ManhattanHeuristic,
@@ -53,8 +53,7 @@ function compute(h::ManhattanHeuristic,
     if !is_precomputed(h, domain, state, spec)
         precompute!(h, domain, state, spec) end
     # Compute L1 distance between fluents in the current and goal state
-    goal_vals = [h.goal_state[domain, f] for f in h.fluents]
-    curr_vals = [state[domain, f] for f in h.fluents]
-    dist = sum(abs.(goal_vals - curr_vals))
+    dist = sum(abs(evaluate(domain, h.goal, f) - evaluate(domain, state, f))
+               for f in h.fluents)
     return dist
 end
