@@ -62,6 +62,6 @@ include("specifications/backward.jl")
 
 # Convenience constructors
 Specification(problem::Problem) = problem.metric === nothing ?
-    MinStepsGoal(problem) : Specification(problem)
+    MinStepsGoal(problem) : MinMetricGoal(problem)
 Specification(goals::AbstractVector{<:Term}) = MinStepsGoal(goals)
 Specification(goal::Term) = MinStepsGoal(goal)

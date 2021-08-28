@@ -24,7 +24,7 @@ is_goal(spec::MaxMetricGoal, domain::Domain, state::State) =
     satisfy(domain, state, spec.terms)
 is_violated(spec::MaxMetricGoal, domain::Domain, state::State) = false
 get_cost(spec::MaxMetricGoal, domain::Domain, s1::State, ::Term, s2::State) =
-    s1[domain, spec.metric] - s2[domain, spec.metric]
+    domain[s1 => spec.metric] - domain[s2 => spec.metric]
 get_reward(spec::MaxMetricGoal, domain::Domain, s1::State, ::Term, s2::State) =
-    s2[domain, spec.metric] - s1[domain, spec.metric]
+    domain[s2 => spec.metric] - domain[s1 => spec.metric]
 get_goal_terms(spec::MaxMetricGoal) = spec.terms

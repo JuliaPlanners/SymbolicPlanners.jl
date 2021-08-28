@@ -24,7 +24,7 @@ is_goal(spec::MinMetricGoal, domain::Domain, state::State) =
     satisfy(domain, state, spec.terms)
 is_violated(spec::MinMetricGoal, domain::Domain, state::State) = false
 get_cost(spec::MinMetricGoal, domain::Domain, s1::State, ::Term, s2::State) =
-    s2[domain, spec.metric] - s1[domain, spec.metric]
+    domain[s2 => spec.metric] - domain[s1 => spec.metric]
 get_reward(spec::MinMetricGoal, domain::Domain, s1::State, ::Term, s2::State) =
-    s1[domain, spec.metric] - s2[domain, spec.metric]
+    domain[s1 => spec.metric] - domain[s2 => spec.metric]
 get_goal_terms(spec::MinMetricGoal) = spec.terms

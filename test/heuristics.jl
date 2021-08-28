@@ -16,6 +16,11 @@ blocksworld = load_domain(joinpath(path, "domain.pddl"))
 bw_problem = load_problem(joinpath(path, "problem-0.pddl"))
 bw_state = initstate(blocksworld, bw_problem)
 
+path = joinpath(dirname(pathof(SymbolicPlanners)), "..", "domains", "zeno-travel")
+zeno_travel = load_domain(joinpath(path, "domain.pddl"))
+zt_problem = load_problem(joinpath(path, "problem-1.pddl"))
+zt_state = initstate(zeno_travel, zt_problem)
+
 @testset "Goal Count Heuristic" begin
 
 goal_count = GoalCountHeuristic()
@@ -57,5 +62,14 @@ end
 # @test ff(blocksworld, bw_state, bw_problem.goal) == 4
 
 end
+
+@testset "Reachability Heuristics" begin
+
+@test ReachabilityHeuristic()(blocksworld, bw_state, bw_problem.goal) == 2
+@test ReachabilityHeuristic()(zeno_travel, zt_state, MinStepsGoal(zt_problem)) == 3
+@test ReachabilityHeuristic()(zeno_travel, zt_state, MinMetricGoal(zt_problem)) == 12
+
+end
+
 
 end

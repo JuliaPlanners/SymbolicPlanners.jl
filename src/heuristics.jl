@@ -54,3 +54,4 @@ end
 include("heuristics/basic.jl")
 include("heuristics/hsp.jl")
 include("heuristics/ff.jl")
+include("heuristics/reachability.jl")

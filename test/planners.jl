@@ -21,6 +21,12 @@ bw_problem = load_problem(joinpath(path, "problem-0.pddl"))
 bw_state = initstate(blocksworld, bw_problem)
 bw_spec = Specification(bw_problem)
 
+path = joinpath(dirname(pathof(SymbolicPlanners)), "..", "domains", "zeno-travel")
+zeno_travel = load_domain(joinpath(path, "domain.pddl"))
+zt_problem = load_problem(joinpath(path, "problem-1.pddl"))
+zt_state = initstate(zeno_travel, zt_problem)
+zt_spec = Specification(zt_problem)
+
 @testset "Breadth-First Planner" begin
 
 planner = BreadthFirstPlanner()
@@ -83,6 +89,10 @@ sol = planner(blocksworld, bw_state, bw_spec)
 @test collect(sol) == @pddl("(pick-up a)", "(stack a b)",
                             "(pick-up c)", "(stack c a)")
 
+planner = GreedyPlanner(ReachabilityHeuristic())
+sol = planner(zeno_travel, zt_state, zt_spec)
+@test is_goal(zt_spec, zeno_travel, sol.trajectory[end])
+
 end
 
 @testset "A* Planner" begin
@@ -104,6 +114,10 @@ sol = planner(blocksworld, bw_state, bw_spec)
 @test is_goal(bw_spec, blocksworld, sol.trajectory[end])
 @test collect(sol) == @pddl("(pick-up a)", "(stack a b)",
                             "(pick-up c)", "(stack c a)")
+
+planner = AStarPlanner(ReachabilityHeuristic(), g_mult=0.0001)
+sol = planner(zeno_travel, zt_state, zt_spec)
+@test is_goal(zt_spec, zeno_travel, sol.trajectory[end])
 
 end
 

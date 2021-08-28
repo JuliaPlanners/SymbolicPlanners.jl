@@ -47,6 +47,10 @@ function compute(h::HSPHeuristic,
     fact_costs = Dict{Term,Float64}(f => 0 for f in PDDL.get_facts(state))
     # Iterate until we reach the goal or a fixpoint
     while true
+        # Terminate if goal is roached
+        if is_goal(spec, domain, state)
+            return reduce(op, (fact_costs[g] for g in goals), init=0)
+        end
         # Compute costs of one-step derivations of domain axioms
         # TODO: derivable(domain, state)
         # Compute costs of all effects of available actions
@@ -70,12 +74,8 @@ function compute(h::HSPHeuristic,
             # Execute action and widen state
             next_state = execute(domain, next_state, act, check=false)
         end
-        # Terminate if goal is achieved or fixpoint is reached
-        if is_goal(spec, domain, next_state)
-            return reduce(op, (fact_costs[g] for g in goals), init=0)
-        elseif next_state.facts == state.facts
-            return Inf
-        end
+        # Terminate if fixpoint is reached
+        if next_state == state return Inf end
         state = next_state
     end
 end
@@ -135,7 +135,7 @@ function precompute!(h::HSPRHeuristic,
             next_state = execute(domain, next_state, act, check=false)
         end
         # Terminate if  fixpoint is reached
-        if next_state.facts == state.facts break end
+        if next_state == state break end
         state = next_state
     end
     h.fact_costs = fact_costs
