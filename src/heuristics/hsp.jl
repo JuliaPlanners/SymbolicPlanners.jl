@@ -4,7 +4,7 @@ export HSPRHeuristic, HAddR, HMaxR
 
 "Precomputed domain information for HSP heuristic."
 struct HSPCache
-    domain::AbstractedDomain # Preprocessed domain
+    domain::Domain # Preprocessed domain
     depgraph::DependencyGraph # Domain dependency graph
 end
 
@@ -30,6 +30,18 @@ function precompute!(h::HSPHeuristic,
     return h
 end
 
+function precompute!(h::HSPHeuristic,
+                     domain::CompiledDomain, state::State, spec::Specification)
+    # Check if cache has already been computed
+    if is_precomputed(h, domain, state, spec) return h end
+    h.pre_key = objectid(domain) # Precomputed data is unique to each domain
+    # Abstract source domain then recompile
+    absdom, _ = abstracted(domain, state; abstractions=Dict())
+    depgraph = dependency_graph(PDDL.get_source(domain))
+    h.cache = HSPCache(absdom, depgraph)
+    return h
+end
+
 function is_precomputed(h::HSPHeuristic,
                         domain::Domain, state::State, spec::Specification)
     return (isdefined(h, :cache) && objectid(domain) == h.pre_key)
@@ -43,7 +55,8 @@ function compute(h::HSPHeuristic,
     @unpack op, cache = h
     @unpack domain, depgraph = cache
     goals = get_goal_terms(spec)
-    # Initialize fact costs in a GraphPlan-style graph
+    # Abstract state, initialize fact costs in a GraphPlan-style graph
+    state = abstractstate(domain, state)
     fact_costs = Dict{Term,Float64}(f => 0 for f in PDDL.get_facts(state))
     # Iterate until we reach the goal or a fixpoint
     while true
@@ -103,12 +116,16 @@ function precompute!(h::HSPRHeuristic,
     if is_precomputed(h, domain, state, spec) return h end
     # Precomputed data is tied to all three inputs
     h.pre_key = (objectid(domain), hash(state), hash(spec))
-    # Abstract domain and compute dependency graph
-    domain = abstracted(domain; abstractions=Dict())
-    depgraph = dependency_graph(domain)
     # Initialize fact costs in a GraphPlan-style graph
     fact_costs = Dict{Term,Float64}(f => 0 for f in keys(state)
                                     if PDDL.is_pred(f, domain))
+    # Abstract domain and compute dependency graph
+    if domain isa CompiledDomain
+        depgraph = dependency_graph(PDDL.get_source(domain))
+    else
+        depgraph = dependency_graph(domain)
+    end
+    domain, state = abstracted(domain, state)
     # Iterate until we reach the goal or a fixpoint
     while true
         # Compute costs of one-step derivations of domain axioms

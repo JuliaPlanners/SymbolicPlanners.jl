@@ -1,6 +1,5 @@
 using Test, Random
-using Julog, PDDL
-using SymbolicPlanners
+using PDDL, SymbolicPlanners
 
 include("heuristics.jl")
 include("planners.jl")

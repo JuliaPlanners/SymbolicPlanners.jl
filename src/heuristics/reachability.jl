@@ -4,7 +4,7 @@ export ReachabilityHeuristic
 mutable struct ReachabilityHeuristic <: Heuristic
     max_steps::Int
     pre_key::Tuple{UInt,UInt} # Key to check if information needs to be precomputed again
-    absdom::AbstractedDomain # Abstract domain
+    absdom::Domain # Abstract domain
     ReachabilityHeuristic(max_steps) = new(max_steps)
 end
 
@@ -18,16 +18,16 @@ function precompute!(h::ReachabilityHeuristic,
     # Check if cache has already been computed
     if is_precomputed(h, domain, state, spec) return h end
      # Precomputed data is unique to each domain and specification
-    h.pre_key = (objectid(domain), objectid(spec))
+    h.pre_key = (objectid(domain), hash(spec))
     # Store abstracted domain
-    h.absdom = abstracted(domain)
+    h.absdom, _ = abstracted(domain, state)
     return h
 end
 
 function is_precomputed(h::ReachabilityHeuristic,
                         domain::Domain, state::State, spec::Specification)
     return (isdefined(h, :pre_key) &&
-            objectid(domain) == h.pre_key[1] && objectid(spec) == h.pre_key[2])
+            objectid(domain) == h.pre_key[1] && hash(spec) == h.pre_key[2])
 end
 
 function compute(h::ReachabilityHeuristic,
@@ -37,7 +37,7 @@ function compute(h::ReachabilityHeuristic,
         precompute!(h, domain, state, spec) end
     # Get abstract domain and state
     absdom = h.absdom
-    state = abstracted(absdom, state)
+    state = abstractstate(absdom, state)
     # Iterate until we reach the goal or a fixpoint
     steps = 0
     while steps < h.max_steps
@@ -66,7 +66,7 @@ function precompute!(h::ReachabilityHeuristic,
     # Precomputed data is unique to each domain and specification
     h.pre_key = (objectid(domain), hash(spec))
     # Store abstracted domain, turn off automatic widening
-    h.absdom = abstracted(domain; autowiden=false)
+    h.absdom, _ = abstracted(domain, state; autowiden=false)
     return h
 end
 
@@ -77,7 +77,7 @@ function compute(h::ReachabilityHeuristic,
         precompute!(h, domain, state, spec) end
     # Get abstract domain and state
     absdom = h.absdom
-    state = abstracted(absdom, state)
+    state = abstractstate(absdom, state)
     # Extract cost fluents (#TODO: use fixed has_subterm)
     cost_fluents = [f for f in PDDL.get_fluent_names(state)
                     if PDDL.has_name(spec.metric, (f.name,))]
