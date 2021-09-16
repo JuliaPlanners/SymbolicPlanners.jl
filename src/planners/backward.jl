@@ -29,7 +29,8 @@ function solve(planner::BackwardPlanner,
     node_id = hash(state)
     search_tree = Dict{UInt,PathNode}(node_id => PathNode(node_id, state, 0.0))
     est_cost = h_mult * heuristic(domain, state, spec)
-    queue = PriorityQueue{UInt,Float64}(node_id => est_cost)
+    priority = (est_cost, est_cost, 0)
+    queue = PriorityQueue(node_id => priority)
     # Run the search
     status, node_id = search!(planner, domain, spec, search_tree, queue)
     # Reconstruct plan and return solution
@@ -94,11 +95,14 @@ function expand!(planner::BackwardPlanner, node::PathNode,
             next_node.path_cost = path_cost
             # Update estimated cost from next state to start
             if !(next_id in keys(queue))
-                g_val = g_mult * path_cost
-                h_val = h_mult * heuristic(domain, next_state, spec)
-                enqueue!(queue, next_id, g_val + h_val)
+                g_val::Float64 = g_mult * path_cost
+                h_val::Float64 = h_mult * heuristic(domain, next_state, spec)
+                f_val = g_val + h_val
+                priority = (f_val, h_val, length(search_tree))
+                enqueue!(queue, next_id, priority)
             else
-                queue[next_id] -= cost_diff
+                f_val, h_val, n_nodes = queue[next_id]
+                queue[next_id] = (f_val - cost_diff, h_val, n_nodes)
             end
         end
     end
