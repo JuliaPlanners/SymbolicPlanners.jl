@@ -20,7 +20,7 @@ Base.hash(::GoalCountHeuristic, h::UInt) = hash(GoalCountHeuristic, h)
 function compute(h::GoalCountHeuristic,
                  domain::Domain, state::State, spec::Specification)
     goals = get_goal_terms(spec)
-    count = sum([!satisfy(domain, state, g) for g in goals])
+    count = sum(!satisfy(domain, state, g) for g in goals)
     return h.dir == :backward ? length(goals) - count : count
 end
 
