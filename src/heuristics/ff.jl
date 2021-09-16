@@ -23,18 +23,19 @@ function precompute!(h::FFHeuristic,
     # Check if cache has already been computed
     if is_precomputed(h, domain, state, spec) return h end
     h.pre_key = objectid(domain) # Precomputed data is unique to each domain
-    domain = copy(domain) # Make a local copy of the domain
+    domain = domain isa CompiledDomain ? # Make a local copy of the domain
+        copy(PDDL.get_source(domain)) : copy(domain)
     # Preprocess axioms
-    axioms = regularize_clauses(domain.axioms) # Regularize domain axioms
+    axioms = regularize_clauses(collect(values(domain.axioms)))
     axioms = [Clause(ax.head, [t for t in ax.body if t.name != :not])
               for ax in axioms] # Remove negative literals
-    domain.axioms = Clause[] # Remove axioms so they do not affect execution
+    empty!(domain.axioms) # Remove axioms so they do not affect execution
     # Preprocess actions
     preconds = Dict{Symbol,Vector{Vector{Term}}}()
     additions = Dict{Symbol,Vector{Term}}()
     for (act_name, act_def) in domain.actions
         # Convert preconditions to DNF without negated literals
-        conds = get_preconditions(act_def; converter=to_dnf)
+        conds = to_dnf(PDDL.get_precond(act_def))
         conds = [c.args for c in conds.args]
         for c in conds filter!(t -> t.name != :not, c) end
         preconds[act_name] = conds
