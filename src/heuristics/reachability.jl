@@ -42,7 +42,7 @@ function compute(h::ReachabilityHeuristic,
     steps = 0
     while steps < h.max_steps
         # Terminate if goal is achieved or fixpoint is reached
-        if is_goal(spec, domain, state) return steps end
+        if is_goal(spec, absdom, state) return steps end
         steps += 1
         # Apply all available actions in abstract domain
         next_state = state
@@ -87,7 +87,7 @@ function compute(h::ReachabilityHeuristic,
     steps = 0
     while steps <= h.max_steps
         # Terminate if goal is achieved or fixpoint is reached
-        if is_goal(spec, domain, state) return cost end
+        if is_goal(spec, absdom, state) return cost end
         steps += 1
         # Apply all available actions in abstract domain (with widening)
         accum_state = copy(state)
