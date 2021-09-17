@@ -14,18 +14,20 @@ function solve(planner::BreadthFirstPlanner,
     search_tree = Dict(node_id => PathNode(node_id, state, 0.0))
     queue = [node_id]
     # Run the search
-    status, node_id = search!(planner, domain, spec, search_tree, queue)
+    status, node_id, count = search!(planner, domain, spec, search_tree, queue)
     # Reconstruct plan and return solution
     if status != :failure
         plan, traj = reconstruct(node_id, search_tree)
         if save_search
-            return PathSearchSolution(status, plan, traj, search_tree, queue)
+            return PathSearchSolution(status, plan, traj,
+                                      count, search_tree, queue)
         else
             return PathSearchSolution(status, plan, traj)
         end
     elseif save_search
         S = typeof(state)
-        return PathSearchSolution(status, Term[], S[], search_tree, queue)
+        return PathSearchSolution(status, Term[], S[],
+                                  count, search_tree, queue)
     else
         return NullSolution()
     end
@@ -41,15 +43,15 @@ function search!(planner::BreadthFirstPlanner,
         node = search_tree[node_id]
         # Return if max nodes are reached or goals are satisfied
         if is_goal(spec, domain, node.state)
-            return :success, node_id
+            return :success, node_id, count
         elseif count >= planner.max_nodes
-            return :max_nodes, node_id
+            return :max_nodes, node_id, count
         end
         count += 1
         # Expand current node
         expand!(planner, node, search_tree, queue, domain, spec)
     end
-    return :failure, nothing
+    return :failure, nothing, count
 end
 
 function expand!(planner::BreadthFirstPlanner, node::PathNode,

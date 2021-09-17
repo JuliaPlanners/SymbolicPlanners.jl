@@ -28,14 +28,15 @@ mutable struct PathSearchSolution{S<:State,T} <: OrderedSolution
     status::Symbol
     plan::Vector{Term}
     trajectory::Union{Vector{S},Nothing}
+    expanded::Int
     search_tree::Union{Dict{UInt,PathNode{S}},Nothing}
     frontier::T
 end
 
 PathSearchSolution(status::Symbol, plan) =
-    PathSearchSolution(status, plan, nothing, nothing, nothing)
+    PathSearchSolution(status, plan, nothing, -1, nothing, nothing)
 PathSearchSolution(status::Symbol, plan, trajectory) =
-    PathSearchSolution(status, plan, trajectory, nothing, nothing)
+    PathSearchSolution(status, plan, trajectory, -1, nothing, nothing)
 
 get_action(sol::OrderedPlan, t::Int, state::State) = sol.plan[t]
 

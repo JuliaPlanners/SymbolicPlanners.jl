@@ -42,18 +42,20 @@ function solve(planner::ForwardPlanner,
     priority = (est_cost, est_cost, 0)
     queue = PriorityQueue(node_id => priority)
     # Run the search
-    status, node_id = search!(planner, domain, spec, search_tree, queue)
+    status, node_id, count = search!(planner, domain, spec, search_tree, queue)
     # Reconstruct plan and return solution
     if status != :failure
         plan, traj = reconstruct(node_id, search_tree)
         if save_search
-            return PathSearchSolution(status, plan, traj, search_tree, queue)
+            return PathSearchSolution(status, plan, traj,
+                                      count, search_tree, queue)
         else
             return PathSearchSolution(status, plan, traj)
         end
     elseif save_search
         S = typeof(state)
-        return PathSearchSolution(status, Term[], S[], search_tree, queue)
+        return PathSearchSolution(status, Term[], S[],
+                                  count, search_tree, queue)
     else
         return NullSolution()
     end
@@ -69,15 +71,15 @@ function search!(planner::ForwardPlanner,
         node = search_tree[node_id]
         # Return status and current state if search terminates
         if is_goal(spec, domain, node.state)
-            return :success, node_id # Goal reached
+            return :success, node_id, count # Goal reached
         elseif count >= planner.max_nodes
-            return :max_nodes, node_id # Node budget reached
+            return :max_nodes, node_id, count # Node budget reached
         end
         count += 1
         # Expand current node
         expand!(planner, node, search_tree, queue, domain, spec)
     end
-    return :failure, nothing
+    return :failure, nothing, count
 end
 
 function expand!(planner::ForwardPlanner, node::PathNode,
