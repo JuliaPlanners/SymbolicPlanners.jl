@@ -60,7 +60,7 @@ end
 
 function update_values!(planner::RealTimeDynamicPlanner, sol::PolicyValue,
                         domain::Domain, state::State, spec::Specification)
-    actions = available(domain, state)
+    actions = collect(available(domain, state))
     state_id = hash(state)
     if is_goal(spec, domain, state)
         qs = zeros(length(actions))

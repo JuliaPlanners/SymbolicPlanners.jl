@@ -36,7 +36,7 @@ function precompute!(h::HSPHeuristic,
     if is_precomputed(h, domain, state, spec) return h end
     h.pre_key = objectid(domain) # Precomputed data is unique to each domain
     # Abstract source domain then recompile
-    absdom, _ = abstracted(domain, state; abstractions=Dict())
+    absdom, _ = abstracted(domain, state)
     depgraph = dependency_graph(PDDL.get_source(domain))
     h.cache = HSPCache(absdom, depgraph)
     return h
@@ -67,7 +67,7 @@ function compute(h::HSPHeuristic,
         # Compute costs of one-step derivations of domain axioms
         # TODO: derivable(domain, state)
         # Compute costs of all effects of available actions
-        next_state = state
+        next_state = copy(state)
         for act in available(domain, state)
             act_vars = PDDL.get_actions(domain)[act.name] |> PDDL.get_argvars
             subst = Subst(var => val for (var, val) in zip(act_vars, act.args))
@@ -85,7 +85,7 @@ function compute(h::HSPHeuristic,
                 if cost < get(fact_costs, f, Inf) fact_costs[f] = cost end
             end
             # Execute action and widen state
-            next_state = execute(domain, next_state, act, check=false)
+            next_state = execute!(domain, next_state, act, check=false)
         end
         # Terminate if fixpoint is reached
         if next_state == state return Inf end

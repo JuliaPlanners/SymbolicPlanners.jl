@@ -42,6 +42,15 @@ function precompute!(h::ManhattanHeuristic,
     return h
 end
 
+function precompute!(h::ManhattanHeuristic,
+                     domain::CompiledDomain, state::State, spec::Specification)
+    goal = goalstate(PDDL.get_source(domain), GenericState(state),
+                     get_goal_terms(spec))
+    h.goal = typeof(state)(goal)
+    h.pre_key = objectid(spec)
+    return h
+end
+
 function is_precomputed(h::ManhattanHeuristic,
                         domain::Domain, state::State, spec::Specification)
     return (isdefined(h, :goal) && objectid(spec) == h.pre_key)

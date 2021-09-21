@@ -105,7 +105,7 @@ function compute(h::ReachabilityHeuristic,
         end
         # Narrow cost fluents
         for (i, fluent) in enumerate(cost_fluents)
-            interval = PDDL.IntervalAbs(cost_vals[i])
+            interval = PDDL.IntervalAbs{typeof(cost_vals[i])}(cost_vals[i])
             accum_state[fluent] = interval
         end
         # Terminate if fixpoint is reached
