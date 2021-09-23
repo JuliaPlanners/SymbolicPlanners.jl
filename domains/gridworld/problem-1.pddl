@@ -5,9 +5,9 @@
 ; .D.
 (define (problem gridworld-1)
   (:domain gridworld)
-  (:init (= (wallgrid) (new-bit-matrix false 3 3))
-         (= (wallgrid) (set-index wallgrid true 1 2))
-         (= (wallgrid) (set-index wallgrid true 2 2))
+  (:init (= (walls) (new-bit-matrix false 3 3))
+         (= (walls) (set-index walls true 1 2))
+         (= (walls) (set-index walls true 2 2))
          (= (xpos) (1))
          (= (ypos) (1)))
   (:goal (and (= (xpos) (3)) (= (ypos) (1))))

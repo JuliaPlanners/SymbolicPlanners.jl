@@ -37,7 +37,7 @@ sol = planner(gridworld, gw_state, gw_spec)
 sol = planner(doors_keys_gems, dkg_state, dkg_spec)
 @test is_goal(dkg_spec, doors_keys_gems, sol.trajectory[end])
 @test collect(sol) == @pddl("(down)", "(pickup key1)", "(down)",
-                            "(unlock key1 right)", "(right)", "(right)",
+                            "(unlock key1 door1)", "(right)", "(right)",
                             "(up)", "(up)", "(pickup gem1)")
 
 sol = planner(blocksworld, bw_state, bw_spec)
@@ -58,7 +58,7 @@ planner = UniformCostPlanner()
 sol = planner(doors_keys_gems, dkg_state, dkg_spec)
 @test is_goal(dkg_spec, doors_keys_gems, sol.trajectory[end])
 @test collect(sol) == @pddl("(down)", "(pickup key1)", "(down)",
-                            "(unlock key1 right)", "(right)", "(right)",
+                            "(unlock key1 door1)", "(right)", "(right)",
                             "(up)", "(up)", "(pickup gem1)")
 
 planner = UniformCostPlanner()
@@ -80,7 +80,7 @@ planner = GreedyPlanner(GoalCountHeuristic())
 sol = planner(doors_keys_gems, dkg_state, dkg_spec)
 @test is_goal(dkg_spec, doors_keys_gems, sol.trajectory[end])
 @test collect(sol) == @pddl("(down)", "(pickup key1)", "(down)",
-                            "(unlock key1 right)", "(right)", "(right)",
+                            "(unlock key1 door1)", "(right)", "(right)",
                             "(up)", "(up)", "(pickup gem1)")
 
 planner = GreedyPlanner(HAdd())
@@ -106,7 +106,7 @@ planner = AStarPlanner(GoalCountHeuristic())
 sol = planner(doors_keys_gems, dkg_state, dkg_spec)
 @test is_goal(dkg_spec, doors_keys_gems, sol.trajectory[end])
 @test collect(sol) == @pddl("(down)", "(pickup key1)", "(down)",
-                            "(unlock key1 right)", "(right)", "(right)",
+                            "(unlock key1 door1)", "(right)", "(right)",
                             "(up)", "(up)", "(pickup gem1)")
 
 planner = AStarPlanner(HAdd())
@@ -150,8 +150,8 @@ sol = planner(doors_keys_gems, dkg_state, dkg_spec)
 actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
 @test is_goal(dkg_spec, doors_keys_gems, trajectory[end])
 @test actions == @pddl("(down)", "(pickup key1)", "(down)",
-                       "(unlock key1 right)", "(right)", "(right)",
-                        "(up)", "(up)", "(pickup gem1)")
+                       "(unlock key1 door1)", "(right)", "(right)",
+                       "(up)", "(up)", "(pickup gem1)")
 
 planner = RTDP(heuristic=HAdd(), rollout_noise=1.0, n_rollouts=10)
 sol = planner(blocksworld, bw_state, bw_spec)
@@ -178,8 +178,8 @@ sol = planner(doors_keys_gems, dkg_state, GoalReward(dkg_problem.goal, 100))
 actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
 @test is_goal(dkg_spec, doors_keys_gems, trajectory[end])
 @test actions == @pddl("(down)", "(pickup key1)", "(down)",
-                       "(unlock key1 right)", "(right)", "(right)",
-                        "(up)", "(up)", "(pickup gem1)")
+                       "(unlock key1 door1)", "(right)", "(right)",
+                       "(up)", "(up)", "(pickup gem1)")
 
 planner = MCTS(n_rollouts=50)
 sol = planner(blocksworld, bw_state, GoalReward(bw_problem.goal, 100))
