@@ -24,7 +24,7 @@ function solve(planner::BackwardPlanner,
     precompute!(heuristic, domain, state, spec)
     # Convert to backward search goal specification
     spec = BackwardSearchGoal(spec, state)
-    state = goalstate(domain, state, get_goal_terms(spec))
+    state = goalstate(domain, PDDL.get_objtypes(state), get_goal_terms(spec))
     # Initialize search tree and priority queue
     node_id = hash(state)
     search_tree = Dict{UInt,PathNode}(node_id => PathNode(node_id, state, 0.0))

@@ -37,14 +37,14 @@ Base.hash(heuristic::ManhattanHeuristic, h::UInt) =
 
 function precompute!(h::ManhattanHeuristic,
                      domain::Domain, state::State, spec::Specification)
-    h.goal = goalstate(domain, state, get_goal_terms(spec))
+    h.goal = goalstate(domain, PDDL.get_objtypes(state), get_goal_terms(spec))
     h.pre_key = objectid(spec)
     return h
 end
 
 function precompute!(h::ManhattanHeuristic,
                      domain::CompiledDomain, state::State, spec::Specification)
-    goal = goalstate(PDDL.get_source(domain), GenericState(state),
+    goal = goalstate(PDDL.get_source(domain), PDDL.get_objtypes(state),
                      get_goal_terms(spec))
     h.goal = typeof(state)(goal)
     h.pre_key = objectid(spec)

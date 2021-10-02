@@ -16,7 +16,7 @@ function ascii_to_pddl(str::String, name="doors-keys-gems-problem")
             elseif char == 'W' # Wall
                 wall = parse_pddl("(= walls (set-index walls true $y $x))")
                 push!(init, wall)
-            elseif char == 'D' # Wall
+            elseif char == 'D' # Door
                 d = Const(Symbol("door$(length(doors)+1)"))
                 push!(doors, d)
                 append!(init, parse_pddl("(= (xloc $d) $x)", "(= (yloc $d) $y)"))
