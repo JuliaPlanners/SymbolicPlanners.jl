@@ -12,7 +12,7 @@ DiscountedReward(spec::DiscountedReward, discount) =
 
 Base.hash(spec::DiscountedReward, h::UInt) =
     hash(spec.discount, hash(spec.spec, h))
-Base.isequal(s1::DiscountedReward, s2::DiscountedReward) =
+Base.:(==)(s1::DiscountedReward, s2::DiscountedReward) =
     s1.discount == s2.discount && s1.spec == s2.spec
 
 is_goal(spec::DiscountedReward, domain::Domain, state::State) =

@@ -17,7 +17,7 @@ MaxMetricGoal(goal::Term, metric::Term) =
 
 Base.hash(spec::MaxMetricGoal, h::UInt) =
     hash(spec.metric, hash(Set(spec.terms), h))
-Base.isequal(s1::MaxMetricGoal, s2::MaxMetricGoal) =
+Base.:(==)(s1::MaxMetricGoal, s2::MaxMetricGoal) =
     s1.metric == s2.metric && Set(s1.terms) == Set(s2.terms)
 
 is_goal(spec::MaxMetricGoal, domain::Domain, state::State) =

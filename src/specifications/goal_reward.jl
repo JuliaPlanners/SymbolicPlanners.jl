@@ -15,7 +15,7 @@ GoalReward(term::Term, reward, discount) =
 
 Base.hash(spec::GoalReward, h::UInt) =
     hash(spec.reward, hash(spec.discount, hash(Set(spec.terms), h)))
-Base.isequal(s1::GoalReward, s2::GoalReward) =
+Base.:(==)(s1::GoalReward, s2::GoalReward) =
     s1.reward == s2.reward && s1.discount == s2.discount &&
     Set(s1.terms) == Set(s2.terms)
 

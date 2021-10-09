@@ -17,7 +17,7 @@ MinMetricGoal(goal::Term, metric::Term) =
 
 Base.hash(spec::MinMetricGoal, h::UInt) =
     hash(spec.metric, hash(Set(spec.terms), h))
-Base.isequal(s1::MinMetricGoal, s2::MinMetricGoal) =
+Base.:(==)(s1::MinMetricGoal, s2::MinMetricGoal) =
     s1.metric == s2.metric && Set(s1.terms) == Set(s2.terms)
 
 is_goal(spec::MinMetricGoal, domain::Domain, state::State) =

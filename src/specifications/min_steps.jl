@@ -10,7 +10,7 @@ MinStepsGoal(goal::Term) = MinStepsGoal(flatten_conjs(goal))
 
 Base.hash(spec::MinStepsGoal, h::UInt) =
     hash(Set(spec.terms), h)
-Base.isequal(s1::MinStepsGoal, s2::MinStepsGoal) =
+Base.:(==)(s1::MinStepsGoal, s2::MinStepsGoal) =
     Set(s1.terms) == Set(s2.terms)
 
 is_goal(spec::MinStepsGoal, domain::Domain, state::State) =

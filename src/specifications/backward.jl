@@ -12,7 +12,7 @@ BackwardSearchGoal(goal::StateConstrainedGoal, start::State) =
 
 Base.hash(spec::BackwardSearchGoal, h::UInt) =
     hash(spec.start, hash(spec.goal, h))
-Base.isequal(s1::BackwardSearchGoal, s2::BackwardSearchGoal) =
+Base.:(==)(s1::BackwardSearchGoal, s2::BackwardSearchGoal) =
     s1.state == s2.state && s1.goal == s2.goal
 
 is_goal(spec::BackwardSearchGoal, domain::Domain, state::State) =
