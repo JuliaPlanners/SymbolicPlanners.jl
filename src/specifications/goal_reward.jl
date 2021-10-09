@@ -69,7 +69,7 @@ end
 MultiGoalReward(goals, rewards) = MultiGoalReward(goals, rewards, 1.0)
 
 Base.hash(spec::MultiGoalReward, h::UInt) =
-    hash(spec.reward, hash(spec.discount, hash(Set(spec.terms), h)))
+    hash(spec.rewards, hash(spec.discount, hash(spec.goals, h)))
 Base.:(==)(s1::MultiGoalReward, s2::MultiGoalReward) =
     s1.discount == s2.discount && s1.rewards == s2.rewards &&
     s1.goals == s2.goals
@@ -87,7 +87,7 @@ function get_reward(spec::MultiGoalReward, domain::Domain,
                     s1::State, a::Term, s2::State)
     reward = 0.0
     for (goal, r) in zip(spec.goals, spec.rewards)
-        if satisfy(domain, state, goal) reward += r end
+        if satisfy(domain, s2, goal) reward += r end
     end
     return reward
 end
