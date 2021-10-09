@@ -1,10 +1,13 @@
 export MinActionCosts, ExtraActionCosts
 
 "Goal specification with action-specific costs."
-struct MinActionCosts{C <: NamedTuple} <: Specification
+struct MinActionCosts{C <: NamedTuple} <: Goal
     terms::Vector{Term} # Goal terms to be satisfied
     costs::C # Named tuple of action costs
 end
+
+MinActionCosts(term::Term, costs) =
+    MinActionCosts(flatten_conjs(term), costs)
 
 function MinActionCosts(terms, actions, costs)
     costs = NamedTuple{Tuple(actions)}(Tuple(Float64.(costs)))
@@ -63,3 +66,5 @@ get_reward(spec::ExtraActionCosts, domain::Domain, s1::State, a::Term, s2::State
     -get_cost(spec, domain, s1, a, s2)
 get_goal_terms(spec::ExtraActionCosts) =
     get_goal_terms(spec.spec)
+get_discount(spec::ExtraActionCosts) =
+    get_discount(spec.spec)
