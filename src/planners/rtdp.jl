@@ -31,7 +31,7 @@ function solve!(planner::RealTimeDynamicPlanner, sol::PolicyValue,
     # Perform rollouts from initial state
     initial_state = state
     ro_policy = rollout_noise == 0 ? sol : BoltzmannPolicy(sol, rollout_noise)
-    visited = State[]
+    visited = Vector{typeof(state)}()
     for n in 1:n_rollouts
         state = initial_state
         # Rollout until maximum depth
