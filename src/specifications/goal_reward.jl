@@ -1,4 +1,4 @@
-export GoalReward, BonusGoalReward
+export GoalReward, BonusGoalReward, MultiGoalReward
 
 "Specification where reaching the goal delivers reward."
 @kwdef struct GoalReward <: Goal
@@ -58,3 +58,39 @@ get_goal_terms(spec::BonusGoalReward) = get_goal_terms(spec.goal)
 
 discounted(spec::BonusGoalReward, discount::Float64) =
     BonusGoalReward(spec.goal, spec.reward, discount * spec.discount)
+
+"Specification where reaching one of multiple goals delivers reward."
+@kwdef struct MultiGoalReward <: Goal
+    goals::Vector{Term} # List of possible goals
+    rewards::Vector{Float64} # Rewards gained from reaching each goal
+    discount::Float64 = 1.0 # Discount factor
+end
+
+MultiGoalReward(goals, rewards) = MultiGoalReward(goals, rewards, 1.0)
+
+Base.hash(spec::MultiGoalReward, h::UInt) =
+    hash(spec.reward, hash(spec.discount, hash(Set(spec.terms), h)))
+Base.:(==)(s1::MultiGoalReward, s2::MultiGoalReward) =
+    s1.discount == s2.discount && s1.rewards == s2.rewards &&
+    s1.goals == s2.goals
+
+is_goal(spec::MultiGoalReward, domain::Domain, state::State) =
+    any(satisfy(domain, state, g) for g in spec.goals)
+is_violated(spec::MultiGoalReward, domain::Domain, state::State) = false
+get_cost(spec::MultiGoalReward, domain::Domain, s1::State, a::Term, s2::State) =
+    -get_reward(spec, domain, s1, a, s2)
+get_discount(spec::MultiGoalReward) = spec.discount
+get_goal_terms(spec::MultiGoalReward) =
+    Term[Compound(:or, spec.goals)]
+
+function get_reward(spec::MultiGoalReward, domain::Domain,
+                    s1::State, a::Term, s2::State)
+    reward = 0.0
+    for (goal, r) in zip(spec.goals, spec.rewards)
+        if satisfy(domain, state, goal) reward += r end
+    end
+    return reward
+end
+
+discounted(spec::MultiGoalReward, discount::Float64) =
+    MultiGoalReward(spec.terms, spec.reward, discount * spec.discount)
