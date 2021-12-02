@@ -117,12 +117,7 @@ function relaxed_cost_search(
     counters = [length(a.preconds) for a in graph.actions] # Action counters
 
     # Set up initial facts and priority queue
-    init_facts = Set{Term}(PDDL.get_facts(state))
-    push!(init_facts, Const(true))
-    pos_idxs = findall(c -> c in init_facts, graph.conditions)
-    neg_idxs = findall(c -> c.name == :not && !(c.args[1] in init_facts),
-                       graph.conditions)
-    init_idxs = append!(pos_idxs, neg_idxs)
+    init_idxs = get_init_idxs(graph, domain, state)
     costs[init_idxs] .= 0
     queue = PriorityQueue(i => costs[i] for i in init_idxs)
 
@@ -171,4 +166,21 @@ function relaxed_cost_search(
 
     # Return fact costs
     return costs
+end
+
+function get_init_idxs(graph::PlanningGraph,
+                       domain::Domain, state::State)
+    return [i for (i, cond) in enumerate(graph.conditions)
+            if satisfy(domain, state, cond)]
+end
+
+function get_init_idxs(graph::PlanningGraph,
+                       domain::Domain, state::GenericState)
+    init_facts = PDDL.get_facts(state)
+    pos_idxs = findall(c -> c in init_facts || c.name == true,
+                       graph.conditions)
+    neg_idxs = findall(c -> c.name == :not && !(c.args[1] in init_facts),
+                       graph.conditions)
+    init_idxs = append!(pos_idxs, neg_idxs)
+    return init_idxs
 end
