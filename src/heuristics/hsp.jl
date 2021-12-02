@@ -2,17 +2,12 @@
 export HSPHeuristic, HAdd, HMax
 export HSPRHeuristic, HAddR, HMaxR
 
-"Precomputed domain information for HSP heuristic."
-struct HSPCache
-    domain::Domain # Preprocessed domain
-    depgraph::DependencyGraph # Domain dependency graph
-end
-
-"HSP family of delete-relaxation heuristics."
+"HSP family of relaxation heuristics."
 mutable struct HSPHeuristic <: Heuristic
     op::Function # Aggregator (e.g. maximum, sum) for fact costs
-    cache::HSPCache # Precomputed domain information
-    pre_key::UInt64 # Key to check if information needs to be precomputed again
+    graph::PlanningGraph # Precomputed planning graph
+    goal_idxs::Set{Int} # Precomputed list of goal indices
+    pre_key::Tuple{UInt64,UInt64} # Precomputation hash
     HSPHeuristic(op) = new(op)
 end
 
@@ -23,87 +18,48 @@ function precompute!(h::HSPHeuristic,
                      domain::Domain, state::State, spec::Specification)
     # Check if cache has already been computed
     if is_precomputed(h, domain, state, spec) return h end
-    h.pre_key = objectid(domain) # Precomputed data is unique to each domain
-    # Store abstracted domain and dependency graph
-    absdom = abstracted(domain; abstractions=Dict())
-    h.cache = HSPCache(absdom, dependency_graph(domain))
-    return h
-end
-
-function precompute!(h::HSPHeuristic,
-                     domain::CompiledDomain, state::State, spec::Specification)
-    # Check if cache has already been computed
-    if is_precomputed(h, domain, state, spec) return h end
-    h.pre_key = objectid(domain) # Precomputed data is unique to each domain
-    # Abstract source domain then recompile
-    absdom, _ = abstracted(domain, state)
-    depgraph = dependency_graph(PDDL.get_source(domain))
-    h.cache = HSPCache(absdom, depgraph)
+    # Precomputed data is unique to each domain and specification
+    h.pre_key = (objectid(domain), objectid(spec))
+    # Build planning graph and find goal condition indices
+    goal_conds = PDDL.to_cnf_clauses(get_goal_terms(spec))
+    h.graph = build_planning_graph(domain, state, goal_conds)
+    h.goal_idxs = Set(findall(c -> c in goal_conds, h.graph.conditions))
     return h
 end
 
 function is_precomputed(h::HSPHeuristic,
                         domain::Domain, state::State, spec::Specification)
-    return (isdefined(h, :cache) && objectid(domain) == h.pre_key)
+    return (isdefined(h, :graph) &&
+            objectid(domain) == h.pre_key[1] &&
+            objectid(spec) == h.pre_key[2])
 end
 
 function compute(h::HSPHeuristic,
                  domain::Domain, state::State, spec::Specification)
     # Precompute if necessary
     if !is_precomputed(h, domain, state, spec)
-        precompute!(h, domain, state, spec) end
-    @unpack op, cache = h
-    @unpack domain, depgraph = cache
-    goals = get_goal_terms(spec)
-    # Abstract state, initialize fact costs in a GraphPlan-style graph
-    state = abstractstate(domain, state)
-    fact_costs = Dict{Term,Float64}(f => 0 for f in PDDL.get_facts(state))
-    # Iterate until we reach the goal or a fixpoint
-    while true
-        # Terminate if goal is roached
-        if is_goal(spec, domain, state)
-            return reduce(op, (fact_costs[g] for g in goals), init=0)
-        end
-        # Compute costs of one-step derivations of domain axioms
-        # TODO: derivable(domain, state)
-        # Compute costs of all effects of available actions
-        next_state = copy(state)
-        for act in available(domain, state)
-            act_vars = PDDL.get_actions(domain)[act.name] |> PDDL.get_argvars
-            subst = Subst(var => val for (var, val) in zip(act_vars, act.args))
-            # Look-up parent conditions and substitute vars
-            parents = depgraph.actions[act.name].parents
-            parents = ((substitute(t, subst) for t in c) for c in parents)
-            # Compute cost of reaching each action
-            conj_costs = (reduce(op, (get(fact_costs, f, 0) for f in c), init=0)
-                          for c in parents)
-            cost = reduce(min, conj_costs, init=Inf)
-            # Compute cost of reaching each child effect
-            children = depgraph.actions[act.name].children
-            cost = cost + 1 # TODO: Handle arbitrary action costs
-            for f in (substitute(t, subst) for t in children)
-                if cost < get(fact_costs, f, Inf) fact_costs[f] = cost end
-            end
-            # Execute action and widen state
-            next_state = execute!(domain, next_state, act, check=false)
-        end
-        # Terminate if fixpoint is reached
-        if next_state == state return Inf end
-        state = next_state
+        precompute!(h, domain, state, spec)
     end
+
+    # Compute relaxed costs to each condition node of the planning graph
+    costs = relaxed_cost_search(domain, state, spec, h.op, h.graph, h.goal_idxs)
+
+    # Return goal cost (may be infinite if unreachable)
+    goal_cost = h.op(costs[g] for g in h.goal_idxs)
+    return goal_cost
 end
 
 "HSP heuristic where a fact's cost is the maximum cost of its dependencies."
-HMax(args...) = HSPHeuristic(max, args...)
+HMax(args...) = HSPHeuristic(maximum, args...)
 
 "HSP heuristic where a fact's cost is the summed cost of its dependencies."
-HAdd(args...) = HSPHeuristic(+, args...)
+HAdd(args...) = HSPHeuristic(sum, args...)
 
 "HSPr family of delete-relaxation heuristics for regression search."
 mutable struct HSPRHeuristic <: Heuristic
     op::Function
-    fact_costs::Dict{Term,Float64} # Est. cost of reaching each fact from goal
-    pre_key::NTuple{3,UInt64} # Key to check if precomputation needs to re-run
+    costs::Dict{Term,Float64} # Est. cost of reaching each fact from goal
+    pre_key::UInt64 # Precomputation key
     HSPRHeuristic(op) = new(op)
 end
 
@@ -114,66 +70,105 @@ function precompute!(h::HSPRHeuristic,
                      domain::Domain, state::State, spec::Specification)
     # Check if data has already been computed
     if is_precomputed(h, domain, state, spec) return h end
-    # Precomputed data is tied to all three inputs
-    h.pre_key = (objectid(domain), hash(state), hash(spec))
-    # Initialize fact costs in a GraphPlan-style graph
-    fact_costs = Dict{Term,Float64}(f => 0 for f in keys(state)
-                                    if PDDL.is_pred(f, domain))
-    # Abstract domain and compute dependency graph
-    if domain isa CompiledDomain
-        depgraph = dependency_graph(PDDL.get_source(domain))
-    else
-        depgraph = dependency_graph(domain)
-    end
-    domain, state = abstracted(domain, state)
-    # Iterate until we reach the goal or a fixpoint
-    while true
-        # Compute costs of one-step derivations of domain axioms
-        # TODO: derivable(domain, state)
-        # Compute costs of all effects of available actions
-        next_state = state
-        for act in available(domain, state)
-            act_vars = PDDL.get_actions(domain)[act.name] |> PDDL.get_argvars
-            subst = Subst(var => val for (var, val) in zip(act_vars, act.args))
-            # Look-up parent conditions and substitute vars
-            parents = depgraph.actions[act.name].parents
-            parents = ((substitute(t, subst) for t in c) for c in parents)
-            # Compute cost of reaching each action
-            conj_costs = (reduce(h.op, (get(fact_costs, f, 0) for f in c), init=0)
-                          for c in parents)
-            cost = reduce(min, conj_costs, init=Inf)
-            # Compute cost of reaching each child effect
-            children = depgraph.actions[act.name].children
-            cost = cost + 1 # TODO: Handle arbitrary action costs
-            for f in (substitute(t, subst) for t in children)
-                if cost < get(fact_costs, f, Inf) fact_costs[f] = cost end
-            end
-            # Execute action and widen state
-            next_state = execute(domain, next_state, act, check=false)
-        end
-        # Terminate if  fixpoint is reached
-        if next_state == state break end
-        state = next_state
-    end
-    h.fact_costs = fact_costs
+    # Precomputed data is tied to domain
+    h.pre_key = objectid(domain)
+
+    # Construct and compute fact costs from planning graph
+    graph = build_planning_graph(domain, state)
+    costs = relaxed_cost_search(domain, state, spec, h.op, graph)
+
+    # Convert costs to dictionary for fast look-up
+    h.costs = Dict{Term,Float64}(c => v for (c, v) in zip(graph.conditions, costs))
     return h
 end
 
 function is_precomputed(h::HSPRHeuristic,
                         domain::Domain, state::State, spec::Specification)
-    return (isdefined(h, :fact_costs) && objectid(domain) == h.pre_key[1]
-            && hash(state) == h.pre_key[2] && hash(spec) == h.pre_key[3])
+    return isdefined(h, :costs) && objectid(domain) == h.pre_key
 end
 
 function compute(h::HSPRHeuristic,
                  domain::Domain, state::State, spec::Specification)
+    # Precompute if necessary
+    if !is_precomputed(h, domain, state, spec)
+        precompute!(h, domain, state, spec)
+    end
     # Compute cost of achieving all facts in current state
     facts = PDDL.get_facts(state)
-    return reduce(h.op, (get(h.fact_costs, f, 0) for f in facts), init=0)
+    # TODO: Handle negative literals
+    if length(facts) == 0 return 0.0 end
+    return h.op(get(h.costs, f, 0) for f in facts)
 end
 
 "HSPr heuristic where a fact's cost is the maximum cost of its dependencies."
-HMaxR(args...) = HSPRHeuristic(max, args...)
+HMaxR(args...) = HSPRHeuristic(maximum, args...)
 
 "HSPr heuristic where a fact's cost is the summed cost of its dependencies."
-HAddR(args...) = HSPRHeuristic(+, args...)
+HAddR(args...) = HSPRHeuristic(sum, args...)
+
+"Compute relaxed costs to each fact node of a planning graph."
+function relaxed_cost_search(
+    domain::Domain, state::State, spec::Specification,
+    accum_op::Function, graph::PlanningGraph, goal_idxs=nothing
+)
+    # Initialize fact costs, counters,  etc.
+    costs = fill(Inf, length(graph.conditions)) # Fact costs
+    expanded = falses(length(graph.conditions)) # Whether facts are expanded
+    counters = [length(a.preconds) for a in graph.actions] # Action counters
+
+    # Set up initial facts and priority queue
+    init_facts = Set{Term}(PDDL.get_facts(state))
+    push!(init_facts, Const(true))
+    pos_idxs = findall(c -> c in init_facts, graph.conditions)
+    neg_idxs = findall(c -> c.name == :not && !(c.args[1] in init_facts),
+                       graph.conditions)
+    init_idxs = append!(pos_idxs, neg_idxs)
+    costs[init_idxs] .= 0
+    queue = PriorityQueue(i => costs[i] for i in init_idxs)
+
+    # Check if any goal conditions are already reached
+    if goal_idxs !== nothing
+        for g in goal_idxs
+            goal_cond = graph.conditions[g]
+            costs[g] == Inf && !satisfy(domain, state, goal_cond) && continue
+            costs[g] = 0
+        end
+        unreached = copy(goal_idxs)
+    else
+        unreached = Set{Int}(-1) # Set with dummy unreachable node
+    end
+
+    # Perform Djikstra / uniform-cost search until goals are reached
+    while !isempty(queue) && !isempty(unreached)
+        # Dequeue lowest cost fact/condition
+        cond_idx = dequeue!(queue)
+        expanded[cond_idx] = true
+        # Iterate over child actions
+        for act_idx in graph.cond_children[cond_idx]
+            # Decrease counter for unachieved actions
+            counters[act_idx] -= 1
+            counters[act_idx] > 0 && continue
+            # Compute path cost of achieved action
+            act_parents = graph.act_parents[act_idx]
+            path_cost = accum_op(costs[p] for p in act_parents)
+            act_cost = 1 # TODO: Support variable action costs
+            next_cost = path_cost + act_cost
+            # Place child conditions on queue
+            act_children = graph.act_children[act_idx]
+            for c_idx in act_children
+                # TODO: Handle functional conditions
+                if next_cost > costs[c_idx] continue end
+                costs[c_idx] = next_cost
+                if !(c_idx in keys(queue)) # Enqueue new conditions
+                    enqueue!(queue, c_idx, next_cost)
+                else # Reduce the cost of those in queue
+                    queue[c_idx] = next_cost
+                end
+                delete!(unreached, c_idx) # Removed any reached goals
+            end
+        end
+    end
+
+    # Return fact costs
+    return costs
+end

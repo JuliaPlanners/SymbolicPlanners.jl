@@ -28,7 +28,7 @@ end
 mutable struct ManhattanHeuristic <: Heuristic
     fluents::Vector{Term}
     goal::State
-    pre_key::UInt64 # Key to check if information needs to be precomputed again
+    pre_key::UInt64 # Precomputation hash
     ManhattanHeuristic(fluents) = new(fluents)
 end
 

@@ -39,13 +39,8 @@ end
 
 @testset "HSP Heuristics" begin
 
-hadd = precompute!(HAdd(), blocksworld, bw_state, bw_problem.goal)
-@test hadd(blocksworld, bw_state, bw_problem.goal) == 4
+@test HAdd()(blocksworld, bw_state, bw_problem.goal) == 4
 @test HMax()(blocksworld, bw_state, bw_problem.goal) == 2
-
-cblocksworld, cbw_state = compiled(blocksworld, bw_state)
-hadd = precompute!(HAdd(), cblocksworld, cbw_state, bw_problem.goal)
-hadd(cblocksworld, cbw_state, bw_problem.goal)
 
 end
 

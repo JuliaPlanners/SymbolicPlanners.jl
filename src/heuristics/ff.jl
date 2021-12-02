@@ -12,7 +12,7 @@ end
 "FastForward (FF) delete-relaxation heuristic."
 mutable struct FFHeuristic <: Heuristic
     cache::FFCache # Precomputed domain information
-    pre_key::UInt64 # Key to check if information needs to be precomputed again
+    pre_key::UInt64 # Precomputation hash
     FFHeuristic() = new()
 end
 

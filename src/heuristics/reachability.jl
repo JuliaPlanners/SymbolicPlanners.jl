@@ -3,7 +3,7 @@ export ReachabilityHeuristic
 "Generalized reachability heuristic."
 mutable struct ReachabilityHeuristic <: Heuristic
     max_steps::Int
-    pre_key::Tuple{UInt,UInt} # Key to check if information needs to be precomputed again
+    pre_key::Tuple{UInt,UInt} # Precomputation hash
     absdom::Domain # Abstract domain
     ReachabilityHeuristic(max_steps) = new(max_steps)
 end
@@ -17,8 +17,8 @@ function precompute!(h::ReachabilityHeuristic,
                      domain::Domain, state::State, spec::Specification)
     # Check if cache has already been computed
     if is_precomputed(h, domain, state, spec) return h end
-     # Precomputed data is unique to each domain and specification
-    h.pre_key = (objectid(domain), hash(spec))
+    # Precomputed data is unique to each domain and specification
+    h.pre_key = (objectid(domain), objectid(spec))
     # Store abstracted domain
     h.absdom, _ = abstracted(domain, state)
     return h
@@ -27,7 +27,8 @@ end
 function is_precomputed(h::ReachabilityHeuristic,
                         domain::Domain, state::State, spec::Specification)
     return (isdefined(h, :pre_key) &&
-            objectid(domain) == h.pre_key[1] && hash(spec) == h.pre_key[2])
+            objectid(domain) == h.pre_key[1] &&
+            objectid(spec) == h.pre_key[2])
 end
 
 function compute(h::ReachabilityHeuristic,
@@ -64,7 +65,7 @@ function precompute!(h::ReachabilityHeuristic,
     # Check if cache has already been computed
     if is_precomputed(h, domain, state, spec) return h end
     # Precomputed data is unique to each domain and specification
-    h.pre_key = (objectid(domain), hash(spec))
+    h.pre_key = (objectid(domain), objectid(spec))
     # Store abstracted domain, turn off automatic widening
     h.absdom, _ = abstracted(domain, state; autowiden=false)
     return h
