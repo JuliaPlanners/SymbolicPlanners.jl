@@ -26,7 +26,10 @@ get_reward(spec::BackwardSearchGoal, domain::Domain, s1::State, a::Term, s2::Sta
 get_goal_terms(spec::BackwardSearchGoal) =
     get_goal_terms(spec.goal)
 
-add_constraints!(spec::BackwardSearchGoal, state::State) =
+function add_constraints!(
+    spec::BackwardSearchGoal{G,C}, domain::Domain, state::State
+) where {G,C <: PDDL.Diff}
+    update!(state, domain, spec.constraint_diff)
+end
+add_constraints!(spec::BackwardSearchGoal, domain::Domain, state::State) =
     nothing
-add_constraints!(spec::BackwardSearchGoal{G,PDDL.Diff}, state::State) where {G} =
-    update!(state, spec.constraint_diff)

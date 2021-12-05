@@ -83,7 +83,7 @@ function expand!(planner::BackwardPlanner, node::PathNode,
         # Regress (reverse-execute) the action
         next_state = regress(domain, state, act; check=false)
         # Add constraints to regression state
-        add_constraints!(spec, state)
+        add_constraints!(spec, domain, state)
         next_id = hash(next_state)
         # Compute path cost
         act_cost = get_cost(spec, domain, state, act, next_state)
