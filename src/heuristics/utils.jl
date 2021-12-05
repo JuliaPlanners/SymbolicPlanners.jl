@@ -155,5 +155,12 @@ function get_init_idxs(graph::PlanningGraph,
     neg_idxs = findall(c -> c.name == :not && !(c.args[1] in init_facts),
                        graph.conditions)
     init_idxs = append!(pos_idxs, neg_idxs)
+    if !isempty(PDDL.get_functions(domain))
+        func_idxs = findall(graph.conditions) do c
+            return ((PDDL.is_func(c, domain) || PDDL.is_global_func(c)) &&
+                    satisfy(domain, state, c))
+        end
+        append!(init_idxs, func_idxs)
+    end
     return init_idxs
 end
