@@ -9,8 +9,7 @@ mutable struct FFHeuristic <: Heuristic
     FFHeuristic() = new()
 end
 
-Base.hash(heuristic::FFHeuristic, h::UInt) =
-    hash(FFHeuristic, h)
+Base.hash(heuristic::FFHeuristic, h::UInt) = hash(FFHeuristic, h)
 
 function precompute!(h::FFHeuristic,
                      domain::Domain, state::State, spec::Specification)
