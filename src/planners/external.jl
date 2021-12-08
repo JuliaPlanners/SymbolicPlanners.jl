@@ -5,7 +5,7 @@ export FastDownwardPlanner
     search::String = "astar"
     heuristic::String = "add"
     h_params::Dict{String, String} = Dict()
-    timeout::Float64 = 10
+    max_time::Float64 = 10
     verbose::Bool = false
 end
 
@@ -15,7 +15,7 @@ function solve(planner::FastDownwardPlanner,
     if !haskey(ENV, "FD_PATH")
         error("FD_PATH not set to location of fast_downward.py")
     end
-    @unpack search, heuristic, h_params, timeout, verbose = planner
+    @unpack search, heuristic, h_params, max_time, verbose = planner
     # Write temporary domain and problem files
     goals = get_goal_terms(spec)
     metric = hasfield(typeof(spec), :metric) ? spec.metric : nothing
@@ -29,11 +29,11 @@ function solve(planner::FastDownwardPlanner,
     h_params = join(["$key=$val" for (key, val) in h_params], ", ")
     search_params = "$search($heuristic($h_params))"
     cmd = `$py_cmd $fd_path $domain_path $problem_path --search $search_params`
-    # Run command up to timeout
+    # Run command up to max time
     out = Pipe()
     proc = run(pipeline(cmd, stdout=out); wait=false)
     cb() = process_exited(proc)
-    timedwait(cb, float(timeout))
+    timedwait(cb, float(max_time))
     if process_running(proc)
         @debug "Planner timed out."
         Base.Filesystem.rm(domain_path); Base.Filesystem.rm(problem_path)

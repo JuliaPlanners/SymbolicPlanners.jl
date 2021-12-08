@@ -3,6 +3,7 @@ export BreadthFirstPlanner
 "Uninformed breadth-first search planner."
 @kwdef mutable struct BreadthFirstPlanner <: Planner
     max_nodes::Int = typemax(Int)
+    max_time::Float64 = Inf # Max time in seconds before timeout
     save_search::Bool = false # Flag to save search info
 end
 
@@ -37,15 +38,18 @@ function search!(planner::BreadthFirstPlanner,
                  domain::Domain, spec::Specification,
                  search_tree::Dict{UInt,<:PathNode}, queue::Vector{UInt})
     count = 1
+    start_time = time()
     while length(queue) > 0
         # Pop state off the queue
         node_id = popfirst!(queue)
         node = search_tree[node_id]
-        # Return if max nodes are reached or goals are satisfied
+        # Return status and current state if search terminates
         if is_goal(spec, domain, node.state)
-            return :success, node_id, count
+            return :success, node_id, count # Goal reached
         elseif count >= planner.max_nodes
-            return :max_nodes, node_id, count
+            return :max_nodes, node_id, count # Node budget reached
+        elseif time() - start_time >= planner.max_time
+            return :max_time, node_id, count # Time budget reached
         end
         count += 1
         # Expand current node

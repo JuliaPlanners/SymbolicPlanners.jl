@@ -6,7 +6,8 @@ export AStarPlanner, WeightedAStarPlanner
     heuristic::Heuristic = GoalCountHeuristic()
     g_mult::Float64 = 1.0 # Path cost multiplier
     h_mult::Float64 = 1.0 # Heuristic multiplier
-    max_nodes::Int = typemax(Int)
+    max_nodes::Int = typemax(Int) # Max search nodes before termination
+    max_time::Float64 = Inf # Max time in seconds before timeout
     save_search::Bool = false # Flag to save search info
 end
 
@@ -65,6 +66,7 @@ function search!(planner::ForwardPlanner,
                  domain::Domain, spec::Specification,
                  search_tree::Dict{UInt,<:PathNode}, queue::PriorityQueue)
     count = 1
+    start_time = time()
     while length(queue) > 0
         # Get state with lowest estimated cost to goal
         node_id = dequeue!(queue)
@@ -74,6 +76,8 @@ function search!(planner::ForwardPlanner,
             return :success, node_id, count # Goal reached
         elseif count >= planner.max_nodes
             return :max_nodes, node_id, count # Node budget reached
+        elseif time() - start_time >= planner.max_time
+            return :max_time, node_id, count # Time budget reached
         end
         count += 1
         # Expand current node
