@@ -1,4 +1,21 @@
 export FastDownward, Pyperplan
+export ExternalPlan
+
+"Solution type for plans produced by external planners."
+struct ExternalPlan <: OrderedSolution
+    plan::Vector{Term}
+    runtime::Float64
+    expanded::Int
+end
+
+ExternalPlan(plan::AbstractVector{<:Term}) = ExternalPlan(plan, -1, -1)
+
+get_action(sol::ExternalPlan, t::Int) = sol.plan[t]
+
+Base.iterate(sol::ExternalPlan) = iterate(sol.plan)
+Base.iterate(sol::ExternalPlan, istate) = iterate(sol.plan, istate)
+Base.getindex(sol::ExternalPlan, i::Int) = getindex(sol.plan, i)
+Base.length(sol::ExternalPlan) = length(sol.plan)
 
 "Wrapper to the FastDownward planning system."
 @kwdef mutable struct FastDownward <: Planner
@@ -7,6 +24,7 @@ export FastDownward, Pyperplan
     h_params::Dict{String, String} = Dict() # Heuristic parameters
     max_time::Float64 = 300 # Time limit
     verbose::Bool = false # Whether to print planner outputs
+    log_stats::Bool = true # Whether to log statistics
     fd_path::String = get(ENV, "FD_PATH", "") # Path to fast_downward.py
     py_cmd::String = get(ENV, "PYTHON", "python") # Python path
 end
@@ -40,7 +58,7 @@ function solve(planner::FastDownward,
         @debug "Planner timed out."
         Base.Filesystem.rm(domain_path); Base.Filesystem.rm(problem_path)
         kill(proc); close(out.in)
-        return NullSolution()
+        return NullSolution(:max_time)
     end
     # Read output and check if solution was found
     close(out.in)
@@ -51,13 +69,21 @@ function solve(planner::FastDownward,
         if occursin("aborting after translate", output)
             error("Could not translate domain and problem files.")
         end
-        return NullSolution()
+        return NullSolution(:failure)
     end
     # Read plan from file
     plan = readlines("./sas_plan")[1:end-1]
     Base.Filesystem.rm("./sas_plan")
     plan = parse_pddl.(plan)
-    return OrderedPlan(plan)
+    # Return plan with statistics if flag is set
+    if planner.log_stats
+        m = match(r"Total time: ([\d.]+)s", output)
+        runtime = m === nothing ? -1 : parse(Float64, m.captures[1])
+        m = match(r"Expanded (\d+) state\(s\)", output)
+        expanded = m === nothing ? -1 : parse(Int, m.captures[1])
+        return ExternalPlan(plan, runtime, expanded)
+    end
+    return ExternalPlan(plan)
 end
 
 "Wrapper to the Pyperplan light-weight planner."
@@ -65,6 +91,7 @@ end
     search::String = "astar" # Search algorithm
     heuristic::String = "hadd" # Search heuristic
     log_level::String = "info" # Log level
+    log_stats::Bool = true # Whether to log statistics
     max_time::Float64 = 300 # Time limit
     verbose::Bool = false # Whether to print planner outputs
     py_cmd::String = get(ENV, "PYTHON", "python") # Python path
@@ -86,6 +113,7 @@ function solve(planner::Pyperplan,
     cmd = ```$py_cmd -m pyperplan -l $log_level -H $heuristic -s $search
              $domain_path $problem_path```
     # Run command up to max time
+    start_time = time()
     out = Pipe()
     proc = run(pipeline(cmd, stdout=out); wait=false)
     cb() = process_exited(proc)
@@ -94,8 +122,9 @@ function solve(planner::Pyperplan,
         @debug "Planner timed out."
         Base.Filesystem.rm(domain_path); Base.Filesystem.rm(problem_path)
         kill(proc); close(out.in)
-        return NullSolution()
+        return NullSolution(:max_time)
     end
+    runtime = time() - start_time
     # Read output and print if verbose flag is true
     close(out.in)
     output = read(out, String)
@@ -105,11 +134,17 @@ function solve(planner::Pyperplan,
     sol_path = splitext(problem_path)[1] * ".soln"
     if !isfile(sol_path)
         if verbose println("Solution not found.") end
-        return NullSolution()
+        return NullSolution(:failure)
     end
     # Read plan from file
     plan = readlines(sol_path)[1:end-1]
     Base.Filesystem.rm(sol_path)
     plan = parse_pddl.(plan)
-    return OrderedPlan(plan)
+    # Return plan with statistics if flag is set
+    if planner.log_stats
+        m = match(r"(\d+) Nodes expanded", output)
+        expanded = m === nothing ? -1 : parse(Int, m.captures[1])
+        return ExternalPlan(plan, runtime, expanded)
+    end
+    return ExternalPlan(plan)
 end

@@ -58,7 +58,7 @@ function solve(planner::ForwardPlanner,
         return PathSearchSolution(status, Term[], S[],
                                   count, search_tree, queue)
     else
-        return NullSolution()
+        return NullSolution(status)
     end
 end
 

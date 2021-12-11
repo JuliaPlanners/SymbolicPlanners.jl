@@ -1,4 +1,4 @@
-export Solution, OrderedSolution, PolicySolution
+export Solution, NullSolution, OrderedSolution, PolicySolution
 export get_action, best_action, rand_action
 
 "Abstract solution type."
@@ -8,7 +8,11 @@ abstract type Solution end
 get_action(sol::Solution, t::Int, state::State) = error("Not implemented.")
 
 "Null solution that indicates no plan was found."
-struct NullSolution <: Solution end
+struct NullSolution <: Solution
+    status::Symbol
+end
+
+NullSolution() = NullSolution(:failure)
 
 ## Ordered solutions ##
 
