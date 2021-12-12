@@ -7,9 +7,10 @@ struct MinMetricGoal <: Goal
 end
 
 function MinMetricGoal(problem::Problem)
-    goals = flatten_conjs(problem.goal)
-    sign, metric = problem.metric
-    if sign > 0 metric = Compound(:-, [metric]) end
+    goals = flatten_conjs(PDDL.get_goal(problem))
+    metric = PDDL.get_metric(problem)
+    metric = metric.name == :minimize ?
+        metric.args[1] : Compound(:-, metric.args)
     return MinMetricGoal(goals, metric)
 end
 MinMetricGoal(goal::Term, metric::Term) =

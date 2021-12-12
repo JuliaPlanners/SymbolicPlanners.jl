@@ -62,7 +62,17 @@ include("specifications/goal_reward.jl")
 include("specifications/backward.jl")
 
 # Convenience constructors
-Specification(problem::Problem) = problem.metric === nothing ?
-    MinStepsGoal(problem) : MinMetricGoal(problem)
+function Specification(problem::Problem)
+    metric = PDDL.get_metric(problem)
+    if metric === nothing
+        return MinStepsGoal(problem)
+    elseif metric.name == :minimize
+        return MinMetricGoal(problem)
+    elseif metric.name == :maximize
+        return MaxMetricGoal(problem)
+    else
+        error("Unrecognized metric direction: $(metric.name)")
+    end
+end
 Specification(goals::AbstractVector{<:Term}) = MinStepsGoal(goals)
 Specification(goal::Term) = MinStepsGoal(goal)

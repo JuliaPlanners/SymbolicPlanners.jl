@@ -5,8 +5,10 @@ struct MinStepsGoal <: Goal
     terms::Vector{Term} # Goal terms to be satisfied
 end
 
-MinStepsGoal(problem::Problem) = MinStepsGoal(flatten_conjs(problem.goal))
-MinStepsGoal(goal::Term) = MinStepsGoal(flatten_conjs(goal))
+MinStepsGoal(problem::Problem) =
+    MinStepsGoal(flatten_conjs(PDDL.get_goal(problem)))
+MinStepsGoal(goal::Term) =
+    MinStepsGoal(flatten_conjs(goal))
 
 Base.hash(spec::MinStepsGoal, h::UInt) =
     hash(Set(spec.terms), h)

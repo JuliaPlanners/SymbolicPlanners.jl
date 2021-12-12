@@ -7,7 +7,7 @@ export GoalReward, BonusGoalReward, MultiGoalReward
     discount::Float64 = 0.9 # Discount factor
 end
 
-GoalReward(problem::Problem) = GoalReward(flatten_conjs(problem.goal), 1.0, 0.9)
+GoalReward(problem::Problem) = GoalReward(PDDL.get_goal(problem), 1.0, 0.9)
 GoalReward(terms, reward) = GoalReward(terms, reward, 0.9)
 GoalReward(terms) = GoalReward(terms, 1.0, 0.9)
 GoalReward(term::Term, reward, discount) =
