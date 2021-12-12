@@ -137,7 +137,7 @@ function solve(planner::Pyperplan,
         return NullSolution(:failure)
     end
     # Read plan from file
-    plan = readlines(sol_path)[1:end-1]
+    plan = readlines(sol_path)[1:end]
     Base.Filesystem.rm(sol_path)
     plan = parse_pddl.(plan)
     # Return plan with statistics if flag is set
