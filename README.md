@@ -4,7 +4,7 @@ Symbolic planners for problems and domains specified in [PDDL](https://github.co
 
 ## Installation
 
-Make sure [`PDDL.jl`](https://github.com/JuliaPlanners/PDDL.jl) is installed. Then run
+Make sure [PDDL.jl](https://github.com/JuliaPlanners/PDDL.jl) is installed. Then run
 ```
 add https://github.com/JuliaPlanners/SymbolicPlanners.jl
 ```
@@ -50,7 +50,7 @@ at the Julia package manager.
 
 ## Performance
 
-After Julia's JIT compilation, using SymbolicPlanners.jl on top of [`PDDL.jl`](https://github.com/JuliaPlanners/PDDL.jl) should be about 2 to 3x faster than [Pyperplan](https://github.com/aibasel/pyperplan) on the same machine when using reasonable search algorithms and heuristics.
+After Julia's JIT compilation, using SymbolicPlanners.jl on top of [PDDL.jl](https://github.com/JuliaPlanners/PDDL.jl) should be about 2 to 3x faster than [Pyperplan](https://github.com/aibasel/pyperplan) on the same machine when using reasonable search algorithms and heuristics.
 
 Below is a comparison of runtimes between SymbolicPlanners.jl + PDDL.jl vs. Pyperplan when solving Blocksworld problems using A* search and the _h_<sub>add</sub> heuristic (note that the y-axis is logarithmically scaled):
 
