@@ -46,4 +46,12 @@ at the Julia package manager.
 - [GoalReward](src/specifications/goal_reward.jl): Achieve reward upon reaching a goal state
 - [BonusGoalReward](src/specifications/goal_reward.jl): Adds goal reward to an existing specification
 - [MultiGoalReward](src/specifications/goal_reward.jl): Achieve separate rewards for achieving separate goals
-- [DiscountedReward](src/specifications/discounted.jl): Discounts the rewards or costs of an existing specification.
+- [DiscountedReward](src/specifications/discounted.jl): Discounts the rewards or costs of an existing specification
+
+## Performance
+
+After Julia's JIT compilation, using SymbolicPlanners.jl on top of [`PDDL.jl`](https://github.com/JuliaPlanners/PDDL.jl) should be about 2 to 3x faster than [Pyperplan](https://github.com/aibasel/pyperplan) on the same machine when using reasonable search algorithms and heuristics.
+
+Below is a comparison of runtimes between SymbolicPlanners.jl + PDDL.jl vs. Pyperplan when solving Blocksworld problems using A* search and the _h_<sub>add</sub> heuristic (note that the y-axis is logarithmically scaled):
+
+![Blocksworld solution runtimes for Pyperplan vs. SymbolicPlanners.jl using the PDDL.jl interpreter and compiler](assets/blocksworld-pddljl-vs-pyperplan.png)
