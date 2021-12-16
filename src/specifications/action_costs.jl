@@ -68,3 +68,16 @@ get_goal_terms(spec::ExtraActionCosts) =
     get_goal_terms(spec.spec)
 get_discount(spec::ExtraActionCosts) =
     get_discount(spec.spec)
+
+"Returns whether a specification has action-specific costs."
+has_action_cost(spec::Specification) = false
+has_action_cost(spec::MinActionCosts) = true
+has_action_cost(spec::ExtraActionCosts) = true
+
+"Returns the cost for `act` for specifications with fixed action costs."
+get_action_cost(spec::Specification, ::Domain, act::Term) =
+    error("Not implemented.")
+get_action_cost(spec::MinActionCosts, ::Domain, act::Term) =
+    spec.costs[act.name]
+get_action_cost(spec::ExtraActionCosts, ::Domain, act::Term) =
+    spec.costs[act.name]

@@ -90,7 +90,7 @@ function relaxed_graph_search(
     counters = [length(a.preconds) for a in graph.actions] # Action counters
 
     # Set up initial facts and priority queue
-    init_idxs = get_init_idxs(graph, domain, state)
+    init_idxs = _get_init_idxs(graph, domain, state)
     costs[init_idxs] .= 0
     queue = PriorityQueue(i => costs[i] for i in init_idxs)
 
@@ -118,12 +118,12 @@ function relaxed_graph_search(
             # Compute path cost of achieved action
             act_parents = graph.act_parents[act_idx]
             path_cost = accum_op(costs[p] for p in act_parents)
-            act_cost = 1 # TODO: Support variable action costs
+            act_cost = has_action_cost(spec) ?
+                get_action_cost(spec, domain, graph.actions[act_idx].term) : 1
             next_cost = path_cost + act_cost
             # Place child conditions on queue
             act_children = graph.act_children[act_idx]
             for c_idx in act_children
-                # TODO: Handle functional conditions
                 if next_cost > costs[c_idx] continue end
                 costs[c_idx] = next_cost # Store new cost
                 achievers[c_idx] = act_idx # Store new cheapest achiever
@@ -141,14 +141,15 @@ function relaxed_graph_search(
     return costs, achievers
 end
 
-function get_init_idxs(graph::PlanningGraph,
+"Returns planning graph indices for initial facts."
+function _get_init_idxs(graph::PlanningGraph,
                        domain::Domain, state::State)
     return [i for (i, cond) in enumerate(graph.conditions)
             if satisfy(domain, state, cond)]
 end
 
-function get_init_idxs(graph::PlanningGraph,
-                       domain::Domain, state::GenericState)
+function _get_init_idxs(graph::PlanningGraph,
+                        domain::Domain, state::GenericState)
     init_facts = PDDL.get_facts(state)
     pos_idxs = findall(c -> c in init_facts || c.name == true,
                        graph.conditions)
