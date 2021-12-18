@@ -93,7 +93,7 @@ function relaxed_graph_search(
     # Set up initial facts and priority queue
     init_idxs = _get_init_idxs(graph, domain, state)
     costs[init_idxs] .= 0
-    queue = PriorityQueue{Int,Float16}(i => 0 for i in init_idxs)
+    queue = PriorityQueue{Int,Float16}(i => 0 for i in findall(init_idxs))
 
     # Check if any goal conditions are already reached
     if goal_idxs !== nothing
@@ -144,25 +144,26 @@ end
 
 "Returns planning graph indices for initial facts."
 function _get_init_idxs(graph::PlanningGraph,
-                       domain::Domain, state::State)
-    return [i for (i, cond) in enumerate(graph.conditions)
-            if satisfy(domain, state, cond)]
+                        domain::Domain, state::State)
+    init_idxs = broadcast(graph.conditions) do c
+        return PDDL.is_pred(c, domain) ? state[c] : satisfy(domain, state, c)
+    end
+    return init_idxs
 end
 
 function _get_init_idxs(graph::PlanningGraph,
                         domain::Domain, state::GenericState)
     init_facts = PDDL.get_facts(state)
-    pos_idxs = findall(c -> c in init_facts || c.name == true,
-                       graph.conditions)
-    neg_idxs = findall(c -> c.name == :not && !(c.args[1] in init_facts),
-                       graph.conditions)
-    init_idxs = append!(pos_idxs, neg_idxs)
+    init_idxs = broadcast(graph.conditions) do c
+        return (c in init_facts || c.name == true ||
+                (c.name == :not && !(c.args[1] in init_facts)))
+    end
     if !isempty(PDDL.get_functions(domain))
-        func_idxs = findall(graph.conditions) do c
+        func_idxs = broadcast(graph.conditions) do c
             return ((PDDL.is_func(c, domain) || PDDL.is_global_func(c)) &&
                     satisfy(domain, state, c))
         end
-        append!(init_idxs, func_idxs)
+        init_idxs = init_idxs .| func_idxs
     end
     return init_idxs
 end
