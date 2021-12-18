@@ -85,14 +85,15 @@ function relaxed_graph_search(
     accum_op::Function, graph::PlanningGraph, goal_idxs=nothing
 )
     # Initialize fact costs, counters,  etc.
-    costs = fill(Inf, length(graph.conditions)) # Fact costs
-    achievers = fill(-1, length(graph.conditions)) # Fact achievers
+    n_conds = length(graph.conditions)
+    costs = fill(Inf16, n_conds) # Fact costs
+    achievers = fill(-1, n_conds) # Fact achievers
     counters = [length(a.preconds) for a in graph.actions] # Action counters
 
     # Set up initial facts and priority queue
     init_idxs = _get_init_idxs(graph, domain, state)
     costs[init_idxs] .= 0
-    queue = PriorityQueue(i => costs[i] for i in init_idxs)
+    queue = PriorityQueue{Int,Float16}(i => 0 for i in init_idxs)
 
     # Check if any goal conditions are already reached
     if goal_idxs !== nothing
