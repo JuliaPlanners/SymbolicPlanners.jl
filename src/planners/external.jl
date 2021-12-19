@@ -17,6 +17,11 @@ Base.iterate(sol::ExternalPlan, istate) = iterate(sol.plan, istate)
 Base.getindex(sol::ExternalPlan, i::Int) = getindex(sol.plan, i)
 Base.length(sol::ExternalPlan) = length(sol.plan)
 
+"Get metric expression from metric."
+get_metric_expr(spec::Specification) = nothing
+get_metric_expr(spec::MinMetricGoal) = Compound(:minimize, [spec.metric])
+get_metric_expr(spec::MaxMetricGoal) = Compound(:maximize, [spec.metric])
+
 "Wrapper to the FastDownward planning system."
 @kwdef mutable struct FastDownward <: Planner
     search::String = "astar" # Search algorithm
@@ -39,8 +44,7 @@ function solve(planner::FastDownward,
     @unpack fd_path, py_cmd = planner
     # Write temporary domain and problem files
     goal = Compound(:and, get_goal_terms(spec))
-    metric = hasfield(typeof(spec), :metric) ? spec.metric : nothing
-    if metric != nothing metric = (-1, metric) end
+    metric = get_metric_expr(spec)
     problem = GenericProblem(state, goal=goal, metric=metric,
                              domain=PDDL.get_name(domain))
     domain_path = save_domain(tempname(), domain)
@@ -103,8 +107,7 @@ function solve(planner::Pyperplan,
     @unpack search, heuristic, log_level, max_time, verbose, py_cmd = planner
     # Write temporary domain and problem files
     goal = Compound(:and, get_goal_terms(spec))
-    metric = hasfield(typeof(spec), :metric) ? spec.metric : nothing
-    if metric != nothing metric = (-1, metric) end
+    metric = get_metric_expr(spec)
     problem = GenericProblem(state, goal=goal, metric=metric,
                              domain=PDDL.get_name(domain))
     domain_path = save_domain(tempname(), domain)
@@ -137,11 +140,13 @@ function solve(planner::Pyperplan,
         return NullSolution(:failure)
     end
     # Read plan from file
-    plan = readlines(sol_path)[1:end]
+    plan = readlines(sol_path)
     Base.Filesystem.rm(sol_path)
     plan = parse_pddl.(plan)
     # Return plan with statistics if flag is set
     if planner.log_stats
+        overhead = @elapsed run(pipeline(`$py_cmd -m pyperplan -h`, devnull))
+        runtime -= overhead
         m = match(r"(\d+) Nodes expanded", output)
         expanded = m === nothing ? -1 : parse(Int, m.captures[1])
         return ExternalPlan(plan, runtime, expanded)
