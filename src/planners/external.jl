@@ -1,4 +1,4 @@
-export FastDownward, Pyperplan
+export FastDownward, Pyperplan, ENHSP
 export ExternalPlan
 
 "Solution type for plans produced by external planners."
@@ -149,6 +149,69 @@ function solve(planner::Pyperplan,
         runtime -= overhead
         m = match(r"(\d+) Nodes expanded", output)
         expanded = m === nothing ? -1 : parse(Int, m.captures[1])
+        return ExternalPlan(plan, runtime, expanded)
+    end
+    return ExternalPlan(plan)
+end
+
+"Wrapper to the ENHSP numeric planner."
+@kwdef mutable struct ENHSP <: Planner
+    search::String = "gbfs" # Search algorithm
+    heuristic::String = "hadd" # Search heuristic
+    h_mult::Float16 = 1.0 # Heuristic multiplier for weighted A*
+    log_stats::Bool = true # Whether to log statistics
+    max_time::Float64 = 300 # Time limit
+    verbose::Bool = false # Whether to print planner outputs
+    enhsp_path::String = get(ENV, "ENHSP_PATH", "") # Path to enhsp.jar
+    java_cmd::String = get(ENV, "JAVA", "java") # Java path
+end
+
+"Calls Pyperplan to produce a plan."
+function solve(planner::ENHSP,
+               domain::Domain, state::State, spec::Specification)
+    @unpack search, heuristic, h_mult = planner
+    @unpack max_time, verbose, enhsp_path, java_cmd = planner
+    # Write temporary domain and problem files
+    goal = Compound(:and, get_goal_terms(spec))
+    metric = get_metric_expr(spec)
+    problem = GenericProblem(state, goal=goal, metric=metric,
+                             domain=PDDL.get_name(domain))
+    domain_path = save_domain(tempname() * ".pddl", domain)
+    problem_path = save_problem(tempname() * ".pddl", problem)
+    sol_path = tempname() * ".pddl"
+    # Set up shell command to call pyperplan
+    cmd = ```$java_cmd -jar $enhsp_path -h $heuristic -s $search
+             --domain $domain_path --problem $problem_path -sp $sol_path```
+    # Run command up to max time
+    out = Pipe()
+    proc = run(pipeline(cmd, stdout=out); wait=false)
+    cb() = process_exited(proc)
+    timedwait(cb, float(max_time))
+    if process_running(proc)
+        @debug "Planner timed out."
+        Base.Filesystem.rm(domain_path); Base.Filesystem.rm(problem_path)
+        kill(proc); close(out.in)
+        return NullSolution(:max_time)
+    end
+    # Read output and print if verbose flag is true
+    close(out.in)
+    output = read(out, String)
+    Base.Filesystem.rm(domain_path); Base.Filesystem.rm(problem_path)
+    if verbose print(output) end
+    # Check if solution is output
+    if !occursin("Problem Solved", output) || !isfile(sol_path)
+        return NullSolution(:failure)
+    end
+    # Read plan from file
+    plan = readlines(sol_path)
+    Base.Filesystem.rm(sol_path)
+    plan = parse_pddl.(plan)
+    # Return plan with statistics if flag is set
+    if planner.log_stats
+        m = match(r"Expanded Nodes.*:\s*(\d+)", output)
+        expanded = m === nothing ? -1 : parse(Int, m.captures[1])
+        m = match(r"Planning Time.*:\s*(\d+)", output)
+        runtime = m === nothing ? NaN : parse(Float64, m.captures[1]) / 1000
         return ExternalPlan(plan, runtime, expanded)
     end
     return ExternalPlan(plan)
