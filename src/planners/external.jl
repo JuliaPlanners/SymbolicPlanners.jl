@@ -6,9 +6,10 @@ struct ExternalPlan <: OrderedSolution
     plan::Vector{Term}
     runtime::Float64
     expanded::Int
+    evaluated::Int
 end
 
-ExternalPlan(plan::AbstractVector{<:Term}) = ExternalPlan(plan, -1, -1)
+ExternalPlan(plan::AbstractVector{<:Term}) = ExternalPlan(plan, -1, -1, -1)
 
 get_action(sol::ExternalPlan, t::Int) = sol.plan[t]
 
@@ -85,7 +86,9 @@ function solve(planner::FastDownward,
         runtime = m === nothing ? -1 : parse(Float64, m.captures[1])
         m = match(r"Expanded (\d+) state\(s\)", output)
         expanded = m === nothing ? -1 : parse(Int, m.captures[1])
-        return ExternalPlan(plan, runtime, expanded)
+        m = match(r"Evaluated (\d+) state\(s\)", output)
+        evaluated = m === nothing ? -1 : parse(Int, m.captures[1])
+        return ExternalPlan(plan, runtime, expanded, evaluated)
     end
     return ExternalPlan(plan)
 end
@@ -149,7 +152,7 @@ function solve(planner::Pyperplan,
         runtime -= overhead
         m = match(r"(\d+) Nodes expanded", output)
         expanded = m === nothing ? -1 : parse(Int, m.captures[1])
-        return ExternalPlan(plan, runtime, expanded)
+        return ExternalPlan(plan, runtime, expanded, -1)
     end
     return ExternalPlan(plan)
 end
@@ -210,9 +213,11 @@ function solve(planner::ENHSP,
     if planner.log_stats
         m = match(r"Expanded Nodes.*:\s*(\d+)", output)
         expanded = m === nothing ? -1 : parse(Int, m.captures[1])
+        m = match(r"States Evaluated.*:\s*(\d+)", output)
+        evaluated = m === nothing ? -1 : parse(Int, m.captures[1])
         m = match(r"Planning Time.*:\s*(\d+)", output)
         runtime = m === nothing ? NaN : parse(Float64, m.captures[1]) / 1000
-        return ExternalPlan(plan, runtime, expanded)
+        return ExternalPlan(plan, runtime, expanded, evaluated)
     end
     return ExternalPlan(plan)
 end
