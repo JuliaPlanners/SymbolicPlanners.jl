@@ -4,8 +4,8 @@ export AStarPlanner, WeightedAStarPlanner
 "Forward best-first search planner."
 @kwdef mutable struct ForwardPlanner <: Planner
     heuristic::Heuristic = GoalCountHeuristic()
-    g_mult::Float16 = 1.0 # Path cost multiplier
-    h_mult::Float16 = 1.0 # Heuristic multiplier
+    g_mult::Float32 = 1.0 # Path cost multiplier
+    h_mult::Float32 = 1.0 # Heuristic multiplier
     max_nodes::Int = typemax(Int) # Max search nodes before termination
     max_time::Float64 = Inf # Max time in seconds before timeout
     save_search::Bool = false # Flag to save search info
@@ -39,7 +39,7 @@ function solve(planner::ForwardPlanner,
     # Initialize search tree and priority queue
     node_id = hash(state)
     search_tree = Dict(node_id => PathNode(node_id, state, 0.0))
-    est_cost = h_mult * heuristic(domain, state, spec)
+    est_cost::Float32 = h_mult * heuristic(domain, state, spec)
     priority = (est_cost, est_cost, 0)
     queue = PriorityQueue(node_id => priority)
     # Run the search
@@ -111,8 +111,8 @@ function expand!(planner::ForwardPlanner, node::PathNode,
             next_node.path_cost = path_cost
             # Update estimated cost from next state to goal
             if !(next_id in keys(queue))
-                g_val::Float16 = g_mult * path_cost
-                h_val::Float16 = h_mult * heuristic(domain, next_state, spec)
+                g_val::Float32 = g_mult * path_cost
+                h_val::Float32 = h_mult * heuristic(domain, next_state, spec)
                 f_val = g_val + h_val
                 priority = (f_val, h_val, length(search_tree))
                 enqueue!(queue, next_id, priority)

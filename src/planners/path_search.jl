@@ -3,15 +3,15 @@
 mutable struct PathNode{S<:State}
     id::UInt
     state::S
-    path_cost::Float16
+    path_cost::Float32
     parent_id::Union{UInt,Nothing}
     parent_action::Union{Term,Nothing}
 end
 
 PathNode(id, state::S, path_cost, parent_id, parent_action) where {S} =
-    PathNode{S}(id, state, Float16(path_cost), parent_id, parent_action)
+    PathNode{S}(id, state, Float32(path_cost), parent_id, parent_action)
 PathNode(id, state::S, path_cost) where {S} =
-    PathNode{S}(id, state, Float16(path_cost), nothing, nothing)
+    PathNode{S}(id, state, Float32(path_cost), nothing, nothing)
 
 function reconstruct(node_id::UInt, search_tree::Dict{UInt,<:PathNode})
     plan, traj = Term[], [search_tree[node_id].state]

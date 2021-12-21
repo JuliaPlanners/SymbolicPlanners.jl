@@ -161,7 +161,7 @@ end
 @kwdef mutable struct ENHSP <: Planner
     search::String = "gbfs" # Search algorithm
     heuristic::String = "hadd" # Search heuristic
-    h_mult::Float16 = 1.0 # Heuristic multiplier for weighted A*
+    h_mult::Float64 = 1.0 # Heuristic multiplier for weighted A*
     log_stats::Bool = true # Whether to log statistics
     max_time::Float64 = 300 # Time limit
     verbose::Bool = false # Whether to print planner outputs
