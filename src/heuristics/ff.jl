@@ -40,17 +40,22 @@ function compute(h::FFHeuristic,
     # Compute achievers to each condition node of the relaxed planning graph
     _, achievers = relaxed_graph_search(domain, state, spec,
                                         maximum, h.graph, h.goal_idxs)
-    # Extract relaxed plan via backward chaining
-    plan = Int[]
+    # Extract cost of relaxed plan via backward chaining
+    cost = 0.0f0
     queue = collect(h.goal_idxs)
     while length(queue) > 0
         cond_idx = popfirst!(queue)
         act_idx = achievers[cond_idx]
         act_idx == -1 && continue # Skip conditions achieved from the start
-        push!(plan, act_idx)
+        if has_action_cost(spec)
+            act = h.graph.actions[act_idx].term
+            cost += get_action_cost(spec, act)
+        else
+            cost += 1
+        end
         append!(queue, h.graph.act_parents[act_idx])
     end
     # TODO: Store helpful actions
-    # Return length of relaxed plan as heuristic estimate
-    return length(plan)
+    # Return cost of relaxed plan as heuristic estimate
+    return cost
 end
