@@ -86,20 +86,23 @@ function relaxed_graph_search(
 )
     # Initialize fact costs, counters,  etc.
     n_conds = length(graph.conditions)
-    costs = fill(Inf16, n_conds) # Fact costs
+    dists = fill(Inf32, n_conds) # Fact distances
+    costs = fill(Inf32, n_conds) # Fact costs
     achievers = fill(-1, n_conds) # Fact achievers
     counters = [length(a.preconds) for a in graph.actions] # Action counters
 
     # Set up initial facts and priority queue
     init_idxs = _get_init_idxs(graph, domain, state)
+    dists[init_idxs] .= 0
     costs[init_idxs] .= 0
-    queue = PriorityQueue{Int,Float16}(i => 0 for i in findall(init_idxs))
+    queue = PriorityQueue{Int,Float32}(i => 0 for i in findall(init_idxs))
 
     # Check if any goal conditions are already reached
     if goal_idxs !== nothing
         for g in goal_idxs
             goal_cond = graph.conditions[g]
-            costs[g] == Inf && !satisfy(domain, state, goal_cond) && continue
+            dists[g] === Inf32 && !satisfy(domain, state, goal_cond) && continue
+            dists[g] = 0
             costs[g] = 0
         end
         unreached = copy(goal_idxs)
@@ -109,31 +112,38 @@ function relaxed_graph_search(
 
     # Perform Djikstra / uniform-cost search until goals are reached
     while !isempty(queue) && !isempty(unreached)
-        # Dequeue lowest cost fact/condition
+        # Dequeue nearest fact/condition
         cond_idx = dequeue!(queue)
         # Iterate over child actions
         for act_idx in graph.cond_children[cond_idx]
             # Decrease counter for unachieved actions
             counters[act_idx] -= 1
-            counters[act_idx] > 0 && continue
-            # Compute path cost of achieved action
+            counters[act_idx] != 0 && continue
+            # Compute path cost and distance of achieved action
             act_parents = graph.act_parents[act_idx]
             path_cost = accum_op(costs[p] for p in act_parents)
             act_cost = has_action_cost(spec) ?
-                get_action_cost(spec, domain, graph.actions[act_idx].term) : 1
+                get_action_cost(spec, graph.actions[act_idx].term) : 1
             next_cost = path_cost + act_cost
+            next_dist = accum_op === maximum && !has_action_cost(spec) ?
+                next_cost : dists[cond_idx] + 1
             # Place child conditions on queue
             act_children = graph.act_children[act_idx]
             for c_idx in act_children
-                if next_cost > costs[c_idx] continue end
-                costs[c_idx] = next_cost # Store new cost
-                achievers[c_idx] = act_idx # Store new cheapest achiever
-                if !(c_idx in keys(queue)) # Enqueue new conditions
-                    enqueue!(queue, c_idx, next_cost)
-                else # Reduce the cost of those in queue
-                    queue[c_idx] = next_cost
-                end
+                less_dist = next_dist < dists[c_idx]
+                less_cost = next_cost < costs[c_idx]
+                if !(less_dist || less_cost) continue end
                 delete!(unreached, c_idx) # Removed any reached goals
+                if less_cost # Store new cost and achiever
+                    costs[c_idx] = next_cost
+                    achievers[c_idx] = act_idx
+                end
+                if !(c_idx in keys(queue)) # Enequeue new conditions
+                    enqueue!(queue, c_idx, next_dist)
+                elseif less_dist # Adjust distances
+                    queue[c_idx] = next_dist
+                    dists[c_idx] = next_dist
+                end
             end
         end
     end
