@@ -20,6 +20,7 @@ function build_planning_graph(domain::Domain, state::State,
     # Generate list of ground actions, flattening conditional actions
     actions = GroundAction[]
     for act in groundactions(domain, state)
+        # TODO: Eliminate redundant actions
         if act.effect isa PDDL.GenericDiff
             push!(actions, act)
         else # Handle conditional effects
@@ -101,7 +102,9 @@ function relaxed_graph_search(
     if goal_idxs !== nothing
         for g in goal_idxs
             goal_cond = graph.conditions[g]
-            dists[g] === Inf32 && !satisfy(domain, state, goal_cond) && continue
+            if dists[g] === Inf32 && !satisfy(domain, state, goal_cond)
+                continue
+            end
             dists[g] = 0
             costs[g] = 0
         end
@@ -138,7 +141,7 @@ function relaxed_graph_search(
                     costs[c_idx] = next_cost
                     achievers[c_idx] = act_idx
                 end
-                if !(c_idx in keys(queue)) # Enequeue new conditions
+                if !(c_idx in keys(queue)) # Enqueue new conditions
                     enqueue!(queue, c_idx, next_dist)
                 elseif less_dist # Adjust distances
                     queue[c_idx] = next_dist
@@ -156,7 +159,8 @@ end
 function _get_init_idxs(graph::PlanningGraph,
                         domain::Domain, state::State)
     init_idxs = broadcast(graph.conditions) do c
-        return PDDL.is_pred(c, domain) ? state[c] : satisfy(domain, state, c)
+        return PDDL.is_pred(c, domain) ?
+            state[c]::Bool : satisfy(domain, state, c)::Bool
     end
     return init_idxs
 end

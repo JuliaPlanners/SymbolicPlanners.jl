@@ -3,7 +3,7 @@ module SymbolicPlanners
 using Base: @kwdef
 using Base.Iterators: countfrom
 using Parameters: @unpack
-using DataStructures: PriorityQueue, OrderedDict, enqueue!, dequeue!
+using DataStructures: PriorityQueue, enqueue!, dequeue!
 using StatsBase: sample, Weights
 using Random, Julog, PDDL
 
