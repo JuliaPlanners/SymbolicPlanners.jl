@@ -1,0 +1,8 @@
+[deps]
+CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+PDDL = "2c8894f9-daa1-498a-9e3a-26edd9623db8"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+SymbolicPlanners = "b6fe5377-9711-4fad-95b0-be4eed71ecbb"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
