@@ -15,14 +15,14 @@ solve(planner::Planner, domain::Domain, state::State, goal::Term) =
     solve(planner, domain, state, Specification(goal))
 
 # Path-search planning algorithms
-include("planners/path_search.jl")
-include("planners/bfs.jl")
-include("planners/forward.jl")
-include("planners/backward.jl")
+include("path_search.jl")
+include("bfs.jl")
+include("forward.jl")
+include("backward.jl")
 
 # Policy-based planning algorithms
-include("planners/rtdp.jl")
-include("planners/mcts.jl")
+include("rtdp.jl")
+include("mcts.jl")
 
 # External planners
-include("planners/external.jl")
+include("external.jl")

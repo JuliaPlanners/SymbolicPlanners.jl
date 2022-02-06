@@ -16,7 +16,7 @@ condition for the simulation.
 (sim::Simulator)(sol::Solution, domain::Domain, state::State) =
     sim(sol, domain, state, NullSpecification())
 
-include("simulators/end_state.jl")
-include("simulators/state_recorder.jl")
-include("simulators/state_action_recorder.jl")
-include("simulators/reward_accumulator.jl")
+include("end_state.jl")
+include("state_recorder.jl")
+include("state_action_recorder.jl")
+include("reward_accumulator.jl")

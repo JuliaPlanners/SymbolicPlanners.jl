@@ -1,4 +1,4 @@
-# Utilities and data structures for heuristic computation
+# Planning graph utilities for relaxed heuristic computation
 
 "Planning graph used by relaxation-based heuristics."
 struct PlanningGraph

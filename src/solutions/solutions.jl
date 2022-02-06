@@ -29,7 +29,7 @@ Base.iterate(::OrderedSolution, iterstate) = error("Not implemented.")
 Base.getindex(::OrderedSolution, ::Int) = error("Not implemented.")
 Base.eltype(::Type{OrderedSolution}) = Term
 
-include("solutions/ordered_plan.jl")
+include("ordered_plan.jl")
 
 ## Policy-based solutions ##
 
@@ -53,7 +53,7 @@ get_value(::PolicySolution, ::State, ::Term) = error("Not implemented.")
 "Return Q-values of actions for the given state as an iterator over pairs."
 get_action_values(::PolicySolution, ::State) = error("Not implemented.")
 
-include("solutions/policy_value.jl")
-include("solutions/random_policy.jl")
-include("solutions/boltzmann_policy.jl")
-include("solutions/epsilon_greedy.jl")
+include("policy_value.jl")
+include("random_policy.jl")
+include("boltzmann_policy.jl")
+include("epsilon_greedy.jl")

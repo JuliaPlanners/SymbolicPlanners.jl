@@ -52,14 +52,14 @@ get_reward(::NullGoal, ::Domain, ::State, ::Term, ::State) = 0.0
 get_discount(::NullGoal) = 1.0
 get_goal_terms(::NullGoal) = Term[]
 
-include("specifications/min_steps.jl")
-include("specifications/min_metric.jl")
-include("specifications/max_metric.jl")
-include("specifications/state_constrained.jl")
-include("specifications/action_costs.jl")
-include("specifications/discounted.jl")
-include("specifications/goal_reward.jl")
-include("specifications/backward.jl")
+include("min_steps.jl")
+include("min_metric.jl")
+include("max_metric.jl")
+include("state_constrained.jl")
+include("action_costs.jl")
+include("discounted.jl")
+include("goal_reward.jl")
+include("backward.jl")
 
 # Convenience constructors
 function Specification(problem::Problem)

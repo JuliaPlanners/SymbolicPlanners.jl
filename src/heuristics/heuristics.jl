@@ -51,8 +51,8 @@ end
                cache::Bool=_use_heuristic_cache[]) =
     h(domain, state, Specification(spec); cache=cache)
 
-include("heuristics/utils.jl")
-include("heuristics/basic.jl")
-include("heuristics/hsp.jl")
-include("heuristics/ff.jl")
-include("heuristics/reachability.jl")
+include("basic.jl")
+include("pgraph.jl")
+include("hsp.jl")
+include("ff.jl")
+include("reachability.jl")
