@@ -50,8 +50,11 @@ at the Julia package manager.
 
 ## Performance
 
-After Julia's JIT compilation, using SymbolicPlanners.jl on top of [PDDL.jl](https://github.com/JuliaPlanners/PDDL.jl) should be about 2 to 3x faster than [Pyperplan](https://github.com/aibasel/pyperplan) on the same machine when using reasonable search algorithms and heuristics.
+After Julia's JIT compilation, and using the same search algorithm (A*) and search heuristic (_h_<sub>add</sub>), SymbolicPlanners.jl with the [PDDL.jl](https://github.com/JuliaPlanners/PDDL.jl) compiler is (as of February 2022):
+- 10 to 50 times as fast as [Pyperplan](https://github.com/aibasel/pyperplan),
+- 0.1 to 1.2 times as fast as [FastDownward](https://www.fast-downward.org/),
+- 0.7 to 36 times as fast as [ENHSP](https://sites.google.com/view/enhsp/) on numeric domains without action costs.
 
-Below is a comparison of runtimes between SymbolicPlanners.jl + PDDL.jl vs. Pyperplan when solving Blocksworld problems using A* search and the _h_<sub>add</sub> heuristic (note that the y-axis is logarithmically scaled):
+A comparison on domains and problems from the 2000 and 2002 International Planning Competitions is shown below. Runtimes are relative to SymbolicPlanners.jl using the PDDL.jl compiler. In each cell, we report the first quartile (Q1), median (M), and third quartile (Q3) across solved problems.
 
-![Blocksworld solution runtimes for Pyperplan vs. SymbolicPlanners.jl using the PDDL.jl interpreter and compiler](assets/blocksworld-pddljl-vs-pyperplan.png)
+![Runtime comparison for SymbolicPlanners.jl vs. Pyperplan, FastDownward and ENHSP](assets/runtime-comparison.png)
