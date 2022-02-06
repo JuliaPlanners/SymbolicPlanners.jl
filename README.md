@@ -4,11 +4,15 @@ Symbolic planners for problems and domains specified in [PDDL](https://github.co
 
 ## Installation
 
-Make sure [PDDL.jl](https://github.com/JuliaPlanners/PDDL.jl) is installed. Then run
+Make sure [PDDL.jl](https://github.com/JuliaPlanners/PDDL.jl) is installed. For the stable version, press `]` to enter the Julia package manager REPL, then run:
+```
+add SymbolicPlanners
+```
+
+For the latest development version, run:
 ```
 add https://github.com/JuliaPlanners/SymbolicPlanners.jl
 ```
-at the Julia package manager.
 
 ## Features
 
