@@ -1,8 +1,8 @@
 export RandomPolicy
 
 "Policy that selects actions uniformly at random."
-struct RandomPolicy{R <: AbstractRNG} <: PolicySolution
-    domain::Domain
+struct RandomPolicy{D <: Domain, R <: AbstractRNG} <: PolicySolution
+    domain::D
     rng::R
 end
 

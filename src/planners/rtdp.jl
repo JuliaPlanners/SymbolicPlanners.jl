@@ -14,7 +14,8 @@ const RTDP = RealTimeDynamicPlanner
 function solve(planner::RealTimeDynamicPlanner,
                domain::Domain, state::State, spec::Specification)
     # Initialize then refine solution
-    sol = PolicyValue()
+    default = FunctionalVPolicy(planner.heuristic, domain, spec)
+    sol = TabularPolicy(default=default)
     sol.V[hash(state)] = -planner.heuristic(domain, state, spec)
     sol = solve!(planner, sol, domain, state, spec)
     # Wrap in Boltzmann policy if needed
@@ -22,7 +23,7 @@ function solve(planner::RealTimeDynamicPlanner,
         sol : BoltzmannPolicy(sol, planner.action_noise)
 end
 
-function solve!(planner::RealTimeDynamicPlanner, sol::PolicyValue,
+function solve!(planner::RealTimeDynamicPlanner, sol::TabularPolicy,
                 domain::Domain, state::State, spec::Specification)
     @unpack heuristic, action_noise = planner
     @unpack n_rollouts, max_depth, rollout_noise = planner
@@ -52,13 +53,13 @@ function solve!(planner::RealTimeDynamicPlanner, sol::PolicyValue,
 end
 
 function solve!(planner::RealTimeDynamicPlanner,
-                sol::BoltzmannPolicy{PolicyValue},
+                sol::BoltzmannPolicy{TabularPolicy},
                 domain::Domain, state::State, spec::Specification)
     sol = solve!(planner, sol.policy, domain, state, spec)
     return BoltzmannPolicy(sol, planner.action_noise)
 end
 
-function update_values!(planner::RealTimeDynamicPlanner, sol::PolicyValue,
+function update_values!(planner::RealTimeDynamicPlanner, sol::TabularPolicy,
                         domain::Domain, state::State, spec::Specification)
     actions = collect(available(domain, state))
     state_id = hash(state)
@@ -70,9 +71,11 @@ function update_values!(planner::RealTimeDynamicPlanner, sol::PolicyValue,
     end
     qs = map(actions) do act
         next_state = transition(domain, state, act)
+        next_v = get!(sol.V, hash(next_state)) do
+            planner.heuristic(domain, next_state, spec)
+        end
         r = get_reward(spec, domain, state, act, next_state)
-        h_val = planner.heuristic(domain, next_state, spec)
-        return get_discount(spec) * get!(sol.V, hash(next_state), -h_val) + r
+        return get_discount(spec) * next_v + r
     end
     sol.Q[state_id] = Dict{Term,Float64}(zip(actions, qs))
     sol.V[state_id] = planner.action_noise == 0 ?
