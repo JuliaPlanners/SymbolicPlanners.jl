@@ -16,6 +16,14 @@ manhattan = ManhattanHeuristic(@pddl("xpos", "ypos"))
 
 end
 
+@testset "Planner Heuristic" begin
+
+planner = AStarPlanner(ManhattanHeuristic(@pddl("xpos", "ypos")))
+heuristic = PlannerHeuristic(planner)
+@test heuristic(gridworld, gw_state, gw_problem.goal) == 6
+
+end
+
 @testset "HSP Heuristics" begin
 
 @test HAdd()(blocksworld, bw_state, bw_problem.goal) == 4
