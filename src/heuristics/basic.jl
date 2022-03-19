@@ -1,5 +1,5 @@
 ## Basic heuristics ##
-export NullHeuristic, GoalCountHeuristic, ManhattanHeuristic
+export NullHeuristic, GoalCountHeuristic, ManhattanHeuristic, PlannerHeuristic
 
 "Null heuristic that always returns zero."
 struct NullHeuristic <: Heuristic end
@@ -15,7 +15,8 @@ struct GoalCountHeuristic <: Heuristic
     GoalCountHeuristic(dir) = new(dir)
 end
 
-Base.hash(::GoalCountHeuristic, h::UInt) = hash(GoalCountHeuristic, h)
+Base.hash(heuristic::GoalCountHeuristic, h::UInt) =
+    hash(heuristic.dir, hash(GoalCountHeuristic, h))
 
 function compute(h::GoalCountHeuristic,
                  domain::Domain, state::State, spec::Specification)
@@ -65,4 +66,29 @@ function compute(h::ManhattanHeuristic,
     dist = sum(abs(evaluate(domain, h.goal, f) - evaluate(domain, state, f))
                for f in h.fluents)
     return dist
+end
+
+"Computes distance to the goal based on planner solution."
+mutable struct PlannerHeuristic{P <: Planner} <: Heuristic
+    planner::P
+end
+
+function Base.hash(heuristic::PlannerHeuristic{P}, h::UInt) where {P}
+    h = hash(P, hash(PlannerHeuristic, h))
+    for f in fieldnames(P)
+        h = hash(getfield(heuristic.planner, f), h)
+    end
+    return h
+end
+
+function compute(h::PlannerHeuristic,
+                 domain::Domain, state::State, spec::Specification)
+    sol = h.planner(domain, state, spec)
+    if sol isa OrderedSolution
+        return length(sol)
+    elseif sol isa PolicySolution
+        return -get_value(sol, state)
+    else
+        return Inf
+    end
 end
