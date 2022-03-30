@@ -72,7 +72,7 @@ function update_values!(planner::RealTimeDynamicPlanner, sol::TabularPolicy,
     qs = map(actions) do act
         next_state = transition(domain, state, act)
         next_v = get!(sol.V, hash(next_state)) do
-            planner.heuristic(domain, next_state, spec)
+            -planner.heuristic(domain, next_state, spec)
         end
         r = get_reward(spec, domain, state, act, next_state)
         return get_discount(spec) * next_v + r
