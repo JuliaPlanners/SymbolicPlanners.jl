@@ -72,7 +72,9 @@ function expand!(planner::BreadthFirstPlanner, node::PathNode,
         # Check if next state satisfies trajectory constraints
         if is_violated(spec, domain, state) continue end
         # Update backpointer and add next state to queue
-        search_tree[next_id] = PathNode(next_id, next_state, 0.0, node.id, act)
+        path_cost = node.path_cost + 1
+        search_tree[next_id] =
+            PathNode(next_id, next_state, path_cost, node.id, act)
         push!(queue, next_id)
     end
 end
