@@ -18,9 +18,22 @@ end
 
 @testset "Planner Heuristic" begin
 
+# Test planner heuristic without state or domain transform
 planner = AStarPlanner(ManhattanHeuristic(@pddl("xpos", "ypos")))
 heuristic = PlannerHeuristic(planner)
 @test heuristic(gridworld, gw_state, gw_problem.goal) == 6
+
+# Test planner heuristic with state transform
+planner = AStarPlanner(GoalCountHeuristic())
+remove_doors = s -> begin
+    s = copy(s)
+    for d in PDDL.get_objects(s, :door)
+        s[Compound(:locked, Term[d])] = false
+    end
+    return s
+end
+heuristic = PlannerHeuristic(planner, s_transform=remove_doors)
+@test heuristic(doors_keys_gems, dkg_state, dkg_problem.goal) == 7
 
 end
 
