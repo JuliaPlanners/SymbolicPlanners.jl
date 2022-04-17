@@ -102,7 +102,7 @@ function compute(h::ReachabilityHeuristic,
                 cost_vals[i] = min(cost_vals[i], interval.lo)
             end
             # Widen state variables
-            accum_state = widen!(absdom, accum_state, next_state)
+            accum_state = PDDL.widen!(absdom, accum_state, next_state)
         end
         # Narrow cost fluents
         for (i, fluent) in enumerate(cost_fluents)
