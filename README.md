@@ -1,5 +1,9 @@
 # SymbolicPlanners.jl
 
+![GitHub Workflow Status](https://img.shields.io/github/workflow/status/JuliaPlanners/SymbolicPlanners.jl/CI)
+![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/JuliaPlanners/SymbolicPlanners.jl)
+![License](https://img.shields.io/github/license/JuliaPlanners/SymbolicPlanners.jl?color=lightgrey)
+
 Symbolic planners for problems and domains specified in [PDDL](https://github.com/JuliaPlanners/PDDL.jl).
 
 ## Installation
