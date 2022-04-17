@@ -1,4 +1,5 @@
 ## Utilities and solutions for path search algorithms ##
+export PathSearchSolution
 
 mutable struct PathNode{S<:State}
     id::UInt
