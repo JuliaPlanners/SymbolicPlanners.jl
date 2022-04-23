@@ -29,7 +29,6 @@ end
 mutable struct ManhattanHeuristic <: Heuristic
     fluents::Vector{Term}
     goal::State
-    pre_key::UInt64 # Precomputation hash
     ManhattanHeuristic(fluents) = new(fluents)
 end
 
@@ -39,7 +38,6 @@ Base.hash(heuristic::ManhattanHeuristic, h::UInt) =
 function precompute!(h::ManhattanHeuristic,
                      domain::Domain, state::State, spec::Specification)
     h.goal = goalstate(domain, PDDL.get_objtypes(state), get_goal_terms(spec))
-    h.pre_key = objectid(spec)
     return h
 end
 
@@ -48,20 +46,18 @@ function precompute!(h::ManhattanHeuristic,
     goal = goalstate(PDDL.get_source(domain), PDDL.get_objtypes(state),
                      get_goal_terms(spec))
     h.goal = typeof(state)(goal)
-    h.pre_key = objectid(spec)
     return h
 end
 
 function is_precomputed(h::ManhattanHeuristic,
                         domain::Domain, state::State, spec::Specification)
-    return (isdefined(h, :goal) && objectid(spec) == h.pre_key)
+    return isdefined(h, :goal)
 end
 
 function compute(h::ManhattanHeuristic,
                  domain::Domain, state::State, spec::Specification)
     # Precompute if necessary
-    if !is_precomputed(h, domain, state, spec)
-        precompute!(h, domain, state, spec) end
+    ensure_precomputed!(h, domain, state, spec)
     # Compute L1 distance between fluents in the current and goal state
     dist = sum(abs(evaluate(domain, h.goal, f) - evaluate(domain, state, f))
                for f in h.fluents)
