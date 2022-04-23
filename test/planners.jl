@@ -112,7 +112,7 @@ end
 Random.seed!(0)
 simulator = StateActionRecorder(100)
 
-heuristic = ManhattanHeuristic(@pddl("xpos", "ypos"))
+heuristic = memoized(ManhattanHeuristic(@pddl("xpos", "ypos")))
 planner = RTDP(heuristic=heuristic, rollout_noise=1.0, n_rollouts=10)
 sol = planner(gridworld, gw_state, gw_spec)
 actions, trajectory = simulator(sol, gridworld, gw_state, gw_spec)

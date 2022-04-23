@@ -1,16 +1,5 @@
 ## Interface for planning heuristics ##
 export Heuristic, precompute!, compute
-export use_heuristic_cache!, clear_heuristic_cache!
-
-"Global flag as to whether heuristic cache is enabled."
-const _use_heuristic_cache = Ref(false)
-"Globally enable or disable caching of heuristic values."
-use_heuristic_cache!(val::Bool=true) = _use_heuristic_cache[] = val
-
-"Cached heuristic values."
-const _heuristic_cache = Dict{Tuple{UInt,Symbol,UInt,UInt}, Real}()
-"Clear cache of heuristic values."
-clear_heuristic_cache!() = empty!(_heuristic_cache)
 
 "Abstract heuristic type, which defines the interface for planning heuristics."
 abstract type Heuristic end
@@ -40,36 +29,20 @@ compute(h::Heuristic, domain::Domain, state::State, spec) =
 
 "Computes the heuristic value of state relative to a goal in a given domain."
 function (h::Heuristic)(domain::Domain, state::State, spec::Specification;
-                        use_cache::Bool=_use_heuristic_cache[],
                         precompute::Bool=true)
-    # Look-up cache if flag is enabled
-    if use_cache
-        key = (hash(h), domain.name, hash(state), hash(spec))
-        val = get(_heuristic_cache, key, nothing)
-        if (val !== nothing) return val end
-    end
     # Precompute heuristic if necessary
-    if precompute
-        precompute!(h, domain, state, spec)
-    else
+    h = precompute ? precompute!(h, domain, state, spec) :
         ensure_precomputed!(h, domain, state, spec)
-    end
     # Compute heuristic
-    val = compute(h, domain, state, spec)
-    # Store value in cache if flag is enabled
-    if use_cache
-        _heuristic_cache[key] = val
-    end
-    return val
+    return compute(h, domain, state, spec)
 end
 
 function (h::Heuristic)(domain::Domain, state::State, spec;
-                        use_cache::Bool=_use_heuristic_cache[],
                         precompute::Bool=true)
-    return h(domain, state, Specification(spec);
-             use_cache=use_cache, precompute=precompute)
+    return h(domain, state, Specification(spec); precompute=precompute)
 end
 
+include("memoized.jl")
 include("precomputed.jl")
 include("basic.jl")
 include("pgraph.jl")

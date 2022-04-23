@@ -19,7 +19,9 @@ Base.hash(heuristic::PrecomputedHeuristic, h::UInt) =
     hash(PrecomputedHeuristic, hash(heuristic.heuristic, h))
 
 is_precomputed(h::PrecomputedHeuristic) = true
+
 precompute!(h::PrecomputedHeuristic, ::Domain, ::State, ::Specification) = h
+
 compute(h::PrecomputedHeuristic, domain::Domain, state::State, spec::Specification) =
     compute(h.heuristic, domain, state, spec)
 
