@@ -14,6 +14,9 @@ end
 Base.hash(heuristic::HSPHeuristic, h::UInt) =
     hash(heuristic.op, hash(HSPHeuristic, h))
 
+is_precomputed(h::HSPHeuristic) =
+    isdefined(h, :graph) && isdefined(h, :goal_idxs)
+
 function precompute!(h::HSPHeuristic,
                      domain::Domain, state::State, spec::Specification)
     # Build planning graph and find goal condition indices
@@ -21,11 +24,6 @@ function precompute!(h::HSPHeuristic,
     h.graph = build_planning_graph(domain, state, goal_conds)
     h.goal_idxs = Set(findall(c -> c in goal_conds, h.graph.conditions))
     return h
-end
-
-function is_precomputed(h::HSPHeuristic,
-                        domain::Domain, state::State, spec::Specification)
-    return isdefined(h, :graph) && isdefined(h, :goal_idxs)
 end
 
 function compute(h::HSPHeuristic,
@@ -54,6 +52,8 @@ end
 Base.hash(heuristic::HSPRHeuristic, h::UInt) =
     hash(heuristic.op, hash(HSPRHeuristic, h))
 
+is_precomputed(h::HSPRHeuristic) = isdefined(h, :costs)
+
 function precompute!(h::HSPRHeuristic,
                      domain::Domain, state::State, spec::Specification)
     # Construct and compute fact costs from planning graph
@@ -62,11 +62,6 @@ function precompute!(h::HSPRHeuristic,
     # Convert costs to dictionary for fast look-up
     h.costs = Dict{Term,Float64}(c => v for (c, v) in zip(graph.conditions, costs))
     return h
-end
-
-function is_precomputed(h::HSPRHeuristic,
-                        domain::Domain, state::State, spec::Specification)
-    return isdefined(h, :costs)
 end
 
 function compute(h::HSPRHeuristic,

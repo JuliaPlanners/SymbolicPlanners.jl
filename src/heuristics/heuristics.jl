@@ -25,13 +25,12 @@ precompute!(h::Heuristic, domain::Domain, state::State) =
 precompute!(h::Heuristic, domain::Domain) =
     precompute!(h, domain, GenericState(Term[]), NullGoal())
 
-"Returns whether heuristic has been precomputed for a domain, state, and goal."
-is_precomputed(h::Heuristic, domain::Domain, state::State, spec::Specification) =
-    false
+"Returns whether heuristic has been precomputed."
+is_precomputed(h::Heuristic) = false
 
 "Precomputes a heuristic if necessary."
-ensure_precomputed!(h::Heuristic, domain::Domain, state::State, spec::Specification) =
-    !is_precomputed(h, domain, state, spec) ? precompute!(h, domain, state, spec) : h
+ensure_precomputed!(h::Heuristic, args...) =
+    !is_precomputed(h) ? precompute!(h, args...) : h
 
 "Computes the heuristic value of state relative to a goal in a given domain."
 compute(h::Heuristic, domain::Domain, state::State, spec::Specification) =
@@ -41,7 +40,8 @@ compute(h::Heuristic, domain::Domain, state::State, spec) =
 
 "Computes the heuristic value of state relative to a goal in a given domain."
 function (h::Heuristic)(domain::Domain, state::State, spec::Specification;
-                        use_cache::Bool=_use_heuristic_cache[])
+                        use_cache::Bool=_use_heuristic_cache[],
+                        precompute::Bool=true)
     # Look-up cache if flag is enabled
     if use_cache
         key = (hash(h), domain.name, hash(state), hash(spec))
@@ -49,7 +49,11 @@ function (h::Heuristic)(domain::Domain, state::State, spec::Specification;
         if (val !== nothing) return val end
     end
     # Precompute heuristic if necessary
-    ensure_precomputed!(h, domain, state, spec)
+    if precompute
+        precompute!(h, domain, state, spec)
+    else
+        ensure_precomputed!(h, domain, state, spec)
+    end
     # Compute heuristic
     val = compute(h, domain, state, spec)
     # Store value in cache if flag is enabled
@@ -59,9 +63,12 @@ function (h::Heuristic)(domain::Domain, state::State, spec::Specification;
     return val
 end
 
-(h::Heuristic)(domain::Domain, state::State, spec;
-               use_cache::Bool=_use_heuristic_cache[]) =
-    h(domain, state, Specification(spec); use_cache=use_cache)
+function (h::Heuristic)(domain::Domain, state::State, spec;
+                        use_cache::Bool=_use_heuristic_cache[],
+                        precompute::Bool=true)
+    return h(domain, state, Specification(spec);
+             use_cache=use_cache, precompute=precompute)
+end
 
 include("precomputed.jl")
 include("basic.jl")

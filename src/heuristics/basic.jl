@@ -49,15 +49,10 @@ function precompute!(h::ManhattanHeuristic,
     return h
 end
 
-function is_precomputed(h::ManhattanHeuristic,
-                        domain::Domain, state::State, spec::Specification)
-    return isdefined(h, :goal)
-end
+is_precomputed(h::ManhattanHeuristic) = isdefined(h, :goal)
 
 function compute(h::ManhattanHeuristic,
                  domain::Domain, state::State, spec::Specification)
-    # Precompute if necessary
-    ensure_precomputed!(h, domain, state, spec)
     # Compute L1 distance between fluents in the current and goal state
     dist = sum(abs(evaluate(domain, h.goal, f) - evaluate(domain, state, f))
                for f in h.fluents)

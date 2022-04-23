@@ -13,10 +13,12 @@ const RTDP = RealTimeDynamicPlanner
 
 function solve(planner::RealTimeDynamicPlanner,
                domain::Domain, state::State, spec::Specification)
+    # Precompute heuristic information
+    ensure_precomputed!(planner.heuristic, domain, state, spec)
     # Initialize then refine solution
     default = FunctionalVPolicy(planner.heuristic, domain, spec)
     sol = TabularPolicy(default=default)
-    sol.V[hash(state)] = -planner.heuristic(domain, state, spec)
+    sol.V[hash(state)] = -compute(planner.heuristic, domain, state, spec)
     sol = solve!(planner, sol, domain, state, spec)
     # Wrap in Boltzmann policy if needed
     return planner.action_noise == 0 ?
@@ -28,7 +30,7 @@ function solve!(planner::RealTimeDynamicPlanner, sol::TabularPolicy,
     @unpack heuristic, action_noise = planner
     @unpack n_rollouts, max_depth, rollout_noise = planner
     # Precompute heuristic information
-    precompute!(heuristic, domain, state, spec)
+    ensure_precomputed!(heuristic, domain, state, spec)
     # Perform rollouts from initial state
     initial_state = state
     ro_policy = rollout_noise == 0 ? sol : BoltzmannPolicy(sol, rollout_noise)
@@ -72,7 +74,7 @@ function update_values!(planner::RealTimeDynamicPlanner, sol::TabularPolicy,
     qs = map(actions) do act
         next_state = transition(domain, state, act)
         next_v = get!(sol.V, hash(next_state)) do
-            -planner.heuristic(domain, next_state, spec)
+            -compute(planner.heuristic, domain, next_state, spec)
         end
         r = get_reward(spec, domain, state, act, next_state)
         return get_discount(spec) * next_v + r

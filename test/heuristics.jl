@@ -48,8 +48,8 @@ end
 
 bw_init = initstate(blocksworld, bw_problem)
 bw_goal = goalstate(blocksworld, bw_problem)
-h_add_r = precompute!(HAddR(), blocksworld, bw_init, bw_problem.goal)
-h_max_r = precompute!(HMaxR(), blocksworld, bw_init, bw_problem.goal)
+h_add_r = precomputed(HAddR(), blocksworld, bw_init, bw_problem.goal)
+h_max_r = precomputed(HMaxR(), blocksworld, bw_init, bw_problem.goal)
 
 @test h_add_r(blocksworld, bw_goal, bw_problem.goal) == 4
 @test h_max_r(blocksworld, bw_goal, bw_problem.goal) == 2
@@ -58,16 +58,17 @@ end
 
 @testset "FF Heuristic" begin
 
-ff = precompute!(FFHeuristic(), blocksworld, bw_state, bw_problem.goal)
+ff = precomputed(FFHeuristic(), blocksworld, bw_state, bw_problem.goal)
 @test ff(blocksworld, bw_state, bw_problem.goal) == 4
 
 end
 
 @testset "Reachability Heuristics" begin
 
-@test ReachabilityHeuristic()(blocksworld, bw_state, bw_problem.goal) == 2
-@test ReachabilityHeuristic()(zeno_travel, zt_state, MinStepsGoal(zt_problem)) == 3
-@test ReachabilityHeuristic()(zeno_travel, zt_state, MinMetricGoal(zt_problem)) == 12
+reachability = ReachabilityHeuristic()
+@test reachability(blocksworld, bw_state, bw_problem.goal) == 2
+@test reachability(zeno_travel, zt_state, MinStepsGoal(zt_problem)) == 3
+@test reachability(zeno_travel, zt_state, MinMetricGoal(zt_problem)) == 12
 
 end
 

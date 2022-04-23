@@ -6,19 +6,20 @@ struct PrecomputedHeuristic{H <: Heuristic} <: Heuristic
 end
 
 function PrecomputedHeuristic(h::Heuristic, args...)
-    h = precompute!(h, args...)
+    h = ensure_precomputed!(h, args...)
+    return PrecomputedHeuristic(h)
+end
+
+function PrecomputedHeuristic(h::PrecomputedHeuristic, args...)
+    h = ensure_precomputed!(h.heuristic, args...)
     return PrecomputedHeuristic(h)
 end
 
 Base.hash(heuristic::PrecomputedHeuristic, h::UInt) =
     hash(PrecomputedHeuristic, hash(heuristic.heuristic, h))
 
-precompute!(h::PrecomputedHeuristic, ::Domain, ::State, ::Specification) =
-    h
-
-is_precomputed(h::PrecomputedHeuristic, ::Domain, ::State, ::Specification) =
-    true
-
+is_precomputed(h::PrecomputedHeuristic) = true
+precompute!(h::PrecomputedHeuristic, ::Domain, ::State, ::Specification) = h
 compute(h::PrecomputedHeuristic, domain::Domain, state::State, spec::Specification) =
     compute(h.heuristic, domain, state, spec)
 

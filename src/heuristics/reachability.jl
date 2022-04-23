@@ -3,7 +3,6 @@ export ReachabilityHeuristic
 "Generalized reachability heuristic."
 mutable struct ReachabilityHeuristic <: Heuristic
     max_steps::Int
-    pre_key::Tuple{UInt,UInt} # Precomputation hash
     absdom::Domain # Abstract domain
     ReachabilityHeuristic(max_steps) = new(max_steps)
 end
@@ -13,29 +12,17 @@ ReachabilityHeuristic() = ReachabilityHeuristic(100)
 Base.hash(heuristic::ReachabilityHeuristic, h::UInt) =
     hash(heuristic.op, hash(ReachabilityHeuristic, h))
 
+is_precomputed(h::ReachabilityHeuristic) = isdefined(h, :absdom)
+
 function precompute!(h::ReachabilityHeuristic,
                      domain::Domain, state::State, spec::Specification)
-    # Check if cache has already been computed
-    if is_precomputed(h, domain, state, spec) return h end
-    # Precomputed data is unique to each domain and specification
-    h.pre_key = (objectid(domain), objectid(spec))
     # Store abstracted domain
     h.absdom, _ = abstracted(domain, state)
     return h
 end
 
-function is_precomputed(h::ReachabilityHeuristic,
-                        domain::Domain, state::State, spec::Specification)
-    return (isdefined(h, :pre_key) &&
-            objectid(domain) == h.pre_key[1] &&
-            objectid(spec) == h.pre_key[2])
-end
-
 function compute(h::ReachabilityHeuristic,
                  domain::Domain, state::State, spec::Specification)
-    # Precompute if necessary
-    if !is_precomputed(h, domain, state, spec)
-        precompute!(h, domain, state, spec) end
     # Get abstract domain and state
     absdom = h.absdom
     state = abstractstate(absdom, state)
@@ -62,10 +49,6 @@ end
 
 function precompute!(h::ReachabilityHeuristic,
                      domain::Domain, state::State, spec::MinMetricGoal)
-    # Check if cache has already been computed
-    if is_precomputed(h, domain, state, spec) return h end
-    # Precomputed data is unique to each domain and specification
-    h.pre_key = (objectid(domain), objectid(spec))
     # Store abstracted domain, turn off automatic widening
     h.absdom, _ = abstracted(domain, state; autowiden=false)
     return h
@@ -73,9 +56,6 @@ end
 
 function compute(h::ReachabilityHeuristic,
                  domain::Domain, state::State, spec::MinMetricGoal)
-    # Precompute if necessary
-    if !is_precomputed(h, domain, state, spec)
-        precompute!(h, domain, state, spec) end
     # Get abstract domain and state
     absdom = h.absdom
     state = abstractstate(absdom, state)

@@ -11,6 +11,9 @@ end
 
 Base.hash(heuristic::FFHeuristic, h::UInt) = hash(FFHeuristic, h)
 
+is_precomputed(h::FFHeuristic) =
+    isdefined(h, :graph) && isdefined(h, :goal_idxs)
+
 function precompute!(h::FFHeuristic,
                      domain::Domain, state::State, spec::Specification)
     # Build planning graph and find goal condition indices
@@ -18,11 +21,6 @@ function precompute!(h::FFHeuristic,
     h.graph = build_planning_graph(domain, state, goal_conds)
     h.goal_idxs = Set(findall(c -> c in goal_conds, h.graph.conditions))
     return h
-end
-
-function is_precomputed(h::FFHeuristic,
-                        domain::Domain, state::State, spec::Specification)
-    return isdefined(h, :graph) && isdefined(h, :goal_idxs)
 end
 
 function compute(h::FFHeuristic,

@@ -9,7 +9,7 @@ end
 
 function FunctionalVPolicy(heuristic::Heuristic,
                            domain::Domain, spec::Specification)
-    h_eval(state::State) = -heuristic(domain, state, spec)
+    h_eval(state::State) = -compute(heuristic, domain, state, spec)
     return FunctionalVPolicy(h_eval, domain, spec)
 end
 
