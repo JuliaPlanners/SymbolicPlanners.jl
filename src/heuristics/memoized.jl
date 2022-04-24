@@ -16,6 +16,8 @@ MemoizedHeuristic(h::MemoizedHeuristic) = h
 Base.hash(heuristic::MemoizedHeuristic, h::UInt) =
     hash(MemoizedHeuristic, hash(heuristic.heuristic, h))
 
+Base.empty!(h::MemoizedHeuristic) = empty!(h.cache)
+
 is_precomputed(h::MemoizedHeuristic) =
     is_precomputed(h.heuristic)
 
@@ -30,6 +32,7 @@ function compute(h::MemoizedHeuristic,
     end
     return val
 end
+
 function (h::MemoizedHeuristic)(domain::Domain, state::State, spec::Specification;
                                 precompute::Bool=true)
     key = (hash(domain), hash(state), hash(spec))
