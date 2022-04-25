@@ -14,13 +14,13 @@ PathNode(id, state::S, path_cost, parent_id, parent_action) where {S} =
 PathNode(id, state::S, path_cost) where {S} =
     PathNode{S}(id, state, Float32(path_cost), nothing, nothing)
 
-function reconstruct(node_id::UInt, search_tree::Dict{UInt,<:PathNode})
-    plan, traj = Term[], [search_tree[node_id].state]
+function reconstruct(node_id::UInt, search_tree::Dict{UInt,PathNode{S}}) where S
+    plan, traj = Term[], S[]
     while node_id in keys(search_tree)
         node = search_tree[node_id]
+        pushfirst!(traj, node.state)
         if node.parent_id === nothing break end
         pushfirst!(plan, node.parent_action)
-        pushfirst!(traj, node.state)
         node_id = node.parent_id
     end
     return plan, traj

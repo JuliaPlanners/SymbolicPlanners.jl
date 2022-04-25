@@ -28,7 +28,7 @@ function solve(planner::BackwardPlanner,
     state = goalstate(domain, PDDL.get_objtypes(state), get_goal_terms(spec))
     # Initialize search tree and priority queue
     node_id = hash(state)
-    search_tree = Dict{UInt,PathNode}(node_id => PathNode(node_id, state, 0.0))
+    search_tree = Dict(node_id => PathNode(node_id, state, 0.0))
     est_cost::Float32 = h_mult * compute(heuristic, domain, state, spec)
     priority = (est_cost, est_cost, 0)
     queue = PriorityQueue(node_id => priority)
@@ -55,7 +55,7 @@ end
 
 function search!(planner::BackwardPlanner,
                  domain::Domain, spec::BackwardSearchGoal,
-                 search_tree::Dict{UInt,PathNode}, queue::PriorityQueue)
+                 search_tree::Dict{UInt,<:PathNode}, queue::PriorityQueue)
     count = 1
     start_time = time()
     while length(queue) > 0
@@ -78,7 +78,7 @@ function search!(planner::BackwardPlanner,
 end
 
 function expand!(planner::BackwardPlanner, node::PathNode,
-                 search_tree::Dict{UInt,PathNode}, queue::PriorityQueue,
+                 search_tree::Dict{UInt,<:PathNode}, queue::PriorityQueue,
                  domain::Domain, spec::BackwardSearchGoal)
     @unpack g_mult, h_mult, heuristic = planner
     state = node.state
