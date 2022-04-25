@@ -45,6 +45,8 @@ end
 include("memoized.jl")
 include("precomputed.jl")
 include("basic.jl")
+include("metric.jl")
+include("planner.jl")
 include("pgraph.jl")
 include("hsp.jl")
 include("ff.jl")

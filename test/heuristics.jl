@@ -9,10 +9,18 @@ goal_count = GoalCountHeuristic()
 
 end
 
-@testset "Manhattan Heuristic" begin
+@testset "Metric Heuristic" begin
+
+gw_state_2 = copy(gw_state)
+gw_state_2[pddl"(ypos)"] = 3
 
 manhattan = ManhattanHeuristic(@pddl("xpos", "ypos"))
 @test manhattan(gridworld, gw_state, gw_problem.goal) == 2
+@test manhattan(gridworld, gw_state_2, gw_problem.goal) == 4
+
+euclidean = EuclideanHeuristic(@pddl("xpos", "ypos"))
+@test euclidean(gridworld, gw_state, gw_problem.goal) == 2
+@test euclidean(gridworld, gw_state_2, gw_problem.goal) ≈ sqrt(8)
 
 end
 
