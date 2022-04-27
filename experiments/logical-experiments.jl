@@ -15,9 +15,9 @@ end
 
 ## Load domain and problem for initial test runs ##
 
-domain_dir = joinpath(@__DIR__, "numeric", DOMAIN_NAME)
+domain_dir = joinpath(@__DIR__, "logical", DOMAIN_NAME)
 domain = load_domain(joinpath(domain_dir, "domain.pddl"))
-problem = load_problem(joinpath(domain_dir, "instance-100.pddl"))
+problem = load_problem(joinpath(domain_dir, "instance-19.pddl"))
 
 state = initstate(domain, problem)
 spec = Specification(problem)
@@ -44,7 +44,7 @@ heuristics = Dict("GoalCount" => GoalCountHeuristic())
 N = 26
 TIMEOUT = 180.0
 NRUNS = 3
-problem_set = [joinpath(domain_dir, "instance-$i.pddl") for i in 45:N];
+problem_set = [joinpath(domain_dir, "instance-$i.pddl") for i in 1:N];
 timed_out = Bool[]
 
 df_path = "$DOMAIN_NAME-results-$(today()).csv"

@@ -16,11 +16,8 @@ domain = load_domain(joinpath(domain_dir, "domain.pddl"))
 problem = load_problem(joinpath(domain_dir, "instance-1.pddl"))
 
 state = initstate(domain, problem)
-# state[pddl"total-time"] = 0.0
+state[pddl"total-time"] = 0.0
 spec = SATISFICING ? MinStepsGoal(problem) : MinActionCosts(domain, problem);
-
-hadd = precompute!(HAdd(), domain, state, spec)
-@time h = hadd(domain, state, spec)
 
 planner = AStarPlanner(HAdd(), save_search=true, max_time=180)
 @elapsed sol = planner(domain, state, spec)
