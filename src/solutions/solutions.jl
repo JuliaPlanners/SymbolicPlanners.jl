@@ -1,4 +1,4 @@
-export Solution, NullSolution, OrderedSolution, PolicySolution
+export Solution, NullSolution, OrderedSolution, PolicySolution, NullPolicy
 export get_action, best_action, rand_action
 
 "Abstract solution type."
@@ -27,6 +27,7 @@ get_action(sol::OrderedSolution, t::Int, ::State) = get_action(sol, t)
 Base.iterate(::OrderedSolution) = error("Not implemented.")
 Base.iterate(::OrderedSolution, iterstate) = error("Not implemented.")
 Base.getindex(::OrderedSolution, ::Int) = error("Not implemented.")
+Base.length(sol::OrderedSolution) = error("Not implemented.")
 Base.eltype(::Type{OrderedSolution}) = Term
 
 include("ordered_plan.jl")
@@ -53,7 +54,11 @@ get_value(::PolicySolution, ::State, ::Term) = error("Not implemented.")
 "Return Q-values of actions for the given state as an iterator over pairs."
 get_action_values(::PolicySolution, ::State) = error("Not implemented.")
 
-include("policy_value.jl")
+"Null policy which has no method implementations."
+struct NullPolicy <: PolicySolution end
+
 include("random_policy.jl")
+include("tabular_policy.jl")
+include("functional_policy.jl")
 include("boltzmann_policy.jl")
 include("epsilon_greedy.jl")

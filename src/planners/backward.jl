@@ -28,8 +28,8 @@ function solve(planner::BackwardPlanner,
     state = goalstate(domain, PDDL.get_objtypes(state), get_goal_terms(spec))
     # Initialize search tree and priority queue
     node_id = hash(state)
-    search_tree = Dict{UInt,PathNode}(node_id => PathNode(node_id, state, 0.0))
-    est_cost::Float32 = h_mult * heuristic(domain, state, spec)
+    search_tree = Dict(node_id => PathNode(node_id, state, 0.0))
+    est_cost::Float32 = h_mult * compute(heuristic, domain, state, spec)
     priority = (est_cost, est_cost, 0)
     queue = PriorityQueue(node_id => priority)
     # Run the search
@@ -55,7 +55,7 @@ end
 
 function search!(planner::BackwardPlanner,
                  domain::Domain, spec::BackwardSearchGoal,
-                 search_tree::Dict{UInt,PathNode}, queue::PriorityQueue)
+                 search_tree::Dict{UInt,<:PathNode}, queue::PriorityQueue)
     count = 1
     start_time = time()
     while length(queue) > 0
@@ -78,7 +78,7 @@ function search!(planner::BackwardPlanner,
 end
 
 function expand!(planner::BackwardPlanner, node::PathNode,
-                 search_tree::Dict{UInt,PathNode}, queue::PriorityQueue,
+                 search_tree::Dict{UInt,<:PathNode}, queue::PriorityQueue,
                  domain::Domain, spec::BackwardSearchGoal)
     @unpack g_mult, h_mult, heuristic = planner
     state = node.state
@@ -102,9 +102,8 @@ function expand!(planner::BackwardPlanner, node::PathNode,
             next_node.path_cost = path_cost
             # Update estimated cost from next state to start
             if !(next_id in keys(queue))
-                g_val::Float32 = g_mult * path_cost
-                h_val::Float32 = h_mult * heuristic(domain, next_state, spec)
-                f_val = g_val + h_val
+                h_val::Float32 = compute(heuristic, domain, next_state, spec)
+                f_val::Float32 = g_mult * path_cost + h_mult * h_val
                 priority = (f_val, h_val, length(search_tree))
                 enqueue!(queue, next_id, priority)
             else

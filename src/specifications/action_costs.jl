@@ -14,20 +14,20 @@ struct MinActionCosts{C} <: Goal
 end
 
 MinActionCosts(term::Term, costs) =
-    MinActionCosts(flatten_conjs(term), costs)
+    MinActionCosts(PDDL.flatten_conjs(term), costs)
 
 function MinActionCosts(terms::AbstractVector{<:Term},
                         actions::AbstractVector{<:Symbol},
                         costs::AbstractVector{<:Real})
     costs = NamedTuple{Tuple(actions)}(Tuple(float.(costs)))
-    return MinActionCosts(flatten_conjs(terms), costs)
+    return MinActionCosts(PDDL.flatten_conjs(terms), costs)
 end
 
 function MinActionCosts(terms::AbstractVector{<:Term},
                         actions::AbstractVector{<:Term},
                         costs::AbstractVector{<:Real})
     costs = Dict(zip(actions, costs)...)
-    return MinActionCosts(flatten_conjs(terms), costs)
+    return MinActionCosts(PDDL.flatten_conjs(terms), costs)
 end
 
 function MinActionCosts(terms; costs...)

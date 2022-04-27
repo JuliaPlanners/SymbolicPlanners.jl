@@ -7,14 +7,14 @@ struct MinMetricGoal <: Goal
 end
 
 function MinMetricGoal(problem::Problem)
-    goals = flatten_conjs(PDDL.get_goal(problem))
+    goals = PDDL.flatten_conjs(PDDL.get_goal(problem))
     metric = PDDL.get_metric(problem)
     metric = metric.name == :minimize ?
         metric.args[1] : Compound(:-, metric.args)
     return MinMetricGoal(goals, metric)
 end
 MinMetricGoal(goal::Term, metric::Term) =
-    MinMetricGoal(flatten_conjs(goal), metric)
+    MinMetricGoal(PDDL.flatten_conjs(goal), metric)
 
 Base.hash(spec::MinMetricGoal, h::UInt) =
     hash(spec.metric, hash(Set(spec.terms), h))

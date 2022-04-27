@@ -7,19 +7,18 @@ mutable struct HSPHeuristic <: Heuristic
     op::Function # Aggregator (e.g. maximum, sum) for fact costs
     graph::PlanningGraph # Precomputed planning graph
     goal_idxs::Set{Int} # Precomputed list of goal indices
-    pre_key::Tuple{UInt64,UInt64} # Precomputation hash
     HSPHeuristic(op) = new(op)
+    HSPHeuristic(op, graph, goal_idxs) = new(op, graph, goal_idxs)
 end
 
 Base.hash(heuristic::HSPHeuristic, h::UInt) =
     hash(heuristic.op, hash(HSPHeuristic, h))
 
+is_precomputed(h::HSPHeuristic) =
+    isdefined(h, :graph) && isdefined(h, :goal_idxs)
+
 function precompute!(h::HSPHeuristic,
                      domain::Domain, state::State, spec::Specification)
-    # Check if cache has already been computed
-    if is_precomputed(h, domain, state, spec) return h end
-    # Precomputed data is unique to each domain and specification
-    h.pre_key = (objectid(domain), objectid(spec))
     # Build planning graph and find goal condition indices
     goal_conds = PDDL.to_cnf_clauses(get_goal_terms(spec))
     h.graph = build_planning_graph(domain, state, goal_conds)
@@ -27,19 +26,8 @@ function precompute!(h::HSPHeuristic,
     return h
 end
 
-function is_precomputed(h::HSPHeuristic,
-                        domain::Domain, state::State, spec::Specification)
-    return (isdefined(h, :graph) &&
-            objectid(domain) == h.pre_key[1] &&
-            objectid(spec) == h.pre_key[2])
-end
-
 function compute(h::HSPHeuristic,
                  domain::Domain, state::State, spec::Specification)
-    # Precompute if necessary
-    if !is_precomputed(h, domain, state, spec)
-        precompute!(h, domain, state, spec)
-    end
     # Compute relaxed costs to each condition node of the planning graph
     costs, _ = relaxed_graph_search(domain, state, spec,
                                     h.op, h.graph, h.goal_idxs)
@@ -58,19 +46,16 @@ HAdd(args...) = HSPHeuristic(sum, args...)
 mutable struct HSPRHeuristic <: Heuristic
     op::Function
     costs::Dict{Term,Float64} # Est. cost of reaching each fact from goal
-    pre_key::UInt64 # Precomputation key
     HSPRHeuristic(op) = new(op)
 end
 
 Base.hash(heuristic::HSPRHeuristic, h::UInt) =
     hash(heuristic.op, hash(HSPRHeuristic, h))
 
+is_precomputed(h::HSPRHeuristic) = isdefined(h, :costs)
+
 function precompute!(h::HSPRHeuristic,
                      domain::Domain, state::State, spec::Specification)
-    # Check if data has already been computed
-    if is_precomputed(h, domain, state, spec) return h end
-    # Precomputed data is tied to domain
-    h.pre_key = objectid(domain)
     # Construct and compute fact costs from planning graph
     graph = build_planning_graph(domain, state)
     costs, _ = relaxed_graph_search(domain, state, spec, h.op, graph)
@@ -79,17 +64,8 @@ function precompute!(h::HSPRHeuristic,
     return h
 end
 
-function is_precomputed(h::HSPRHeuristic,
-                        domain::Domain, state::State, spec::Specification)
-    return isdefined(h, :costs) && objectid(domain) == h.pre_key
-end
-
 function compute(h::HSPRHeuristic,
                  domain::Domain, state::State, spec::Specification)
-    # Precompute if necessary
-    if !is_precomputed(h, domain, state, spec)
-        precompute!(h, domain, state, spec)
-    end
     # Compute cost of achieving all facts in current state
     facts = PDDL.get_facts(state)
     # TODO: Handle negative literals

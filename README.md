@@ -1,14 +1,22 @@
 # SymbolicPlanners.jl
 
+![GitHub Workflow Status](https://img.shields.io/github/workflow/status/JuliaPlanners/SymbolicPlanners.jl/CI)
+![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/JuliaPlanners/SymbolicPlanners.jl)
+![License](https://img.shields.io/github/license/JuliaPlanners/SymbolicPlanners.jl?color=lightgrey)
+
 Symbolic planners for problems and domains specified in [PDDL](https://github.com/JuliaPlanners/PDDL.jl).
 
 ## Installation
 
-Make sure [PDDL.jl](https://github.com/JuliaPlanners/PDDL.jl) is installed. Then run
+Make sure [PDDL.jl](https://github.com/JuliaPlanners/PDDL.jl) is installed. For the stable version, press `]` to enter the Julia package manager REPL, then run:
+```
+add SymbolicPlanners
+```
+
+For the latest development version, run:
 ```
 add https://github.com/JuliaPlanners/SymbolicPlanners.jl
 ```
-at the Julia package manager.
 
 ## Features
 
@@ -55,6 +63,6 @@ After Julia's JIT compilation, and using the same search algorithm (A*) and sear
 - 0.1 to 1.2 times as fast as [FastDownward](https://www.fast-downward.org/),
 - 0.7 to 36 times as fast as [ENHSP](https://sites.google.com/view/enhsp/) on numeric domains without action costs.
 
-A comparison on domains and problems from the 2000 and 2002 International Planning Competitions is shown below. Runtimes are relative to SymbolicPlanners.jl using the PDDL.jl compiler. In each cell, we report the first quartile (Q1), median (M), and third quartile (Q3) across solved problems.
+A comparison on domains and problems from the 2000 and 2002 International Planning Competitions is shown below. Runtimes are relative to SymbolicPlanners.jl using the PDDL.jl compiler. In each cell, we report the first quartile (Q1), median (M), and third quartile (Q3) across solved problems. Experiment code is [available here](https://github.com/JuliaPlanners/SymbolicPlanners.jl/tree/experiments/experiments).
 
 ![Runtime comparison for SymbolicPlanners.jl vs. Pyperplan, FastDownward and ENHSP](assets/runtime-comparison.png)

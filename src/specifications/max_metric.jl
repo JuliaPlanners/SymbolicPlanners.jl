@@ -7,14 +7,14 @@ struct MaxMetricGoal <: Goal
 end
 
 function MaxMetricGoal(problem::Problem)
-    goals = flatten_conjs(PDDL.get_goal(problem))
+    goals = PDDL.flatten_conjs(PDDL.get_goal(problem))
     metric = PDDL.get_metric(problem)
     metric = metric.name == :maximize ?
         metric.args[1] : Compound(:-, metric.args)
     return MaxMetricGoal(goals, metric)
 end
 MaxMetricGoal(goal::Term, metric::Term) =
-    MaxMetricGoal(flatten_conjs(goal), metric)
+    MaxMetricGoal(PDDL.flatten_conjs(goal), metric)
 
 Base.hash(spec::MaxMetricGoal, h::UInt) =
     hash(spec.metric, hash(Set(spec.terms), h))

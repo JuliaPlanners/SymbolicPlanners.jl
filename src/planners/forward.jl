@@ -35,7 +35,7 @@ function solve(planner::ForwardPlanner,
                domain::Domain, state::State, spec::Specification)
     @unpack h_mult, heuristic, save_search = planner
     # Precompute heuristic information
-    precompute!(heuristic, domain, state, spec)
+    ensure_precomputed!(heuristic, domain, state, spec)
     # Initialize search tree and priority queue
     node_id = hash(state)
     search_tree = Dict(node_id => PathNode(node_id, state, 0.0))
@@ -111,9 +111,8 @@ function expand!(planner::ForwardPlanner, node::PathNode,
             next_node.path_cost = path_cost
             # Update estimated cost from next state to goal
             if !(next_id in keys(queue))
-                g_val::Float32 = g_mult * path_cost
-                h_val::Float32 = h_mult * heuristic(domain, next_state, spec)
-                f_val = g_val + h_val
+                h_val::Float32 = compute(heuristic, domain, next_state, spec)
+                f_val::Float32 = g_mult * path_cost + h_mult * h_val
                 priority = (f_val, h_val, length(search_tree))
                 enqueue!(queue, next_id, priority)
             else

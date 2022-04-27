@@ -1,16 +1,5 @@
 ## Interface for planning heuristics ##
 export Heuristic, precompute!, compute
-export use_heuristic_cache!, clear_heuristic_cache!
-
-"Global flag as to whether heuristic cache is enabled."
-const _use_heuristic_cache = Ref(false)
-"Globally enable or disable caching of heuristic values."
-use_heuristic_cache!(val::Bool=true) = _use_heuristic_cache[] = val
-
-"Cached heuristic values."
-const _heuristic_cache = Dict{Tuple{UInt,Symbol,UInt,UInt}, Real}()
-"Clear cache of heuristic values."
-clear_heuristic_cache!() = empty!(_heuristic_cache)
 
 "Abstract heuristic type, which defines the interface for planning heuristics."
 abstract type Heuristic end
@@ -25,9 +14,12 @@ precompute!(h::Heuristic, domain::Domain, state::State) =
 precompute!(h::Heuristic, domain::Domain) =
     precompute!(h, domain, GenericState(Term[]), NullGoal())
 
-"Returns whether heuristic has been precomputed for a domain, state, and goal."
-is_precomputed(h::Heuristic, domain::Domain, state::State, spec::Specification) =
-    false
+"Returns whether heuristic has been precomputed."
+is_precomputed(h::Heuristic) = false
+
+"Precomputes a heuristic if necessary."
+ensure_precomputed!(h::Heuristic, args...) =
+    !is_precomputed(h) ? precompute!(h, args...) : h
 
 "Computes the heuristic value of state relative to a goal in a given domain."
 compute(h::Heuristic, domain::Domain, state::State, spec::Specification) =
@@ -37,21 +29,24 @@ compute(h::Heuristic, domain::Domain, state::State, spec) =
 
 "Computes the heuristic value of state relative to a goal in a given domain."
 function (h::Heuristic)(domain::Domain, state::State, spec::Specification;
-                        cache::Bool=_use_heuristic_cache[])
-    if (cache)
-        key = (hash(h), domain.name, hash(state), hash(spec))
-        if haskey(_heuristic_cache, key) return _heuristic_cache[key] end
-    end
-    val = compute(h, domain, state, spec)
-    if (cache) _heuristic_cache[key] = val end
-    return val
+                        precompute::Bool=true)
+    # Precompute heuristic if necessary
+    h = precompute ? precompute!(h, domain, state, spec) :
+        ensure_precomputed!(h, domain, state, spec)
+    # Compute heuristic
+    return compute(h, domain, state, spec)
 end
 
-(h::Heuristic)(domain::Domain, state::State, spec;
-               cache::Bool=_use_heuristic_cache[]) =
-    h(domain, state, Specification(spec); cache=cache)
+function (h::Heuristic)(domain::Domain, state::State, spec;
+                        precompute::Bool=true)
+    return h(domain, state, Specification(spec); precompute=precompute)
+end
 
+include("memoized.jl")
+include("precomputed.jl")
 include("basic.jl")
+include("metric.jl")
+include("planner.jl")
 include("pgraph.jl")
 include("hsp.jl")
 include("ff.jl")

@@ -5,18 +5,17 @@ export FFHeuristic
 mutable struct FFHeuristic <: Heuristic
     graph::PlanningGraph # Precomputed planning graph
     goal_idxs::Set{Int} # Precomputed list of goal indices
-    pre_key::Tuple{UInt64,UInt64} # Precomputation hash
     FFHeuristic() = new()
+    FFHeuristic(graph, goal_idxs) = new(graph, goal_idxs)
 end
 
 Base.hash(heuristic::FFHeuristic, h::UInt) = hash(FFHeuristic, h)
 
+is_precomputed(h::FFHeuristic) =
+    isdefined(h, :graph) && isdefined(h, :goal_idxs)
+
 function precompute!(h::FFHeuristic,
                      domain::Domain, state::State, spec::Specification)
-    # Check if cache has already been computed
-    if is_precomputed(h, domain, state, spec) return h end
-    # Precomputed data is unique to each domain and specification
-    h.pre_key = (objectid(domain), objectid(spec))
     # Build planning graph and find goal condition indices
     goal_conds = PDDL.to_cnf_clauses(get_goal_terms(spec))
     h.graph = build_planning_graph(domain, state, goal_conds)
@@ -24,19 +23,8 @@ function precompute!(h::FFHeuristic,
     return h
 end
 
-function is_precomputed(h::FFHeuristic,
-                        domain::Domain, state::State, spec::Specification)
-    return (isdefined(h, :graph) &&
-            objectid(domain) == h.pre_key[1] &&
-            objectid(spec) == h.pre_key[2])
-end
-
 function compute(h::FFHeuristic,
                  domain::Domain, state::State, spec::Specification)
-    # Precompute if necessary
-    if !is_precomputed(h, domain, state, spec)
-        precompute!(h, domain, state, spec)
-    end
     # Compute achievers to each condition node of the relaxed planning graph
     _, achievers = relaxed_graph_search(domain, state, spec,
                                         maximum, h.graph, h.goal_idxs)

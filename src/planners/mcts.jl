@@ -197,7 +197,7 @@ function insert_node!(planner::MonteCarloTreeSearch, sol::MCTSTreeSolution,
 	qs = map(actions) do act
         next_state = transition(domain, state, act)
         r = get_reward(spec, domain, state, act, next_state)
-        h_val = planner.heuristic(domain, next_state, spec)
+        h_val = compute(planner.heuristic, domain, next_state, spec)
         return get_discount(spec) * (-h_val) + r
     end
 	state_id = hash(state)
