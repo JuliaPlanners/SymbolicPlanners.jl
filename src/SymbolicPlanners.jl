@@ -5,7 +5,8 @@ using Base.Iterators: countfrom
 using Parameters: @unpack
 using DataStructures: PriorityQueue, enqueue!, dequeue!
 using StatsBase: sample, Weights
-using Random, Julog, PDDL
+using PDDL: PDDL, flatten_conjs
+using Random, PDDL
 
 abstract type Specification end
 abstract type Solution end

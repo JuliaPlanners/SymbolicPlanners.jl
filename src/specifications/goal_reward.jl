@@ -11,7 +11,7 @@ GoalReward(problem::Problem) = GoalReward(PDDL.get_goal(problem), 1.0, 0.9)
 GoalReward(terms, reward) = GoalReward(terms, reward, 0.9)
 GoalReward(terms) = GoalReward(terms, 1.0, 0.9)
 GoalReward(term::Term, reward, discount) =
-    GoalReward(flatten_conjs(term), reward, discount)
+    GoalReward(PDDL.flatten_conjs(term), reward, discount)
 
 Base.hash(spec::GoalReward, h::UInt) =
     hash(spec.reward, hash(spec.discount, hash(Set(spec.terms), h)))

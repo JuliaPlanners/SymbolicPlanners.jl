@@ -6,9 +6,9 @@ struct MinStepsGoal <: Goal
 end
 
 MinStepsGoal(problem::Problem) =
-    MinStepsGoal(flatten_conjs(PDDL.get_goal(problem)))
+    MinStepsGoal(PDDL.flatten_conjs(PDDL.get_goal(problem)))
 MinStepsGoal(goal::Term) =
-    MinStepsGoal(flatten_conjs(goal))
+    MinStepsGoal(PDDL.flatten_conjs(goal))
 
 Base.hash(spec::MinStepsGoal, h::UInt) =
     hash(Set(spec.terms), h)
