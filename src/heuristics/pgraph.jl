@@ -7,6 +7,7 @@ struct PlanningGraph
     act_children::Vector{Vector{Int}} # Child conditions of each action
     conditions::Vector{Term} # All ground preconditions / goal conditions
     cond_children::Vector{Vector{Int}} # Child actions of each condition
+    min_axiom_idx::Int # Index for first ground action derived from an axiom
 end
 
 """
@@ -27,7 +28,10 @@ function build_planning_graph(domain::Domain, state::State,
             append!(actions, PDDL.flatten_conditions(act))
         end
     end
-    # Extract conditions and effects of ground actions, storing their
+    # Add axioms converted to ground actions
+    min_axiom_idx = length(actions) + 1
+    append!(actions, groundaxioms(domain, state))
+    # Extract conditions and effects of ground actions
     cond_map = Dict{Term,Set{Int}}() # Map conditions to action indices
     effect_map = Dict{Term,Set{Int}}() # Map effects to action indices
     for (i, act) in enumerate(actions)
@@ -77,7 +81,7 @@ function build_planning_graph(domain::Domain, state::State,
     act_children = unique!.(sort!.(act_children))
     # Construct and return graph
     return PlanningGraph(actions, act_parents, act_children,
-                         conditions, cond_children)
+                         conditions, cond_children, min_axiom_idx)
 end
 
 "Compute relaxed costs and paths to each fact node of a planning graph."
@@ -122,14 +126,20 @@ function relaxed_graph_search(
             # Decrease counter for unachieved actions
             counters[act_idx] -= 1
             counters[act_idx] != 0 && continue
-            # Compute path cost and distance of achieved action
+            # Compute path cost and distance of achieved action or axiom
             act_parents = graph.act_parents[act_idx]
             path_cost = accum_op(costs[p] for p in act_parents)
-            act_cost = has_action_cost(spec) ?
-                get_action_cost(spec, graph.actions[act_idx].term) : 1
-            next_cost = path_cost + act_cost
-            next_dist = accum_op === maximum && !has_action_cost(spec) ?
-                next_cost : dists[cond_idx] + 1
+            is_axiom = act_idx >= graph.min_axiom_idx
+            if is_axiom # Axioms have zero cost
+                next_cost = path_cost
+                next_dist = dists[cond_idx] + 1
+            else # Lookup action cost if specified, default to one otherwise
+                act_cost = has_action_cost(spec) ?
+                    get_action_cost(spec, graph.actions[act_idx].term) : 1
+                next_cost = path_cost + act_cost
+                next_dist = accum_op === maximum && !has_action_cost(spec) ?
+                    next_cost : dists[cond_idx] + 1
+            end
             # Place child conditions on queue
             act_children = graph.act_children[act_idx]
             for c_idx in act_children
@@ -139,7 +149,7 @@ function relaxed_graph_search(
                 delete!(unreached, c_idx) # Removed any reached goals
                 if less_cost # Store new cost and achiever
                     costs[c_idx] = next_cost
-                    achievers[c_idx] = act_idx
+                    achievers[c_idx] = is_axiom ? achievers[cond_idx] : act_idx
                 end
                 if !(c_idx in keys(queue)) # Enqueue new conditions
                     enqueue!(queue, c_idx, next_dist)
