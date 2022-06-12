@@ -31,10 +31,13 @@ function compute(h::FFHeuristic,
     # Extract cost of relaxed plan via backward chaining
     cost = 0.0f0
     queue = collect(h.goal_idxs)
-    while length(queue) > 0
+    act_idxs = Int[]
+    while !isempty(queue)
         cond_idx = popfirst!(queue)
         act_idx = achievers[cond_idx]
         act_idx == -1 && continue # Skip conditions achieved from the start
+        act_idx in act_idxs && continue # Skip actions that already appeared
+        push!(act_idxs, act_idx)
         if has_action_cost(spec)
             act = h.graph.actions[act_idx].term
             cost += get_action_cost(spec, act)
