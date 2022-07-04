@@ -20,14 +20,19 @@ Construct planning graph for a `domain` grounded in a `state`, with optional
 """
 function build_planning_graph(domain::Domain, state::State,
                               goal_conds=Term[])
+    # Infer relevant fluents
+    relfluents = infer_relevant_fluents(domain, goal_conds)
     # Populate list of ground actions and converted axioms
     actions = GroundAction[]
     # Add axioms converted to ground actions
-    for ax in groundaxioms(domain, state)
-        if ax.effect isa PDDL.GenericDiff
-            push!(actions, ax)
-        else # Handle conditional effects
-            append!(actions, PDDL.flatten_conditions(ax))
+    for (name, axiom) in pairs(PDDL.get_axioms(domain))
+        if !(name in relfluents) continue end # Skip irrelevant axioms
+        for ax in groundaxioms(domain, state, axiom)
+            if ax.effect isa PDDL.GenericDiff
+                push!(actions, ax)
+            else # Handle conditional effects
+                append!(actions, PDDL.flatten_conditions(ax))
+            end
         end
     end
     n_axioms = length(actions)
@@ -153,12 +158,12 @@ function relaxed_graph_search(
             condflags[act_idx] != UInt(0) && continue
             # Compute path cost and distance of achieved action or axiom
             act_parents = graph.act_parents[act_idx]
-            path_cost = accum_op(costs[p] for p in act_parents)
             is_axiom = act_idx <= graph.n_axioms
-            if is_axiom # Axioms have zero cost
-                next_cost = path_cost
+            if is_axiom # Axioms cost is the max of parent consts
+                next_cost = maximum(costs[p] for p in act_parents)
                 next_dist = dists[cond_idx]
             else # Lookup action cost if specified, default to one otherwise
+                path_cost = accum_op(costs[p] for p in act_parents)
                 act_cost = has_action_cost(spec) ?
                     get_action_cost(spec, graph.actions[act_idx].term) : 1
                 next_cost = path_cost + act_cost
