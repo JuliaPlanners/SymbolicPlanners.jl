@@ -21,6 +21,11 @@ bw_problem = load_problem(:blocksworld, "problem-2")
 bw_state = initstate(blocksworld, bw_problem)
 bw_spec = Specification(bw_problem)
 
+bw_axioms = load_domain(:blocksworld_axioms)
+ba_problem = load_problem(:blocksworld_axioms, "problem-2")
+ba_state = initstate(bw_axioms, ba_problem)
+ba_spec = Specification(ba_problem)
+
 zeno_travel = load_domain(:zeno_travel)
 zt_problem = load_problem(:zeno_travel, "problem-2")
 zt_state = initstate(zeno_travel, zt_problem)

@@ -50,6 +50,9 @@ end
 @test HAdd()(blocksworld, bw_state, bw_problem.goal) == 4
 @test HMax()(blocksworld, bw_state, bw_problem.goal) == 2
 
+@test HAdd()(bw_axioms, ba_state, ba_problem.goal) == 4
+@test HMax()(bw_axioms, ba_state, ba_problem.goal) == 2
+
 end
 
 @testset "HSPr Heuristics" begin
@@ -66,8 +69,8 @@ end
 
 @testset "FF Heuristic" begin
 
-ff = precomputed(FFHeuristic(), blocksworld, bw_state, bw_problem.goal)
-@test ff(blocksworld, bw_state, bw_problem.goal) == 4
+@test FFHeuristic()(blocksworld, bw_state, bw_problem.goal) == 4
+@test FFHeuristic()(bw_axioms, ba_state, ba_problem.goal) == 3
 
 end
 
