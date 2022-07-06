@@ -1,6 +1,6 @@
 export MemoizedHeuristic, memoized
 
-"Heuristic that is already precomputed, and will not be precomputed again."
+"Wraps an existing heursitic and memoizes heuristic computation."
 struct MemoizedHeuristic{H <: Heuristic} <: Heuristic
     heuristic::H
     cache::Dict{NTuple{3,UInt}, Float32}
@@ -21,6 +21,7 @@ Base.empty!(h::MemoizedHeuristic) = empty!(h.cache)
 is_precomputed(h::MemoizedHeuristic) =
     is_precomputed(h.heuristic)
 
+# TODO: CACHE PRECOMPUTED INFORMATION AS WELL
 precompute!(h::MemoizedHeuristic, domain::Domain, state::State, spec::Specification) =
     precompute!(h.heuristic, domain, state, spec)
 

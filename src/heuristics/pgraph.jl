@@ -3,7 +3,7 @@
 "Planning graph used by relaxation-based heuristics."
 struct PlanningGraph
     actions::Vector{GroundAction} # All ground actions
-    act_parents::Vector{Vector{Int}} # Parent conditions of each action
+    act_parents::Vector{Vector{Vector{Int}}} # Parent conditions of each action
     act_children::Vector{Vector{Int}} # Child conditions of each action
     n_axioms::Int # Number of ground actions converted from axioms
     conditions::Vector{Term} # All ground preconditions / goal conditions
@@ -20,14 +20,15 @@ Construct planning graph for a `domain` grounded in a `state`, with optional
 """
 function build_planning_graph(domain::Domain, state::State,
                               goal_conds=Term[])
-    # Infer relevant fluents
+    # Infer static and relevant fluents
+    statfluents = infer_static_fluents(domain)
     relfluents = infer_relevant_fluents(domain, goal_conds)
     # Populate list of ground actions and converted axioms
     actions = GroundAction[]
     # Add axioms converted to ground actions
     for (name, axiom) in pairs(PDDL.get_axioms(domain))
         if !(name in relfluents) continue end # Skip irrelevant axioms
-        for ax in groundaxioms(domain, state, axiom)
+        for ax in groundaxioms(domain, state, axiom; statics=statfluents)
             if ax.effect isa PDDL.GenericDiff
                 push!(actions, ax)
             else # Handle conditional effects
@@ -80,12 +81,14 @@ function build_planning_graph(domain::Domain, state::State,
     cond_children = collect(values(cond_map))
     conditions = collect(keys(cond_map))
     # Determine parent and child conditions of each action
-    act_parents = [Int[] for _ in 1:length(actions)]
+    act_parents = [[Int[] for c in act.preconds] for act in actions]
     act_children = [Int[] for _ in 1:length(actions)]
     for (i, cond) in enumerate(conditions)
         # Collect parent conditions
-        idxs = first.(get(Vector{Tuple{Int,Int}}, cond_map, cond))
-        push!.(act_parents[idxs], i)
+        idxs = get(Vector{Tuple{Int,Int}}, cond_map, cond)
+        for (act_idx, precond_idx) in idxs
+            push!(act_parents[act_idx][precond_idx], i)
+        end
         # Collect child conditions
         if cond.name in (:not, true, false) || PDDL.is_pred(cond, domain)
             idxs = get(Vector{Int}, effect_map, cond) # Handle literals
@@ -111,7 +114,7 @@ function build_planning_graph(domain::Domain, state::State,
 end
 
 "Compute relaxed costs and paths to each fact node of a planning graph."
-function relaxed_graph_search(
+function relaxed_pgraph_search(
     domain::Domain, state::State, spec::Specification,
     accum_op::Function, graph::PlanningGraph, goal_idxs=nothing
 )
@@ -160,10 +163,14 @@ function relaxed_graph_search(
             act_parents = graph.act_parents[act_idx]
             is_axiom = act_idx <= graph.n_axioms
             if is_axiom # Axioms cost is the max of parent consts
-                next_cost = maximum(costs[p] for p in act_parents)
+                next_cost = maximum(act_parents) do precond_parents
+                    minimum(costs[p] for p in precond_parents)
+                end
                 next_dist = dists[cond_idx]
             else # Lookup action cost if specified, default to one otherwise
-                path_cost = accum_op(costs[p] for p in act_parents)
+                path_cost = accum_op(act_parents) do precond_parents
+                    minimum(costs[p] for p in precond_parents)
+                end
                 act_cost = has_action_cost(spec) ?
                     get_action_cost(spec, graph.actions[act_idx].term) : 1
                 next_cost = path_cost + act_cost

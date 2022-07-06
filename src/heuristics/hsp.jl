@@ -29,8 +29,8 @@ end
 function compute(h::HSPHeuristic,
                  domain::Domain, state::State, spec::Specification)
     # Compute relaxed costs to each condition node of the planning graph
-    costs, _ = relaxed_graph_search(domain, state, spec,
-                                    h.op, h.graph, h.goal_idxs)
+    costs, _ = relaxed_pgraph_search(domain, state, spec,
+                                     h.op, h.graph, h.goal_idxs)
     # Return goal cost (may be infinite if unreachable)
     goal_cost = h.op(costs[g] for g in h.goal_idxs)
     return goal_cost
@@ -58,7 +58,7 @@ function precompute!(h::HSPRHeuristic,
                      domain::Domain, state::State, spec::Specification)
     # Construct and compute fact costs from planning graph
     graph = build_planning_graph(domain, state)
-    costs, _ = relaxed_graph_search(domain, state, spec, h.op, graph)
+    costs, _ = relaxed_pgraph_search(domain, state, spec, h.op, graph)
     # Convert costs to dictionary for fast look-up
     h.costs = Dict{Term,Float64}(c => v for (c, v) in zip(graph.conditions, costs))
     return h

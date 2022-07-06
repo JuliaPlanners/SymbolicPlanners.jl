@@ -26,8 +26,8 @@ end
 function compute(h::FFHeuristic,
                  domain::Domain, state::State, spec::Specification)
     # Compute achievers to each condition node of the relaxed planning graph
-    _, achievers = relaxed_graph_search(domain, state, spec,
-                                        maximum, h.graph, h.goal_idxs)
+    costs, achievers = relaxed_pgraph_search(domain, state, spec,
+                                             maximum, h.graph, h.goal_idxs)
     # Extract cost of relaxed plan via backward chaining
     cost = 0.0f0
     queue = collect(h.goal_idxs)
@@ -44,7 +44,15 @@ function compute(h::FFHeuristic,
         else
             cost += 1
         end
-        append!(queue, h.graph.act_parents[act_idx])
+        # Push supporting condition indices onto queue
+        for precond_parents in h.graph.act_parents[act_idx]
+            for cond_idx in precond_parents
+                if costs[cond_idx] < Inf
+                    push!(queue, cond_idx)
+                    break
+                end
+            end
+        end
     end
     # TODO: Store helpful actions
     # Return cost of relaxed plan as heuristic estimate
