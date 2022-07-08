@@ -4,33 +4,35 @@ export FFHeuristic
 "FastForward (FF) delete-relaxation heuristic."
 mutable struct FFHeuristic <: Heuristic
     graph::PlanningGraph # Precomputed planning graph
-    goal_idxs::Set{Int} # Precomputed list of goal indices
     FFHeuristic() = new()
-    FFHeuristic(graph, goal_idxs) = new(graph, goal_idxs)
+    FFHeuristic(graph) = new(graph)
 end
 
 Base.hash(heuristic::FFHeuristic, h::UInt) = hash(FFHeuristic, h)
 
-is_precomputed(h::FFHeuristic) =
-    isdefined(h, :graph) && isdefined(h, :goal_idxs)
+is_precomputed(h::FFHeuristic) = isdefined(h, :graph)
 
 function precompute!(h::FFHeuristic,
                      domain::Domain, state::State, spec::Specification)
     # Build planning graph and find goal condition indices
-    goal_conds = PDDL.to_cnf_clauses(get_goal_terms(spec))
-    h.graph = build_planning_graph(domain, state, goal_conds)
-    h.goal_idxs = Set(findall(c -> c in goal_conds, h.graph.conditions))
+    goal = Compound(:and, get_goal_terms(spec))
+    h.graph = build_planning_graph(domain, state, goal)
     return h
 end
 
 function compute(h::FFHeuristic,
                  domain::Domain, state::State, spec::Specification)
     # Compute achievers to each condition node of the relaxed planning graph
-    costs, achievers = relaxed_pgraph_search(domain, state, spec,
-                                             maximum, h.graph, h.goal_idxs)
+    costs, achievers, goal_idx, _ =
+        relaxed_pgraph_search(domain, state, spec, maximum, h.graph)
+    # Return infinity if goal is not reached
+    if isnothing(goal_idx) return Inf32 end
+    # Initialize queue
+    queue = Int[]
+    goal_parents = h.graph.act_parents[goal_idx]
+    ff_add_parent_conds_to_queue!(queue, goal_parents, costs)
     # Extract cost of relaxed plan via backward chaining
-    cost = 0.0f0
-    queue = collect(h.goal_idxs)
+    plan_cost = 0.0f0
     act_idxs = Int[]
     while !isempty(queue)
         cond_idx = popfirst!(queue)
@@ -40,21 +42,28 @@ function compute(h::FFHeuristic,
         push!(act_idxs, act_idx)
         if has_action_cost(spec)
             act = h.graph.actions[act_idx].term
-            cost += get_action_cost(spec, act)
+            plan_cost += get_action_cost(spec, act)
         else
-            cost += 1
+            plan_cost += 1
         end
         # Push supporting condition indices onto queue
-        for precond_parents in h.graph.act_parents[act_idx]
-            for cond_idx in precond_parents
-                if costs[cond_idx] < Inf
-                    push!(queue, cond_idx)
-                    break
-                end
-            end
-        end
+        act_parents = h.graph.act_parents[act_idx]
+        ff_add_parent_conds_to_queue!(queue, act_parents, costs)
     end
     # TODO: Store helpful actions
     # Return cost of relaxed plan as heuristic estimate
-    return cost
+    return plan_cost
+end
+
+"Adds parent conditions of an action to the queue."
+function ff_add_parent_conds_to_queue!(queue, act_parents, costs)
+    for precond_parents in act_parents
+        for cond_idx in precond_parents
+            if costs[cond_idx] < Inf
+                push!(queue, cond_idx)
+                break
+            end
+        end
+    end
+    return queue
 end

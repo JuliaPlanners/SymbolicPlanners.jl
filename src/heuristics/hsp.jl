@@ -6,33 +6,28 @@ export HSPRHeuristic, HAddR, HMaxR
 mutable struct HSPHeuristic <: Heuristic
     op::Function # Aggregator (e.g. maximum, sum) for fact costs
     graph::PlanningGraph # Precomputed planning graph
-    goal_idxs::Set{Int} # Precomputed list of goal indices
     HSPHeuristic(op) = new(op)
-    HSPHeuristic(op, graph, goal_idxs) = new(op, graph, goal_idxs)
+    HSPHeuristic(op, graph) = new(op, graph)
 end
 
 Base.hash(heuristic::HSPHeuristic, h::UInt) =
     hash(heuristic.op, hash(HSPHeuristic, h))
 
-is_precomputed(h::HSPHeuristic) =
-    isdefined(h, :graph) && isdefined(h, :goal_idxs)
+is_precomputed(h::HSPHeuristic) = isdefined(h, :graph)
 
 function precompute!(h::HSPHeuristic,
                      domain::Domain, state::State, spec::Specification)
     # Build planning graph and find goal condition indices
-    goal_conds = PDDL.to_cnf_clauses(get_goal_terms(spec))
-    h.graph = build_planning_graph(domain, state, goal_conds)
-    h.goal_idxs = Set(findall(c -> c in goal_conds, h.graph.conditions))
+    goal = Compound(:and, get_goal_terms(spec))
+    h.graph = build_planning_graph(domain, state, goal)
     return h
 end
 
 function compute(h::HSPHeuristic,
                  domain::Domain, state::State, spec::Specification)
     # Compute relaxed costs to each condition node of the planning graph
-    costs, _ = relaxed_pgraph_search(domain, state, spec,
-                                     h.op, h.graph, h.goal_idxs)
+    _, _, _, goal_cost = relaxed_pgraph_search(domain, state, spec, h.op, h.graph)
     # Return goal cost (may be infinite if unreachable)
-    goal_cost = h.op(costs[g] for g in h.goal_idxs)
     return goal_cost
 end
 
@@ -58,7 +53,7 @@ function precompute!(h::HSPRHeuristic,
                      domain::Domain, state::State, spec::Specification)
     # Construct and compute fact costs from planning graph
     graph = build_planning_graph(domain, state)
-    costs, _ = relaxed_pgraph_search(domain, state, spec, h.op, graph)
+    costs, _, _, _ = relaxed_pgraph_search(domain, state, spec, h.op, graph)
     # Convert costs to dictionary for fast look-up
     h.costs = Dict{Term,Float64}(c => v for (c, v) in zip(graph.conditions, costs))
     return h

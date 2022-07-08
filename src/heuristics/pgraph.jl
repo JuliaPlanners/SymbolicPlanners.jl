@@ -2,10 +2,11 @@
 
 "Planning graph used by relaxation-based heuristics."
 struct PlanningGraph
+    n_axioms::Int # Number of ground actions converted from axioms
+    n_goals::Int # Number of ground actions converted from goals
     actions::Vector{GroundAction} # All ground actions
     act_parents::Vector{Vector{Vector{Int}}} # Parent conditions of each action
     act_children::Vector{Vector{Int}} # Child conditions of each action
-    n_axioms::Int # Number of ground actions converted from axioms
     conditions::Vector{Term} # All ground preconditions / goal conditions
     cond_children::Vector{Vector{Tuple{Int,Int}}} # Child actions of each condition
     cond_derived::BitVector # Whether the conditions are derived
@@ -13,16 +14,16 @@ struct PlanningGraph
 end
 
 """
-    build_planning_graph(domain, state[, goal_conds])
+    build_planning_graph(domain, state, [goal::Term])
 
-Construct planning graph for a `domain` grounded in a `state`, with optional
-`goal_conds` that will be included as condition nodes.
+Construct planning graph for a `domain` grounded in a `state`, with an
+optional `goal` formula that will be converted to action nodes.
 """
 function build_planning_graph(domain::Domain, state::State,
-                              goal_conds=Term[])
+                              goal::Union{Term,Nothing}=nothing)
     # Infer static and relevant fluents
     statfluents = infer_static_fluents(domain)
-    relfluents = infer_relevant_fluents(domain, goal_conds)
+    relfluents = infer_relevant_fluents(domain, goal)
     # Populate list of ground actions and converted axioms
     actions = GroundAction[]
     # Add axioms converted to ground actions
@@ -44,6 +45,20 @@ function build_planning_graph(domain::Domain, state::State,
             push!(actions, act)
         else # Handle conditional effects
             append!(actions, PDDL.flatten_conditions(act))
+        end
+    end
+    # Add goals converted to ground actions
+    n_goals = 0
+    if !isnothing(goal)
+        goal_actions = pgraph_goal_to_actions(domain, state, goal;
+                                              statics=statfluents)
+        n_goals = length(goal_actions)
+        append!(actions, goal_actions)
+    end
+    # Ensure number of conditions doesn't exceed max limit of Sys.WORD_SIZE
+    for act in actions
+        if length(act.preconds) > Sys.WORD_SIZE
+            resize!(act.preconds, Sys.WORD_SIZE)
         end
     end
     # Extract conditions and effects of ground actions
@@ -75,8 +90,6 @@ function build_planning_graph(domain::Domain, state::State,
             push!(idxs, i)
         end
     end
-    # Insert goal conditions
-    for g in goal_conds get!(Vector{Tuple{Int,Int}}, cond_map, g) end
     # Flatten map from conditions to child indices
     cond_children = collect(values(cond_map))
     conditions = collect(keys(cond_map))
@@ -108,17 +121,39 @@ function build_planning_graph(domain::Domain, state::State,
         broadcast(c -> PDDL.has_func(c, domain) ||
                        PDDL.has_global_func(c), conditions)
     # Construct and return graph
-    return PlanningGraph(actions, act_parents, act_children,
-                         n_axioms, conditions, cond_children,
-                         cond_derived, cond_functional)
+    return PlanningGraph(n_axioms, n_goals, actions, act_parents, act_children,
+                         conditions, cond_children, cond_derived, cond_functional)
+end
+
+"Converts a goal formula into ground actions in a planning graph."
+function pgraph_goal_to_actions(domain::Domain, state::State, goal::Term;
+                                statics=infer_static_fluents(domain))
+    # Dequantify and simplify goal condition
+    goal = PDDL.to_nnf(PDDL.dequantify(goal, domain, state))
+    goal = PDDL.simplify_statics(goal, domain, state, statics)
+    # Convert goal condition to ground actions
+    actions = GroundAction[]
+    name = :goal
+    term = Compound(:goal, Term[])
+    if PDDL.is_dnf(goal) # Split disjunctive goal into multiple goal actions
+        for clause in goal.args
+            conds = PDDL.flatten_conjs(clause)
+            act = GroundAction(name, term, conds, PDDL.GenericDiff())
+            push!(actions, act)
+        end
+    else # Otherwise goal conditions to CNF form
+        conds = PDDL.to_cnf_clauses(goal)
+        act = GroundAction(name, term, conds, PDDL.GenericDiff())
+        push!(actions, act)
+    end
+    return actions
 end
 
 "Compute relaxed costs and paths to each fact node of a planning graph."
-function relaxed_pgraph_search(
-    domain::Domain, state::State, spec::Specification,
-    accum_op::Function, graph::PlanningGraph, goal_idxs=nothing
-)
+function relaxed_pgraph_search(domain::Domain, state::State, spec::Specification,
+                               accum_op::Function, graph::PlanningGraph)
     # Initialize fact costs, precondition flags,  etc.
+    n_actions = length(graph.actions)
     n_conds = length(graph.conditions)
     dists = fill(Inf32, n_conds) # Fact distances
     costs = fill(Inf32, n_conds) # Fact costs
@@ -131,33 +166,23 @@ function relaxed_pgraph_search(
     costs[init_idxs] .= 0
     queue = PriorityQueue{Int,Float32}(i => 0 for i in findall(init_idxs))
 
-    # Check if any goal conditions are already reached
-    if goal_idxs !== nothing
-        for g in goal_idxs
-            goal_cond = graph.conditions[g]
-            if dists[g] === Inf32 && !satisfy(domain, state, goal_cond)
-                continue
-            end
-            dists[g] = 0
-            costs[g] = 0
-        end
-        unreached = copy(goal_idxs)
-    else
-        unreached = Set{Int}(-1) # Set with dummy unreachable node
-    end
-
     # Perform Djikstra / uniform-cost search until goals are reached
-    while !isempty(queue) && !isempty(unreached)
+    goal_idx, goal_cost = nothing, Inf32
+    first_goal_idx = n_actions - graph.n_goals
+    while !isempty(queue) && isnothing(goal_idx)
         # Dequeue nearest fact/condition
         cond_idx = dequeue!(queue)
         # Iterate over child actions
         for (act_idx, precond_idx) in graph.cond_children[cond_idx]
+            # Check if goal action is reached
+            is_goal = act_idx > first_goal_idx
             # Skip actions with no children
-            isempty(graph.act_children[act_idx]) && continue
+            !is_goal && isempty(graph.act_children[act_idx]) && continue
             # Skip actions already achieved
             condflags[act_idx] === UInt(0) && continue
             # Set precondition flag for unachieved actions
             condflags[act_idx] &= ~(UInt(1) << (precond_idx-1))
+            # Continue if preconditions for action are not fully satisfied
             condflags[act_idx] != UInt(0) && continue
             # Compute path cost and distance of achieved action or axiom
             act_parents = graph.act_parents[act_idx]
@@ -177,13 +202,16 @@ function relaxed_pgraph_search(
                 next_dist = accum_op === maximum && !has_action_cost(spec) ?
                     next_cost : dists[cond_idx] + 1
             end
+            if is_goal # Return goal index and goal cost
+                goal_idx, goal_cost = act_idx, path_cost
+                break
+            end
             # Place child conditions on queue
             act_children = graph.act_children[act_idx]
             for c_idx in act_children
                 less_dist = next_dist < dists[c_idx]
                 less_cost = next_cost < costs[c_idx]
                 if !(less_dist || less_cost) continue end
-                delete!(unreached, c_idx) # Removed any reached goals
                 if less_cost # Store new cost and achiever
                     costs[c_idx] = next_cost
                     achievers[c_idx] = is_axiom ? achievers[cond_idx] : act_idx
@@ -198,8 +226,8 @@ function relaxed_pgraph_search(
         end
     end
 
-    # Return fact costs and achievers
-    return costs, achievers
+    # Return fact costs, achievers, goal index and cost
+    return costs, achievers, goal_idx, goal_cost
 end
 
 "Returns planning graph indices for initial facts."
