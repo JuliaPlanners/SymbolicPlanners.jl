@@ -214,7 +214,7 @@ function relaxed_pgraph_search(domain::Domain, state::State, spec::Specification
                 if !(less_dist || less_cost) continue end
                 if less_cost # Store new cost and achiever
                     costs[c_idx] = next_cost
-                    achievers[c_idx] = is_axiom ? achievers[cond_idx] : act_idx
+                    achievers[c_idx] = act_idx
                 end
                 if !(c_idx in keys(queue)) # Enqueue new conditions
                     enqueue!(queue, c_idx, next_dist)

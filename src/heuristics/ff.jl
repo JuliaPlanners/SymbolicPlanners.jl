@@ -40,11 +40,9 @@ function compute(h::FFHeuristic,
         act_idx == -1 && continue # Skip conditions achieved from the start
         act_idx in act_idxs && continue # Skip actions that already appeared
         push!(act_idxs, act_idx)
-        if has_action_cost(spec)
-            act = h.graph.actions[act_idx].term
-            plan_cost += get_action_cost(spec, act)
-        else
-            plan_cost += 1
+        if act_idx > h.graph.n_axioms # Add cost to plan for non-axioms
+            plan_cost += has_action_cost(spec) ?
+                get_action_cost(spec, h.graph.actions[act_idx].term) : 1
         end
         # Push supporting condition indices onto queue
         act_parents = h.graph.act_parents[act_idx]
