@@ -58,11 +58,12 @@ end
 "Adds parent conditions of an action to the queue."
 function ff_add_parent_conds_to_queue!(queue, act_parents, costs)
     for precond_parents in act_parents
-        for cond_idx in precond_parents
-            if costs[cond_idx] < Inf
-                push!(queue, cond_idx)
-                break
-            end
+        if length(precond_parents) == 1
+            push!(queue, precond_parents[1])
+        else
+            _, min_idx = findmin(costs[precond_parents])
+            min_cond_idx = precond_parents[min_idx]
+            push!(queue, min_cond_idx)
         end
     end
     return queue
