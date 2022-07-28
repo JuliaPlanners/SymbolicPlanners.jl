@@ -37,4 +37,7 @@ include("heuristics.jl")
 # Test planners
 include("planners.jl")
 
+# Test problem with constraints
+include("cabbage.jl")
+
 PDDL.Arrays.deregister!()
