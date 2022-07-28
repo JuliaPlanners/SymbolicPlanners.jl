@@ -35,11 +35,11 @@ function solve(planner::ForwardPlanner,
                domain::Domain, state::State, spec::Specification)
     @unpack h_mult, heuristic, save_search = planner
     # Precompute heuristic information
-    ensure_precomputed!(heuristic, domain, state, spec)
+    precompute!(heuristic, domain, state, spec)
     # Initialize search tree and priority queue
     node_id = hash(state)
     search_tree = Dict(node_id => PathNode(node_id, state, 0.0))
-    est_cost::Float32 = h_mult * heuristic(domain, state, spec)
+    est_cost::Float32 = h_mult * compute(heuristic, domain, state, spec)
     priority = (est_cost, est_cost, 0)
     queue = PriorityQueue(node_id => priority)
     # Run the search

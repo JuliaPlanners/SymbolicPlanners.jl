@@ -14,7 +14,7 @@ const RTDP = RealTimeDynamicPlanner
 function solve(planner::RealTimeDynamicPlanner,
                domain::Domain, state::State, spec::Specification)
     # Precompute heuristic information
-    ensure_precomputed!(planner.heuristic, domain, state, spec)
+    precompute!(planner.heuristic, domain, state, spec)
     # Initialize then refine solution
     default = FunctionalVPolicy(planner.heuristic, domain, spec)
     sol = TabularPolicy(default=default)
