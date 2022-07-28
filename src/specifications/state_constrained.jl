@@ -1,10 +1,20 @@
 export StateConstrainedGoal
 
-"Goal specification with state-based constraints."
+"Goal specification with constraints that must hold for every state."
 struct StateConstrainedGoal{G <: Goal} <: Goal
     goal::G
     constraints::Vector{Term}
 end
+
+function StateConstrainedGoal(problem::Problem)
+    # Convert problem to underlying goal
+    goal = Specification(problem)::Goal
+    # Get constraints
+    constraints = PDDL.get_constraints(problem)::Term
+    return StateConstrainedGoal(goal, constraints)
+end
+StateConstrainedGoal(goal::Goal, constraints::Term) =
+    StateConstrainedGoal(goal, PDDL.flatten_conjs(constraints))
 
 Base.hash(spec::StateConstrainedGoal, h::UInt) =
     hash(spec.constraints, hash(spec.goal, h))
