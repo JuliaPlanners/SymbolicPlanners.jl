@@ -31,13 +31,15 @@ zt_problem = load_problem(:zeno_travel, "problem-2")
 zt_state = initstate(zeno_travel, zt_problem)
 zt_spec = MinStepsGoal(zt_problem)
 
+wgc_domain = load_domain(:wolf_goat_cabbage)
+wgc_problem = load_problem(:wolf_goat_cabbage, 1)
+wgc_state = initstate(wgc_domain, wgc_problem)
+wgc_spec = StateConstrainedGoal(wgc_problem)
+
 # Test heuristics
 include("heuristics.jl")
 
 # Test planners
 include("planners.jl")
-
-# Test problem with constraints
-include("cabbage.jl")
 
 PDDL.Arrays.deregister!()

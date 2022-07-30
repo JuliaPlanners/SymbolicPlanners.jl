@@ -19,6 +19,17 @@ sol = planner(blocksworld, bw_state, bw_spec)
 @test is_goal(bw_spec, blocksworld, sol.trajectory[end])
 @test collect(sol) == @pddl("(pick-up a)", "(stack a b)",
                             "(pick-up c)", "(stack c a)")
+sol = planner(wgc_domain, wgc_state, wgc_spec)
+@test is_goal(wgc_spec, wgc_domain, sol.trajectory[end])
+@test |(
+    collect(sol) == @pddl("(ship-goat left right)", "(ship-self right left)",
+                          "(ship-cabbage left right)", "(ship-goat right left)",
+                          "(ship-wolf left right)", "(ship-self right left)",
+                          "(ship-goat left right)",),
+    collect(sol) == @pddl("(ship-goat left right)", "(ship-self right left)",
+                          "(ship-wolf left right)", "(ship-goat right left)",
+                          "(ship-cabbage left right)", "(ship-self right left)",
+                          "(ship-goat left right)",))
 
 end
 
@@ -41,6 +52,18 @@ sol = planner(blocksworld, bw_state, bw_spec)
 @test is_goal(bw_spec, blocksworld, sol.trajectory[end])
 @test collect(sol) == @pddl("(pick-up a)", "(stack a b)",
                             "(pick-up c)", "(stack c a)")
+planner = UniformCostPlanner()
+sol = planner(wgc_domain, wgc_state, wgc_spec)
+@test is_goal(wgc_spec, wgc_domain, sol.trajectory[end])
+@test |(
+    collect(sol) == @pddl("(ship-goat left right)", "(ship-self right left)",
+                          "(ship-cabbage left right)", "(ship-goat right left)",
+                          "(ship-wolf left right)", "(ship-self right left)",
+                          "(ship-goat left right)",),
+    collect(sol) == @pddl("(ship-goat left right)", "(ship-self right left)",
+                          "(ship-wolf left right)", "(ship-goat right left)",
+                          "(ship-cabbage left right)", "(ship-self right left)",
+                          "(ship-goat left right)",))
 
 end
 
@@ -68,6 +91,19 @@ planner = GreedyPlanner(HAdd())
 sol = planner(zeno_travel, zt_state, zt_spec)
 @test is_goal(zt_spec, zeno_travel, sol.trajectory[end])
 
+planner = GreedyPlanner(HAdd())
+sol = planner(wgc_domain, wgc_state, wgc_spec)
+@test is_goal(wgc_spec, wgc_domain, sol.trajectory[end])
+@test |(
+    collect(sol) == @pddl("(ship-goat left right)", "(ship-self right left)",
+                          "(ship-cabbage left right)", "(ship-goat right left)",
+                          "(ship-wolf left right)", "(ship-self right left)",
+                          "(ship-goat left right)",),
+    collect(sol) == @pddl("(ship-goat left right)", "(ship-self right left)",
+                          "(ship-wolf left right)", "(ship-goat right left)",
+                          "(ship-cabbage left right)", "(ship-self right left)",
+                          "(ship-goat left right)",))
+
 end
 
 @testset "A* Planner" begin
@@ -93,6 +129,19 @@ sol = planner(blocksworld, bw_state, bw_spec)
 planner = AStarPlanner(HAdd())
 sol = planner(zeno_travel, zt_state, zt_spec)
 @test is_goal(zt_spec, zeno_travel, sol.trajectory[end])
+
+planner = AStarPlanner(HAdd())
+sol = planner(wgc_domain, wgc_state, wgc_spec)
+@test is_goal(wgc_spec, wgc_domain, sol.trajectory[end])
+@test |(
+    collect(sol) == @pddl("(ship-goat left right)", "(ship-self right left)",
+                          "(ship-cabbage left right)", "(ship-goat right left)",
+                          "(ship-wolf left right)", "(ship-self right left)",
+                          "(ship-goat left right)",),
+    collect(sol) == @pddl("(ship-goat left right)", "(ship-self right left)",
+                          "(ship-wolf left right)", "(ship-goat right left)",
+                          "(ship-cabbage left right)", "(ship-self right left)",
+                          "(ship-goat left right)",))
 
 end
 
