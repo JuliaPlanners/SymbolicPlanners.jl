@@ -28,7 +28,8 @@ get_value(sol::BoltzmannPolicy, state::State, action::Term) =
 get_action_values(sol::BoltzmannPolicy, state::State) =
     get_action_values(sol.policy, state)
 
-unzip_pairs(ps::AbstractDict) = unzip_pairs(collect(ps))
+unzip_pairs(ps) = unzip_pairs(collect(ps))
+unzip_pairs(ps::AbstractDict) = collect(keys(ps)), collect(values(ps))
 unzip_pairs(ps::AbstractArray{<:Pair}) = first.(ps), last.(ps)
 
 function rand_action(sol::BoltzmannPolicy, state::State)
