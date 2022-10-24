@@ -39,7 +39,7 @@ function build_planning_graph(domain::Domain, state::State,
     end
     n_axioms = length(actions)
     # Add ground actions, flattening conditional actions
-    for act in groundactions(domain, state)
+    for act in groundactions(domain, state; statics=statfluents)
         # TODO: Eliminate redundant actions
         if act.effect isa PDDL.GenericDiff
             push!(actions, act)
@@ -129,7 +129,7 @@ end
 function pgraph_goal_to_actions(domain::Domain, state::State, goal::Term;
                                 statics=infer_static_fluents(domain))
     # Dequantify and simplify goal condition
-    goal = PDDL.to_nnf(PDDL.dequantify(goal, domain, state))
+    goal = PDDL.to_nnf(PDDL.dequantify(goal, domain, state, statics))
     goal = PDDL.simplify_statics(goal, domain, state, statics)
     # Convert goal condition to ground actions
     actions = GroundAction[]
@@ -141,8 +141,8 @@ function pgraph_goal_to_actions(domain::Domain, state::State, goal::Term;
             act = GroundAction(name, term, conds, PDDL.GenericDiff())
             push!(actions, act)
         end
-    else # Otherwise goal conditions to CNF form
-        conds = PDDL.to_cnf_clauses(goal)
+    else # Otherwise convert goal conditions to CNF form
+        conds = PDDL.is_cnf(goal) ? goal.args : PDDL.to_cnf_clauses(goal)
         act = GroundAction(name, term, conds, PDDL.GenericDiff())
         push!(actions, act)
     end
