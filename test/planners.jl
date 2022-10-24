@@ -19,6 +19,7 @@ sol = planner(blocksworld, bw_state, bw_spec)
 @test is_goal(bw_spec, blocksworld, sol.trajectory[end])
 @test collect(sol) == @pddl("(pick-up a)", "(stack a b)",
                             "(pick-up c)", "(stack c a)")
+
 sol = planner(wgc_domain, wgc_state, wgc_spec)
 @test is_goal(wgc_spec, wgc_domain, sol.trajectory[end])
 @test |(
@@ -53,6 +54,7 @@ sol = planner(blocksworld, bw_state, bw_spec)
 @test collect(sol) == @pddl("(pick-up a)", "(stack a b)",
                             "(pick-up c)", "(stack c a)")
 planner = UniformCostPlanner()
+
 sol = planner(wgc_domain, wgc_state, wgc_spec)
 @test is_goal(wgc_spec, wgc_domain, sol.trajectory[end])
 @test |(

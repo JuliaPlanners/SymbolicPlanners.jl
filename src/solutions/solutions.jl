@@ -28,7 +28,8 @@ Base.iterate(::OrderedSolution) = error("Not implemented.")
 Base.iterate(::OrderedSolution, iterstate) = error("Not implemented.")
 Base.getindex(::OrderedSolution, ::Int) = error("Not implemented.")
 Base.length(sol::OrderedSolution) = error("Not implemented.")
-Base.eltype(::Type{OrderedSolution}) = Term
+Base.eltype(::Type{<:OrderedSolution}) = Term
+Base.eltype(::T) where {T <: OrderedSolution} = eltype(T)
 
 include("ordered_plan.jl")
 
