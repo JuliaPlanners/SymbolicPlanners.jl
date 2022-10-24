@@ -38,6 +38,8 @@ wgc_spec = StateConstrainedGoal(wgc_problem)
 
 # Test solutions
 include("solutions.jl")
+# Test simulators
+include("simulators.jl")
 # Test heuristics
 include("heuristics.jl")
 # Test planners
