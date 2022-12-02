@@ -23,8 +23,13 @@ get_cost(spec::DiscountedReward, domain::Domain, s1::State, a::Term, s2::State) 
     get_cost(spec.spec, domain, s1, a, s2)
 get_reward(spec::DiscountedReward, domain::Domain, s1::State, a::Term, s2::State) =
     get_reward(spec.spec, domain, s1, a, s2)
+get_discount(spec::DiscountedReward) =
+    spec.discount
 get_goal_terms(spec::DiscountedReward) =
     get_goal_terms(spec.spec)
+
+set_goal_terms(spec::DiscountedReward, terms) =
+    DiscountedReward(set_goal_terms(spec.spec, terms), spec.discount)
 
 "Discount the rewards or costs associated with `spec`."
 discounted(spec::Specification, discount::Float64) =

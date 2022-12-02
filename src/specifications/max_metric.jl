@@ -29,3 +29,6 @@ get_cost(spec::MaxMetricGoal, domain::Domain, s1::State, ::Term, s2::State) =
 get_reward(spec::MaxMetricGoal, domain::Domain, s1::State, ::Term, s2::State) =
     domain[s2 => spec.metric] - domain[s1 => spec.metric]
 get_goal_terms(spec::MaxMetricGoal) = spec.terms
+
+set_goal_terms(spec::MaxMetricGoal, terms) =
+    MaxMetricGoal(terms, spec.metric)

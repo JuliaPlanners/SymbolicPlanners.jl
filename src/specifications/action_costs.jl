@@ -67,6 +67,9 @@ get_reward(spec::MinActionCosts, domain::Domain, s1::State, a::Term, s2::State) 
     -get_action_cost(spec, a)
 get_goal_terms(spec::MinActionCosts) = spec.terms
 
+set_goal_terms(spec::MinActionCosts, terms) =
+    MinActionCosts(terms, spec.costs)
+
 "Adds action-specific costs to an underlying specification."
 struct ExtraActionCosts{S <: Specification, C} <: Specification
     spec::S # Underlying specification
@@ -119,6 +122,9 @@ get_goal_terms(spec::ExtraActionCosts) =
     get_goal_terms(spec.spec)
 get_discount(spec::ExtraActionCosts) =
     get_discount(spec.spec)
+
+set_goal_terms(spec::ExtraActionCosts, terms) =
+    ExtraActionCosts(set_goal_terms(spec.spec, terms), spec.costs)
 
 "Infer fixed action costs, returning `nothing` if unsuccessful."
 function infer_action_costs(domain::Domain, problem::Problem)

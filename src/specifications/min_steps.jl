@@ -21,3 +21,6 @@ is_violated(spec::MinStepsGoal, domain::Domain, state::State) = false
 get_cost(spec::MinStepsGoal, ::Domain, ::State, ::Term, ::State) = 1
 get_reward(spec::MinStepsGoal, ::Domain, ::State, ::Term, ::State) = -1
 get_goal_terms(spec::MinStepsGoal) = spec.terms
+
+set_goal_terms(spec::MinStepsGoal, terms) =
+    MinStepsGoal(terms)

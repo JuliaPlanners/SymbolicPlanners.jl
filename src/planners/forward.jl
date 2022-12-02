@@ -34,6 +34,8 @@ WeightedAStarPlanner(heuristic::Heuristic, h_mult::Real; kwargs...) =
 function solve(planner::ForwardPlanner,
                domain::Domain, state::State, spec::Specification)
     @unpack h_mult, heuristic, save_search = planner
+    # Simplify goal specification
+    spec = simplify_goal(spec, domain, state)
     # Precompute heuristic information
     precompute!(heuristic, domain, state, spec)
     # Initialize search tree and priority queue

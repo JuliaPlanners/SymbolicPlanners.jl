@@ -39,6 +39,9 @@ abstract type Goal <: Specification end
 "Return goal terms."
 get_goal_terms(spec::Goal) = error("Not implemented.")
 
+"Return a copy of the goal specification with updated goal terms."
+set_goal_terms(spec::Goal, terms) = error("Not implemented.")
+
 # No discounting for goal specifications by default
 get_discount(spec::Goal) = 1.0
 
@@ -60,6 +63,7 @@ include("action_costs.jl")
 include("discounted.jl")
 include("goal_reward.jl")
 include("backward.jl")
+include("utils.jl")
 
 # Convenience constructors
 function Specification(problem::Problem)

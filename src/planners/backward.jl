@@ -23,6 +23,8 @@ function solve(planner::BackwardPlanner,
     @unpack h_mult, heuristic, save_search = planner
     # Precompute heuristic information
     precompute!(heuristic, domain, state, spec)
+    # Simplify goal specification
+    spec = simplify_goal(spec, domain, state)
     # Convert to backward search goal specification
     spec = BackwardSearchGoal(spec, state)
     state = goalstate(domain, PDDL.get_objtypes(state), get_goal_terms(spec))

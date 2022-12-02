@@ -10,6 +10,8 @@ end
 function solve(planner::BreadthFirstPlanner,
                domain::Domain, state::State, spec::Specification)
     @unpack max_nodes, save_search = planner
+    # Simplify goal specification
+    spec = simplify_goal(spec, domain, state)
     # Initialize backpointers and queue
     node_id = hash(state)
     search_tree = Dict(node_id => PathNode(node_id, state, 0.0))

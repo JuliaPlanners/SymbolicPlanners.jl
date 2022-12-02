@@ -29,6 +29,9 @@ get_reward(spec::GoalReward, domain::Domain, s1::State, a::Term, s2::State) =
 get_discount(spec::GoalReward) = spec.discount
 get_goal_terms(spec::GoalReward) = spec.terms
 
+set_goal_terms(spec::GoalReward, terms) =
+    GoalReward(terms, spec.reward, spec.discount)
+
 discounted(spec::GoalReward, discount::Float64) =
     GoalReward(spec.terms, spec.reward, discount * spec.discount)
 
@@ -55,6 +58,9 @@ get_reward(spec::BonusGoalReward, domain::Domain, s1::State, a::Term, s2::State)
     is_goal(spec, domain, s2) ? spec.reward : 0.0
 get_discount(spec::BonusGoalReward) = spec.discount
 get_goal_terms(spec::BonusGoalReward) = get_goal_terms(spec.goal)
+
+set_goal_terms(spec::BonusGoalReward, terms) =
+    BonusGoalReward(set_goal_terms(spec.goal, terms), spec.reward, spec.discount)
 
 discounted(spec::BonusGoalReward, discount::Float64) =
     BonusGoalReward(spec.goal, spec.reward, discount * spec.discount)

@@ -29,3 +29,6 @@ get_cost(spec::MinMetricGoal, domain::Domain, s1::State, ::Term, s2::State) =
 get_reward(spec::MinMetricGoal, domain::Domain, s1::State, ::Term, s2::State) =
     domain[s1 => spec.metric] - domain[s2 => spec.metric]
 get_goal_terms(spec::MinMetricGoal) = spec.terms
+
+set_goal_terms(spec::MinMetricGoal, terms) =
+    MinMetricGoal(terms, spec.metric)

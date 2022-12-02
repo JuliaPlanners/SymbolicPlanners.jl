@@ -31,3 +31,6 @@ get_cost(spec::StateConstrainedGoal, d::Domain, s1::State, a::Term, s2::State) =
 get_reward(spec::StateConstrainedGoal, d::Domain, s1::State, a::Term, s2::State) =
     get_reward(spec.goal, d, s1, a, s2)
 get_goal_terms(spec::StateConstrainedGoal) = get_goal_terms(spec.goal)
+
+set_goal_terms(spec::StateConstrainedGoal, terms) =
+    StateConstrainedGoal(set_goal_terms(spec.goal, terms), spec.constraints)
