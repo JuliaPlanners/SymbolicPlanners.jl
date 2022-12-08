@@ -158,6 +158,15 @@ spec = SymbolicPlanners.BackwardSearchGoal(bw_spec, bw_state)
 
 end
 
+@testset "BiDirectional Planner" begin
+  planner = BiDirectionalPlanner(;heuristic=HAddR())
+  sol = planner(blocksworld, bw_state, bw_spec)
+  spec = SymbolicPlanners.BackwardSearchGoal(bw_spec, bw_state)
+  @test is_goal(spec, blocksworld, sol.trajectory[1])
+  @test collect(sol) == @pddl("(pick-up a)", "(stack a b)",
+                              "(pick-up c)", "(stack c a)")
+end
+
 @testset "Real Time Dynamic Programming" begin
 
 Random.seed!(0)

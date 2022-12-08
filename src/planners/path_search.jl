@@ -47,3 +47,26 @@ Base.iterate(sol::PathSearchSolution) = iterate(sol.plan)
 Base.iterate(sol::PathSearchSolution, istate) = iterate(sol.plan, istate)
 Base.getindex(sol::PathSearchSolution, i::Int) = getindex(sol.plan, i)
 Base.length(sol::PathSearchSolution) = length(sol.plan)
+
+
+"Solution type for search-based planners that produce fully ordered plans."
+mutable struct BiPathSearchSolution{S<:State,T} <: OrderedSolution
+    status::Symbol
+    plan::Vector{Term}
+    trajectory::Union{Vector{S},Nothing}
+    expanded::Int
+    forward_search_tree::Union{Dict{UInt,PathNode{S}},Nothing}
+    forward_frontier::T
+    backward_search_tree::Union{Dict{UInt,PathNode{S}},Nothing}
+    backward_frontier::T
+end
+
+BiPathSearchSolution(status::Symbol, plan) =
+    BiPathSearchSolution(status, plan, nothing, -1, nothing, nothing, nothing, nothing)
+BiPathSearchSolution(status::Symbol, plan, trajectory) =
+    BiPathSearchSolution(status, plan, trajectory, -1, nothing, nothing, nothing, nothing)
+
+Base.iterate(sol::BiPathSearchSolution) = iterate(sol.plan)
+Base.iterate(sol::BiPathSearchSolution, istate) = iterate(sol.plan, istate)
+Base.getindex(sol::BiPathSearchSolution, i::Int) = getindex(sol.plan, i)
+Base.length(sol::BiPathSearchSolution) = length(sol.plan)

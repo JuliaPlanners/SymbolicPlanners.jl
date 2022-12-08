@@ -19,6 +19,7 @@ include("path_search.jl")
 include("bfs.jl")
 include("forward.jl")
 include("backward.jl")
+include("bidirectional.jl")
 
 # Policy-based planning algorithms
 include("rtdp.jl")
