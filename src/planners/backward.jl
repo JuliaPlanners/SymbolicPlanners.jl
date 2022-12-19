@@ -7,7 +7,8 @@ export BackwardPlanner, BackwardGreedyPlanner, BackwardAStarPlanner
     h_mult::Float32 = 1.0 # Heuristic multiplier
     max_nodes::Int = typemax(Int) # Max search nodes before termination
     max_time::Float64 = Inf # Max time in seconds before timeout
-    save_search::Bool = false # Flag to save search info
+    save_search::Bool = false # Flag to save search tree in solution
+    save_search_order::Bool = false # Flag to save search order
 end
 
 "Backward greedy search, with cycle checking."
@@ -34,49 +35,53 @@ function solve(planner::BackwardPlanner,
     est_cost::Float32 = h_mult * compute(heuristic, domain, state, spec)
     priority = (est_cost, est_cost, 0)
     queue = PriorityQueue(node_id => priority)
+    search_order = UInt[]
+    sol = PathSearchSolution(:in_progress, Term[], Vector{typeof(state)}(),
+                             0, search_tree, queue, search_order)
     # Run the search
-    status, node_id, count = search!(planner, domain, spec, search_tree, queue)
-    # Reconstruct plan and return solution
-    if status != :failure
-        plan, traj = reconstruct(node_id, search_tree)
-        reverse!(plan); reverse!(traj)
-        if save_search
-            return PathSearchSolution(status, plan, traj,
-                                      count, search_tree, queue)
-        else
-            return PathSearchSolution(status, plan, traj)
-        end
-    elseif save_search
-        S = typeof(state)
-        return PathSearchSolution(status, Term[], S[],
-                                  count, search_tree, queue)
+    sol = search!(sol, planner, domain, spec)
+    # Return solution
+    if save_search
+        return sol
+    elseif sol.status == :failure
+        return NullSolution(sol.status)
     else
-        return NullSolution(status)
+        return PathSearchSolution(sol.status, sol.plan, sol.trajectory)
     end
 end
 
-function search!(planner::BackwardPlanner,
-                 domain::Domain, spec::BackwardSearchGoal,
-                 search_tree::Dict{UInt,<:PathNode}, queue::PriorityQueue)
-    count = 1
+function search!(sol::PathSearchSolution, planner::BackwardPlanner,
+                 domain::Domain, spec::BackwardSearchGoal)
     start_time = time()
+    sol.expanded = 0
+    queue, search_tree = sol.search_frontier, sol.search_tree
     while length(queue) > 0
-        # Get state with lowest estimated cost to start state
+        # Get state with lowest estimated cost to goal
         node_id = dequeue!(queue)
         node = search_tree[node_id]
-        # Return status and current state if search terminates
+        # Check search termination criteria
         if is_goal(spec, domain, node.state)
-            return :success, node_id, count # Start state reached
-        elseif count >= planner.max_nodes
-            return :max_nodes, node_id, count # Node budget reached
+            sol.status = :success # Goal reached
+        elseif sol.expanded >= planner.max_nodes
+            sol.status = :max_nodes # Node budget reached
         elseif time() - start_time >= planner.max_time
-            return :max_time, node_id, count # Time budget reached
+            sol.status = :max_time # Time budget reached
         end
-        count += 1
-        # Expand current node
-        expand!(planner, node, search_tree, queue, domain, spec)
+        if sol.status == :in_progress # Expand current node
+            expand!(planner, node, search_tree, queue, domain, spec)
+            sol.expanded += 1
+            if planner.save_search && planner.save_search_order
+                push!(sol.search_order, node_id)
+            end
+        else # Reconstruct plan and return solution
+            sol.plan, sol.trajectory = reconstruct(node_id, search_tree)
+            reverse!(sol.plan)
+            reverse!(sol.trajectory)
+            return sol
+        end
     end
-    return :failure, nothing, count
+    sol.status = :failure
+    return sol
 end
 
 function expand!(planner::BackwardPlanner, node::PathNode,
