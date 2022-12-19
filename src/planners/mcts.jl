@@ -37,7 +37,7 @@ end
 function get_action_values(sol::MaxUCBPolicy, state::State)
 	state_id = hash(state)
 	s_visits = sol.tree.s_visits[state_id]
-	vals = Iterators.map(sol.tree.Q[state_id]) do (act, val)
+	vals = Base.Generator(sol.tree.Q[state_id]) do (act, val)
 		a_visits = sol.tree.a_visits[state_id][act]
 		if s_visits != 0 && !(s_visits == 1 && a_visits == 0)
 			val += sol.confidence * sqrt(log(s_visits) / a_visits)
