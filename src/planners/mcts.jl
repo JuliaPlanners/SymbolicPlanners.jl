@@ -37,20 +37,18 @@ end
 function get_action_values(sol::MaxUCBPolicy, state::State)
 	state_id = hash(state)
 	s_visits = sol.tree.s_visits[state_id]
-	vals = map(collect(sol.tree.Q[state_id])) do (act, val)
+	vals = Base.Generator(sol.tree.Q[state_id]) do (act, val)
 		a_visits = sol.tree.a_visits[state_id][act]
 		if s_visits != 0 && !(s_visits == 1 && a_visits == 0)
 			val += sol.confidence * sqrt(log(s_visits) / a_visits)
 		end
 		return act => val
 	end
-	return vals
+	return Dict(vals)
 end
 
 function best_action(sol::MaxUCBPolicy, state::State)
-    a_vals = get_action_values(sol, state)
-	best_idx = argmax(last.(a_vals))
-	return first(a_vals[best_idx])
+    return argmax(get_action_values(sol, state))
 end
 
 get_action(sol::MaxUCBPolicy, state::State) =
@@ -58,9 +56,9 @@ get_action(sol::MaxUCBPolicy, state::State) =
 rand_action(sol::MaxUCBPolicy, state::State) =
     best_action(sol, state)
 get_value(sol::MaxUCBPolicy, state::State) =
-    maximum(last, get_action_values(sol, state))
+    maximum(values(get_action_values(sol, state)))
 get_value(sol::MaxUCBPolicy, state::State, action::Term) =
-    findfirst(x -> first(x) == action, get_action_values(sol, state))
+    get_action_values(sol, state)[action]
 
 BoltzmannUCBPolicy(tree::MCTSTreeSolution, confidence, temperature) =
 	BoltzmannPolicy(MaxUCBPolicy(tree, confidence), temperature)

@@ -17,13 +17,24 @@ get_action(sol::FunctionalVPolicy, state::State) =
     best_action(sol, state)
 rand_action(sol::FunctionalVPolicy, state::State) =
     best_action(sol, state)
-best_action(sol::FunctionalVPolicy, state::State) =
-    first(reduce((a, b) -> last(a) > last(b) ? a : b,
-                  get_action_values(sol, state)))
+
+function best_action(sol::FunctionalVPolicy, state::State)
+    best_val = -Inf
+    best_act = nothing
+    for act in available(sol.domain, state)
+        val = get_value(sol, state, act)
+        if val > best_val
+            best_val = val
+            best_act = act
+        end 
+    end
+    return best_act
+end
+
 get_value(sol::FunctionalVPolicy, state::State) =
     sol.evaluator(state)
 get_action_values(sol::FunctionalVPolicy, state::State) =
-    (act => get_value(sol, state, act) for act in available(sol.domain, state))
+    Dict(act => get_value(sol, state, act) for act in available(sol.domain, state))
 
 function get_value(sol::FunctionalVPolicy, state::State, action::Term)
     next_state = transition(sol.domain, state, action)

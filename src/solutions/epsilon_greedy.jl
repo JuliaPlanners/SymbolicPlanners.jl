@@ -23,9 +23,22 @@ get_action_values(sol::EpsilonGreedyPolicy, state::State) =
     get_action_values(sol.policy, state)
 
 function rand_action(sol::EpsilonGreedyPolicy, state::State)
+    if rand(sol.rng) < sol.epsilon
+        actions = available(sol.domain, state)
+        if Base.IteratorSize(actions) == Base.SizeUnknown()
+            actions = collect(actions)
+        end
+        return rand(sol.rng, actions)    
+    else
+        return best_action(sol.policy, state)
+    end
+end
+
+function get_action_probs(sol::EpsilonGreedyPolicy, state::State)
+    probs = Dict(act => sol.epsilon for act in available(sol.domain, state))
+    n_actions = length(probs)
+    map!(x -> x / n_actions, values(probs))
     best_act = best_action(sol.policy, state)
-    actions = [collect(available(sol.domain, state)); best_act]
-    probs = ones(length(actions)) * sol.epsilon
-    probs[end] = 1 - sol.epsilon
-    return sample(sol.rng, actions, Weights(probs, 1.0))
+    probs[best_act] += 1 - sol.epsilon
+    return probs
 end

@@ -12,6 +12,7 @@ BoltzmannPolicy(policy, temperature) =
 
 "Convert vector of scores to probabiities."
 function softmax(scores)
+    if isempty(scores) return Float64[] end
     ws = exp.(scores .- maximum(scores))
     z = sum(ws)
     return isnan(z) ? ones(length(scores)) ./ length(scores) : ws ./ z
@@ -41,4 +42,16 @@ function rand_action(sol::BoltzmannPolicy, state::State)
         probs = softmax(q_values ./ sol.temperature)
     end
     return sample(sol.rng, actions, Weights(probs, 1.0))
+end
+
+function get_action_probs(sol::BoltzmannPolicy, state::State)
+    actions, q_values = unzip_pairs(get_action_values(sol, state))
+    if sol.temperature == 0
+        probs = zeros(length(actions))
+        probs[argmax(q_values)] = 1.0
+    else
+        probs = softmax(q_values ./ sol.temperature)
+    end 
+    probs = Dict(zip(actions, probs))
+    return probs
 end

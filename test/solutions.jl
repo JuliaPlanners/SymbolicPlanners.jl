@@ -1,6 +1,6 @@
 @testset "Solutions" begin
 
-using SymbolicPlanners: get_value, get_action_values
+using SymbolicPlanners: get_value, get_action_values, get_action_probs
 
 # Available actions in initial Blocksworld state
 bw_init_actions = collect(available(blocksworld, bw_state))
@@ -32,6 +32,9 @@ sol = RandomPolicy(blocksworld)
 @test get_action(sol, bw_state) in bw_init_actions
 @test rand_action(sol, bw_state) in bw_init_actions
 
+probs = Dict(a => 1.0 / length(bw_init_actions) for a in bw_init_actions)
+@test get_action_probs(sol, bw_state) == probs
+
 end
 
 @testset "Tabular Policy" begin
@@ -46,7 +49,10 @@ sol.Q[hash(bw_state)] = bw_init_q
 
 @test get_value(sol, bw_state) == -4.0
 @test get_value(sol, bw_state, pddl"(pick-up b)") == -6.0
-@test Dict(get_action_values(sol, bw_state)) == bw_init_q
+@test get_action_values(sol, bw_state) == bw_init_q
+
+probs = Dict(a => a == pddl"(pick-up a)" ? 1.0 : 0.0 for a in bw_init_actions)
+@test get_action_probs(sol, bw_state) == probs
 
 end
 
@@ -63,6 +69,9 @@ sol = FunctionalVPolicy(heuristic, blocksworld, bw_spec)
 @test get_value(sol, bw_state) == -4.0
 @test get_value(sol, bw_state, pddl"(pick-up b)") == -6.0
 @test Dict(get_action_values(sol, bw_state)) == bw_init_q
+
+probs = Dict(a => a == pddl"(pick-up a)" ? 1.0 : 0.0 for a in bw_init_actions)
+@test get_action_probs(sol, bw_state) == probs
 
 end
 
@@ -81,6 +90,10 @@ sol = BoltzmannPolicy(sol, 1.0)
 @test get_value(sol, bw_state, pddl"(pick-up b)") == -6.0
 @test Dict(get_action_values(sol, bw_state)) == bw_init_q
 
+probs = SymbolicPlanners.softmax(collect(values(bw_init_q)))
+probs = Dict(zip(keys(bw_init_q), probs))
+@test get_action_probs(sol, bw_state) == probs
+
 end
 
 @testset "Epsilon-Greedy Policy" begin
@@ -97,6 +110,10 @@ sol = EpsilonGreedyPolicy(blocksworld, sol, 0.1)
 @test get_value(sol, bw_state) == -4.0
 @test get_value(sol, bw_state, pddl"(pick-up b)") == -6.0
 @test Dict(get_action_values(sol, bw_state)) == bw_init_q
+
+probs = Dict(a => 0.1 / length(bw_init_actions) for a in bw_init_actions)
+probs[pddl"(pick-up a)"] += 0.9
+@test get_action_probs(sol, bw_state) == probs
 
 end
 
