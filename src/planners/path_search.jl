@@ -55,16 +55,20 @@ mutable struct BiPathSearchSolution{S<:State,T} <: OrderedSolution
     plan::Vector{Term}
     trajectory::Union{Vector{S},Nothing}
     expanded::Int
-    forward_search_tree::Union{Dict{UInt,PathNode{S}},Nothing}
-    forward_frontier::T
-    backward_search_tree::Union{Dict{UInt,PathNode{S}},Nothing}
-    backward_frontier::T
+    f_search_tree::Union{Dict{UInt,PathNode{S}},Nothing}
+    f_frontier::T
+    f_expanded::Int
+    f_trajectory::Union{Vector{S},Nothing}
+    b_search_tree::Union{Dict{UInt,PathNode{S}},Nothing}
+    b_frontier::T
+    b_expanded::Int
+    b_trajectory::Union{Vector{S},Nothing}
 end
 
 BiPathSearchSolution(status::Symbol, plan) =
-    BiPathSearchSolution(status, plan, nothing, -1, nothing, nothing, nothing, nothing)
+    BiPathSearchSolution(status, plan, nothing, -1, nothing, nothing, -1, nothing, nothing, nothing, -1, nothing)
 BiPathSearchSolution(status::Symbol, plan, trajectory) =
-    BiPathSearchSolution(status, plan, trajectory, -1, nothing, nothing, nothing, nothing)
+    BiPathSearchSolution(status, plan, trajectory, -1, nothing, nothing, -1, nothing, nothing, nothing, -1, nothing)
 
 Base.iterate(sol::BiPathSearchSolution) = iterate(sol.plan)
 Base.iterate(sol::BiPathSearchSolution, istate) = iterate(sol.plan, istate)

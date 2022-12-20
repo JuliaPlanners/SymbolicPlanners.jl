@@ -159,7 +159,7 @@ spec = SymbolicPlanners.BackwardSearchGoal(bw_spec, bw_state)
 end
 
 @testset "BiDirectional Planner" begin
-  planner = BiDirectionalPlanner(;heuristic=HAddR())
+  planner = BidirectionalPlanner(HAdd(), HAddR())
   sol = planner(blocksworld, bw_state, bw_spec)
   spec = SymbolicPlanners.BackwardSearchGoal(bw_spec, bw_state)
   @test is_goal(spec, blocksworld, sol.trajectory[1])

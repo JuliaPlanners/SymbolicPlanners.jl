@@ -1,7 +1,7 @@
 export BidirectionalPlanner, BiGreedyPlanner, BiAStarPlanner
 
 "BidirectionalPlanner best-first search planner."
-@kwdef mutable struct ForwardPlanner <: Planner
+@kwdef mutable struct BidirectionalPlanner <: Planner
     forward::ForwardPlanner = ForwardPlanner()
     backward::BackwardPlanner = BackwardPlanner()
     max_nodes::Int = typemax(Int) # Max search nodes before termination
@@ -9,16 +9,22 @@ export BidirectionalPlanner, BiGreedyPlanner, BiAStarPlanner
     save_search::Bool = false # Flag to save search info
 end    
 
-BidirectionalPlanner(;kwargs...) = BidirectionalPlanner(
-    	ForwardPlanner(; kwargs...),
-    	BackwardPlanner(; kwargs...)
-    )
-
 "Bidirectional  Greedy best-first search, with cycle checking."
-BiGreedyPlanner(f_heuristic::Heuristic, b_heuristic::Heuristic; kwargs...) =
+BiGreedyPlanner(f_heuristic::Heuristic, b_heuristic::Heuristic;  kwargs...) = 
     BidirectionalPlanner(
     	ForwardPlanner(;heuristic=f_heuristic, g_mult=0, kwargs...),
-    	BackwardPlanner(;heuristic=b_heuristic, g_mult=0, kwargs...)
+    	BackwardPlanner(;heuristic=b_heuristic, g_mult=0, kwargs...),
+        kwargs...
+    )
+
+
+BidirectionalPlanner(f_heuristic::Heuristic, b_heuristic::Heuristic; max_nodes = typemax(Int), max_time = Inf, save_search = false) = 
+    BidirectionalPlanner(
+        ForwardPlanner(;heuristic=f_heuristic, max_nodes, max_time, save_search),
+        BackwardPlanner(;heuristic=b_heuristic, max_nodes, max_time, save_search),
+        max_nodes, 
+        max_time, 
+        save_search
     )
 
 
@@ -26,7 +32,8 @@ BiGreedyPlanner(f_heuristic::Heuristic, b_heuristic::Heuristic; kwargs...) =
 BiAStarPlanner(f_heuristic::Heuristic, b_heuristic::Heuristic; kwargs...) =
     BidirectionalPlanner(
     	ForwardPlanner(;heuristic=f_heuristic, kwargs...),
-    	BackwardPlanner(;heuristic=b_heuristic, kwargs...)
+    	BackwardPlanner(;heuristic=b_heuristic, kwargs...),
+        kwargs...
     )
 
 function solve(planner::BidirectionalPlanner,
@@ -39,27 +46,24 @@ function solve(planner::BidirectionalPlanner,
     precompute!(planner.forward.heuristic, domain, state, forward_spec)
     precompute!(planner.backward.heuristic, domain, state, backward_spec)
     
-	forward_search_tree, forward_queue = init_forward(planner.forward, domain, state, spec)
-	backward_search_tree, backward_queue = init_backward(planner.backward, domain, state, spec)
+	f_search_tree, f_queue = init_forward(planner.forward, domain, state, spec)
+	b_search_tree, b_queue = init_backward(planner.backward, domain, state, spec)
 
     status, node_id, count = search!(planner, domain, 
-    	forward_spec, forward_search_tree, forward_queue,
-    	backward_spec, backward_search_tree, backward_queue)
+    	forward_spec, f_search_tree, f_queue,
+    	backward_spec, b_search_tree, b_queue)
 
     # Reconstruct plan and return solution
     if status != :failure
-        forward_plan, forward_traj = reconstruct(node_id, forward_search_tree)
-        backward_plan, backward_traj = reconstruct(node_id, backward_search_tree)
-        reverse!(backward_plan); reverse!(backward_traj)
-
-        plan = vcat(forward_plan, backward_plan)
-        # we sho
-        trajectory = foldl()
+        f_plan, f_trajectory = reconstruct(node_id, f_search_tree)
+        b_plan, b_trajectory = reconstruct(node_id, b_search_tree)
+        plan = vcat(f_plan, reverse(b_plan))
+        traj = simulate(StateRecorder(), domain, state, plan)
 
         if planner.save_search
-            return BiPathSearchSolution(status, plan, traj,
-                                      count, forward_search_tree, forward_queue, 
-                                      backward_search_tree, backward_queue)
+            return BiPathSearchSolution(status, plan, traj, count, 
+                            f_search_tree, f_queue, length(f_search_tree), f_trajectory,
+                            b_search_tree, b_queue, length(b_search_tree), b_trajectory)
         else
             return BiPathSearchSolution(status, plan, traj)
         end
@@ -73,31 +77,32 @@ function solve(planner::BidirectionalPlanner,
 end
 
 function search!(planner::BidirectionalPlanner, domain::Domain, 
-                 forward_spec::Specification, forward_search_tree::Dict{UInt,<:PathNode}, forward_queue::PriorityQueue,
-                 backward_spec::Specification, backward_search_tree::Dict{UInt,<:PathNode}, backward_queue::PriorityQueue)
+                 forward_spec::Specification, f_search_tree::Dict{UInt,<:PathNode}, f_queue::PriorityQueue,
+                 backward_spec::Specification, b_search_tree::Dict{UInt,<:PathNode}, b_queue::PriorityQueue)
 	max_nodes = planner.max_nodes
 	max_time = planner.max_time
     count = 2
     start_time = time()
-    while length(forward_queue) > 0
+    while length(f_queue) > 0
     	# progress the forward part 
         # Get state with lowest estimated cost to goal
-        node_id = dequeue!(forward_queue)
-        node = forward_search_tree[node_id]
-        if is_goal(forward_spec, domain, node.state) || node_id ∈ keys(backward_search_tree)
+        node_id = dequeue!(f_queue)
+        node = f_search_tree[node_id]
+        if is_goal(forward_spec, domain, node.state) || any(issubset(b_search_tree[first(fnode)].state, node.state) for fnode in b_queue)
             return :success, node_id, count # Goal reached
         end
-        expand!(planner.forward, node, forward_search_tree, forward_queue, domain, forward_spec)
+
+        expand!(planner.forward, node, f_search_tree, f_queue, domain, forward_spec)
         count += 1
 
     	# progress the backward part 
         # Get state with lowest estimated cost to goal
-        node_id = dequeue!(backward_queue)
-        node = backward_search_tree[node_id]
-        if is_goal(backward_spec, domain, node.state) || node_id ∈ keys(forward_search_tree)
+        node_id = dequeue!(b_queue)
+        node = b_search_tree[node_id]
+        if is_goal(backward_spec, domain, node.state) || any(issubset(node.state, f_search_tree[first(fnode)].state) for fnode in f_queue)
             return :success, node_id, count # Goal reached
         end
-        expand!(planner.backward, node, backward_search_tree, backward_queue, domain, backward_spec)
+        expand!(planner.backward, node, b_search_tree, b_queue, domain, backward_spec)
         count += 1
 
         # check if we have not exceeded allowed time

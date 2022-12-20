@@ -4,6 +4,7 @@ authors = ["Xuan <tanqazx@gmail.com>"]
 version = "0.1.9"
 
 [deps]
+BinaryDecisionDiagrams = "cd45f48d-2bff-4983-a793-756749635bd1"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 PDDL = "2c8894f9-daa1-498a-9e3a-26edd9623db8"
 Parameters = "d96e819e-fc66-5662-9728-84c9c7592b0a"
