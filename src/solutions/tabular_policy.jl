@@ -1,14 +1,26 @@
 export TabularPolicy
 
 "Policy solution where values and Q-values are stored in a lookup table."
-@kwdef struct TabularPolicy{P <: PolicySolution} <: PolicySolution
-    V::Dict{UInt64,Float64} = Dict() # Value table
-    Q::Dict{UInt64,Dict{Term,Float64}} = Dict() # Q-value table
-    default::P = NullPolicy() # Default fallback policy
+@auto_hash_equals struct TabularPolicy{P <: PolicySolution} <: PolicySolution
+    V::Dict{UInt64,Float64} # Value table
+    Q::Dict{UInt64,Dict{Term,Float64}} # Q-value table
+    default::P # Default fallback policy
 end
+
+TabularPolicy() =
+    TabularPolicy(Dict(), Dict(), NullPolicy())
+
+TabularPolicy(default::P) where {P <: PolicySolution} =
+    TabularPolicy{P}(Dict(), Dict(), default)
 
 TabularPolicy(V, Q, policy::P) where {P <: PolicySolution} =
     TabularPolicy{P}(V, Q, policy)
+
+function Base.copy(sol::TabularPolicy)
+    V = copy(sol.V)
+    Q = Dict(s => copy(qs) for (s, qs) in sol.Q)
+    return TabularPolicy(V, Q, copy(sol.default))
+end
 
 get_action(sol::TabularPolicy, state::State) =
     best_action(sol, state)

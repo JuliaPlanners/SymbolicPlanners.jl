@@ -19,7 +19,7 @@ function solve(planner::RealTimeDynamicPlanner,
     precompute!(planner.heuristic, domain, state, spec)
     # Initialize then refine solution
     default = FunctionalVPolicy(planner.heuristic, domain, spec)
-    sol = TabularPolicy(default=default)
+    sol = TabularPolicy(default)
     sol.V[hash(state)] = -compute(planner.heuristic, domain, state, spec)
     sol = solve!(planner, sol, domain, state, spec)
     # Wrap in Boltzmann policy if needed

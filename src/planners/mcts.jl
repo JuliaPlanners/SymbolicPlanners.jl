@@ -4,10 +4,19 @@ export MCTSNodeSelector, MaxUCBSelector, BoltzmannUCBSelector
 ## MCTS solution type ##
 
 "MCTS policy solution."
-@kwdef mutable struct MCTSTreeSolution <: PolicySolution
-	Q::Dict{UInt64,Dict{Term,Float64}} = Dict()
-	s_visits::Dict{UInt64,Int} = Dict()
-	a_visits::Dict{UInt64,Dict{Term,Float64}} = Dict()
+@auto_hash_equals struct MCTSTreeSolution <: PolicySolution
+	Q::Dict{UInt64,Dict{Term,Float64}}
+	s_visits::Dict{UInt64,Int}
+	a_visits::Dict{UInt64,Dict{Term,Int}}
+end
+
+MCTSTreeSolution() = MCTSTreeSolution(Dict(), Dict(), Dict())
+
+function Base.copy(sol::MCTSTreeSolution)
+    Q = Dict(s => copy(qs) for (s, qs) in sol.Q)
+    s_visits = copy(s_visits)
+    a_visits = Dict(s => copy(visits) for (s, visits) in sol.a_visits)
+    return MCTSTreeSolution(Q, s_visits, a_visits)
 end
 
 get_action(sol::MCTSTreeSolution, state::State) =
@@ -29,10 +38,12 @@ has_state_node(sol::MCTSTreeSolution, state::State) =
 ## Selection strategies for leaf nodes ##
 
 "Max upper-confidence bound (UCB) action policy."
-struct MaxUCBPolicy <: PolicySolution
+@auto_hash_equals struct MaxUCBPolicy <: PolicySolution
 	tree::MCTSTreeSolution
 	confidence::Float64
 end
+
+Base.copy(sol::MaxUCBPolicy) = MaxUCBPolicy(copy(sol.tree), sol.confidence)
 
 function get_action_values(sol::MaxUCBPolicy, state::State)
 	state_id = hash(state)

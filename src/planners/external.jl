@@ -2,14 +2,23 @@ export FastDownward, Pyperplan, ENHSP
 export ExternalPlan
 
 "Solution type for plans produced by external planners."
-struct ExternalPlan <: OrderedSolution
+@auto_hash_equals struct ExternalPlan <: OrderedSolution
+    status::Symbol
     plan::Vector{Term}
     runtime::Float64
     expanded::Int
     evaluated::Int
 end
 
-ExternalPlan(plan::AbstractVector{<:Term}) = ExternalPlan(plan, -1, -1, -1)
+ExternalPlan(plan::AbstractVector{<:Term}) =
+    ExternalPlan(:success, plan, -1, -1, -1)
+
+ExternalPlan(plan::AbstractVector{<:Term}, runtime, expanded, evaluated) =
+    ExternalPlan(:success, plan, runtime, expanded, evaluated)
+
+Base.copy(sol::ExternalPlan) = 
+    ExternalPlan(sol.status, copy(sol.plan),
+                 sol.runtime, sol.expanded, sol.evaluated)
 
 get_action(sol::ExternalPlan, t::Int) = sol.plan[t]
 

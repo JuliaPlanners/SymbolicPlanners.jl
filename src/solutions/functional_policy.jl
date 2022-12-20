@@ -1,7 +1,9 @@
 export FunctionalVPolicy, FunctionalQPolicy
 
 "Policy solution where (state) values are evaluated by a function."
-struct FunctionalVPolicy{F, D <: Domain, S <: Specification} <: PolicySolution
+@auto_hash_equals struct FunctionalVPolicy{
+    F, D <: Domain, S <: Specification
+} <: PolicySolution
     evaluator::F
     domain::D
     spec::S
@@ -12,6 +14,9 @@ function FunctionalVPolicy(heuristic::Heuristic,
     h_eval(state::State) = -compute(heuristic, domain, state, spec)
     return FunctionalVPolicy(h_eval, domain, spec)
 end
+
+Base.copy(sol::FunctionalVPolicy) =
+    FunctionalVPolicy(sol.evaluator, sol.domain, sol.spec)
 
 get_action(sol::FunctionalVPolicy, state::State) =
     best_action(sol, state)

@@ -27,7 +27,9 @@ function reconstruct(node_id::UInt, search_tree::Dict{UInt,PathNode{S}}) where S
 end
 
 "Solution type for search-based planners that produce fully ordered plans."
-mutable struct PathSearchSolution{S<:State,T} <: OrderedSolution
+@auto_hash_equals mutable struct PathSearchSolution{
+    S <: State, T
+} <: OrderedSolution
     status::Symbol
     plan::Vector{Term}
     trajectory::Union{Vector{S},Nothing}
@@ -43,6 +45,16 @@ PathSearchSolution(status::Symbol, plan) =
 PathSearchSolution(status::Symbol, plan, trajectory) =
     PathSearchSolution(status, convert(Vector{Term}, plan), trajectory,
                        -1, nothing, nothing, UInt[])
+
+function Base.copy(sol::PathSearchSolution)
+    plan = copy(sol.plan)
+    trajectory = isnothing(sol.trajectory) ? nothing : copy(sol.trajectory)
+    search_tree = isnothing(sol.search_tree) ? nothing : copy(sol.search_tree)
+    search_frontier = isnothing(sol.search_frontier) ? nothing : copy(sol.search_frontier)
+    search_order = copy(sol.search_order)
+    return PathSearchSolution(sol.status, plan, trajectory, sol.expanded,
+                              search_tree, search_frontier, search_order)
+end
 
 Base.iterate(sol::PathSearchSolution) = iterate(sol.plan)
 Base.iterate(sol::PathSearchSolution, istate) = iterate(sol.plan, istate)

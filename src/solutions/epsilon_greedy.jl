@@ -1,7 +1,9 @@
 export EpsilonGreedyPolicy
 
 "Policy that acts uniformly at random with ϵ chance, but is otherwise greedy."
-struct EpsilonGreedyPolicy{P <: PolicySolution, R <: AbstractRNG} <: PolicySolution
+@auto_hash_equals struct EpsilonGreedyPolicy{
+    P <: PolicySolution, R <: AbstractRNG
+} <: PolicySolution
     domain::Domain
     policy::P
     epsilon::Float64
@@ -10,6 +12,9 @@ end
 
 EpsilonGreedyPolicy(domain, policy, epsilon) =
     EpsilonGreedyPolicy(domain, policy, epsilon, Random.GLOBAL_RNG)
+
+Base.copy(sol::EpsilonGreedyPolicy) =
+    EpsilonGreedyPolicy(sol.domain, copy(sol.policy), sol.epsilon, sol.rng)
 
 get_action(sol::EpsilonGreedyPolicy, state::State) =
     rand_action(sol, state)

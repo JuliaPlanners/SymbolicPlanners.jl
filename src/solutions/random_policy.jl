@@ -1,12 +1,17 @@
 export RandomPolicy
 
 "Policy that selects actions uniformly at random."
-struct RandomPolicy{D <: Domain, R <: AbstractRNG} <: PolicySolution
+@auto_hash_equals struct RandomPolicy{
+    D <: Domain, R <: AbstractRNG
+} <: PolicySolution
     domain::D
     rng::R
 end
 
 RandomPolicy(domain) = RandomPolicy(domain, Random.GLOBAL_RNG)
+
+Base.copy(sol::RandomPolicy) =
+    RandomPolicy(sol.domain, sol.rng)
 
 get_action(sol::RandomPolicy, state::State) =
     rand_action(sol, state)
