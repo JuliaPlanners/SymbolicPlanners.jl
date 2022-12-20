@@ -1,32 +1,35 @@
-export BiDirectionalPlanner, BiGreedyPlanner, BiAStarPlanner
+export BidirectionalPlanner, BiGreedyPlanner, BiAStarPlanner
 
-"BiDirectionalPlanner best-first search planner."
-mutable struct BiDirectionalPlanner{F,B} <: Planner
-    forward::F
-    backward::B
-end
+"BidirectionalPlanner best-first search planner."
+@kwdef mutable struct ForwardPlanner <: Planner
+    forward::ForwardPlanner = ForwardPlanner()
+    backward::BackwardPlanner = BackwardPlanner()
+    max_nodes::Int = typemax(Int) # Max search nodes before termination
+    max_time::Float64 = Inf # Max time in seconds before timeout
+    save_search::Bool = false # Flag to save search info
+end    
 
-BiDirectionalPlanner(;kwargs...) = BiDirectionalPlanner(
+BidirectionalPlanner(;kwargs...) = BidirectionalPlanner(
     	ForwardPlanner(; kwargs...),
     	BackwardPlanner(; kwargs...)
     )
 
 "Bidirectional  Greedy best-first search, with cycle checking."
-BiGreedyPlanner(heuristic::Heuristic; kwargs...) =
-    BiDirectionalPlanner(
-    	ForwardPlanner(;heuristic=heuristic, g_mult=0, kwargs...),
-    	BackwardPlanner(;heuristic=heuristic, g_mult=0, kwargs...)
+BiGreedyPlanner(f_heuristic::Heuristic, b_heuristic::Heuristic; kwargs...) =
+    BidirectionalPlanner(
+    	ForwardPlanner(;heuristic=f_heuristic, g_mult=0, kwargs...),
+    	BackwardPlanner(;heuristic=b_heuristic, g_mult=0, kwargs...)
     )
 
 
 "Bidirectional A* search."
-BiAStarPlanner(heuristic::Heuristic; kwargs...) =
-    BiDirectionalPlanner(
-    	ForwardPlanner(;heuristic=heuristic, kwargs...),
-    	BackwardPlanner(;heuristic=heuristic, kwargs...)
+BiAStarPlanner(f_heuristic::Heuristic, b_heuristic::Heuristic; kwargs...) =
+    BidirectionalPlanner(
+    	ForwardPlanner(;heuristic=f_heuristic, kwargs...),
+    	BackwardPlanner(;heuristic=b_heuristic, kwargs...)
     )
 
-function solve(planner::BiDirectionalPlanner,
+function solve(planner::BidirectionalPlanner,
                domain::Domain, state::State, spec::Specification)
 
     # Simplify goal specification
@@ -48,16 +51,19 @@ function solve(planner::BiDirectionalPlanner,
         forward_plan, forward_traj = reconstruct(node_id, forward_search_tree)
         backward_plan, backward_traj = reconstruct(node_id, backward_search_tree)
         reverse!(backward_plan); reverse!(backward_traj)
+
         plan = vcat(forward_plan, backward_plan)
-        traj = vcat(forward_traj, backward_traj)
-        if planner.forward.save_search || planner.backward.save_search
+        # we sho
+        trajectory = foldl()
+
+        if planner.save_search
             return BiPathSearchSolution(status, plan, traj,
                                       count, forward_search_tree, forward_queue, 
                                       backward_search_tree, backward_queue)
         else
             return BiPathSearchSolution(status, plan, traj)
         end
-    elseif planner.forward.save_search || planner.backward.save_search
+    elseif planner.save_search
         S = typeof(state)
         return BiPathSearchSolution(status, Term[], S[],
                                   count, search_tree, queue)
@@ -66,11 +72,11 @@ function solve(planner::BiDirectionalPlanner,
     end
 end
 
-function search!(planner::BiDirectionalPlanner, domain::Domain, 
+function search!(planner::BidirectionalPlanner, domain::Domain, 
                  forward_spec::Specification, forward_search_tree::Dict{UInt,<:PathNode}, forward_queue::PriorityQueue,
                  backward_spec::Specification, backward_search_tree::Dict{UInt,<:PathNode}, backward_queue::PriorityQueue)
-	max_nodes = max(planner.forward.max_nodes)
-	max_time = max(planner.forward.max_time)
+	max_nodes = planner.max_nodes
+	max_time = planner.max_time
     count = 2
     start_time = time()
     while length(forward_queue) > 0
