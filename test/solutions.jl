@@ -26,6 +26,25 @@ sol = OrderedPlan(@pddl("(pick-up a)", "(stack a b)",
 
 end
 
+@testset "Path Search Solution" begin
+
+plan = @pddl("(pick-up a)", "(stack a b)", "(pick-up c)", "(stack c a)")
+trajectory = PDDL.simulate(blocksworld, bw_state, plan)
+sol = PathSearchSolution(:success, plan, trajectory)
+
+@test collect(sol) == plan
+@test sol[1] == pddl"(pick-up a)"
+@test get_action(sol, 1) == pddl"(pick-up a)"
+@test length(sol) == 4
+@test eltype(sol) == Term
+
+@test get_action(sol, trajectory[3]) == plan[3]
+@test ismissing(get_action(sol, trajectory[end]))
+@test get_action_probs(sol, trajectory[2]) == Dict(plan[2] => 1.0)
+@test get_action_probs(sol, trajectory[end]) == Dict()
+
+end
+
 @testset "Random Policy" begin
 
 sol = RandomPolicy(blocksworld)
