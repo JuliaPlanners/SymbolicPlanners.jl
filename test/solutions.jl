@@ -83,6 +83,30 @@ probs = Dict(a => a == pddl"(pick-up a)" ? 1.0 : 0.0 for a in bw_init_actions)
 
 end
 
+@testset "Tabular Value Policy" begin
+
+sol = TabularVPolicy(blocksworld, bw_spec)
+sol.V[hash(bw_state)] = bw_init_v
+for (act, val) in bw_init_q
+    next_state = transition(blocksworld, bw_state, act)
+    sol.V[hash(next_state)] = val + 1
+end
+
+@test get_action(sol, bw_state) == pddl"(pick-up a)"
+@test rand_action(sol, bw_state) == pddl"(pick-up a)"
+@test best_action(sol, bw_state) == pddl"(pick-up a)"
+
+@test get_value(sol, bw_state) == -4.0
+@test get_value(sol, bw_state, pddl"(pick-up b)") == -6.0
+@test get_action_values(sol, bw_state) == bw_init_q
+
+probs = Dict(a => a == pddl"(pick-up a)" ? 1.0 : 0.0 for a in bw_init_actions)
+@test get_action_probs(sol, bw_state) == probs
+
+@test copy(sol) == sol
+
+end
+
 @testset "Functional Value Policy" begin
 
 planner = AStarPlanner(HMax())
