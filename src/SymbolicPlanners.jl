@@ -14,6 +14,7 @@ abstract type Solution end
 abstract type Heuristic end
 abstract type Planner end
 
+include("utils.jl")
 include("specifications/specifications.jl")
 include("solutions/solutions.jl")
 include("simulators/simulators.jl")
