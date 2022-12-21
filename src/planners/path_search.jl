@@ -82,12 +82,18 @@ BiPathSearchSolution(status::Symbol, plan, trajectory) =
 function Base.copy(sol::BiPathSearchSolution)
     fields = map(fieldnames(BiPathSearchSolution)) do field 
         x = getfield(sol, field)
-        isnothing(x) ? nothing : copy(x)
+        (x isa Symbol || isnothing(x)) && return(x)
+        copy(x)
     end
     return BiPathSearchSolution(fields...)
 end
 
 const SearchSolutions = Union{PathSearchSolution, BiPathSearchSolution}
+
+function Base.show(io::IO, sol::SearchSolutions)
+    pl = sol.status == :success ? length(sol.plan) : "-"
+    println(io, "BiPathSearchSolution: (", sol.status, ", ", pl, ", ", sol.expanded, ")")
+end
 
 Base.iterate(sol::SearchSolutions) = iterate(sol.plan)
 Base.iterate(sol::SearchSolutions, istate) = iterate(sol.plan, istate)
