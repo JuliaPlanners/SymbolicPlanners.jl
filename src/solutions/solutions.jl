@@ -8,11 +8,13 @@ abstract type Solution end
 get_action(sol::Solution, t::Int, state::State) = error("Not implemented.")
 
 "Null solution that indicates no plan was found."
-struct NullSolution <: Solution
+@auto_hash_equals struct NullSolution <: Solution
     status::Symbol
 end
 
 NullSolution() = NullSolution(:failure)
+
+Base.copy(sol::NullSolution) = NullSolution(sol.status)
 
 ## Ordered solutions ##
 
@@ -65,6 +67,8 @@ end
 
 "Null policy which has no method implementations."
 struct NullPolicy <: PolicySolution end
+
+Base.copy(sol::NullPolicy) = sol
 
 include("random_policy.jl")
 include("tabular_policy.jl")

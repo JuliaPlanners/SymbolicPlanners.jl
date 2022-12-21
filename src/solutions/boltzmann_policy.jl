@@ -1,7 +1,9 @@
 export BoltzmannPolicy
 
 "Boltzmann policy with softmax action noise."
-struct BoltzmannPolicy{P <: PolicySolution, R <: AbstractRNG} <: PolicySolution
+@auto_hash_equals struct BoltzmannPolicy{
+    P <: PolicySolution, R <: AbstractRNG
+} <: PolicySolution
     policy::P
     temperature::Float64
     rng::R
@@ -10,13 +12,8 @@ end
 BoltzmannPolicy(policy, temperature) =
     BoltzmannPolicy(policy, temperature, Random.GLOBAL_RNG)
 
-"Convert vector of scores to probabiities."
-function softmax(scores)
-    if isempty(scores) return Float64[] end
-    ws = exp.(scores .- maximum(scores))
-    z = sum(ws)
-    return isnan(z) ? ones(length(scores)) ./ length(scores) : ws ./ z
-end
+Base.copy(sol::BoltzmannPolicy) =
+    BoltzmannPolicy(copy(sol.policy), sol.temperature, sol.rng)
 
 get_action(sol::BoltzmannPolicy, state::State) =
     rand_action(sol, state)
@@ -54,4 +51,12 @@ function get_action_probs(sol::BoltzmannPolicy, state::State)
     end 
     probs = Dict(zip(actions, probs))
     return probs
+end
+
+"Convert vector of scores to probabiities."
+function softmax(scores)
+    if isempty(scores) return Float64[] end
+    ws = exp.(scores .- maximum(scores))
+    z = sum(ws)
+    return isnan(z) ? ones(length(scores)) ./ length(scores) : ws ./ z
 end

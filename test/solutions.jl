@@ -24,6 +24,29 @@ sol = OrderedPlan(@pddl("(pick-up a)", "(stack a b)",
 @test length(sol) == 4
 @test eltype(sol) == Term
 
+@test copy(sol) == sol
+
+end
+
+@testset "Path Search Solution" begin
+
+plan = @pddl("(pick-up a)", "(stack a b)", "(pick-up c)", "(stack c a)")
+trajectory = PDDL.simulate(blocksworld, bw_state, plan)
+sol = PathSearchSolution(:success, plan, trajectory)
+
+@test collect(sol) == plan
+@test sol[1] == pddl"(pick-up a)"
+@test get_action(sol, 1) == pddl"(pick-up a)"
+@test length(sol) == 4
+@test eltype(sol) == Term
+
+@test get_action(sol, trajectory[3]) == plan[3]
+@test ismissing(get_action(sol, trajectory[end]))
+@test get_action_probs(sol, trajectory[2]) == Dict(plan[2] => 1.0)
+@test get_action_probs(sol, trajectory[end]) == Dict()
+
+@test copy(sol) == sol
+
 end
 
 @testset "Random Policy" begin
@@ -34,6 +57,8 @@ sol = RandomPolicy(blocksworld)
 
 probs = Dict(a => 1.0 / length(bw_init_actions) for a in bw_init_actions)
 @test get_action_probs(sol, bw_state) == probs
+
+@test copy(sol) == sol
 
 end
 
@@ -54,6 +79,8 @@ sol.Q[hash(bw_state)] = bw_init_q
 probs = Dict(a => a == pddl"(pick-up a)" ? 1.0 : 0.0 for a in bw_init_actions)
 @test get_action_probs(sol, bw_state) == probs
 
+@test copy(sol) == sol
+
 end
 
 @testset "Functional Value Policy" begin
@@ -72,6 +99,8 @@ sol = FunctionalVPolicy(heuristic, blocksworld, bw_spec)
 
 probs = Dict(a => a == pddl"(pick-up a)" ? 1.0 : 0.0 for a in bw_init_actions)
 @test get_action_probs(sol, bw_state) == probs
+
+@test copy(sol) == sol
 
 end
 
@@ -94,6 +123,8 @@ probs = SymbolicPlanners.softmax(collect(values(bw_init_q)))
 probs = Dict(zip(keys(bw_init_q), probs))
 @test get_action_probs(sol, bw_state) == probs
 
+@test copy(sol) == sol
+
 end
 
 @testset "Epsilon-Greedy Policy" begin
@@ -114,6 +145,8 @@ sol = EpsilonGreedyPolicy(blocksworld, sol, 0.1)
 probs = Dict(a => 0.1 / length(bw_init_actions) for a in bw_init_actions)
 probs[pddl"(pick-up a)"] += 0.9
 @test get_action_probs(sol, bw_state) == probs
+
+@test copy(sol) == sol
 
 end
 

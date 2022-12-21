@@ -1,9 +1,12 @@
 export OrderedPlan
 
 "Solution type for fully ordered plans."
-struct OrderedPlan <: OrderedSolution
+@auto_hash_equals struct OrderedPlan <: OrderedSolution
     plan::Vector{Term}
 end
+
+Base.copy(sol::OrderedPlan) =
+    OrderedPlan(copy(sol.plan))
 
 get_action(sol::OrderedPlan, t::Int) = sol.plan[t]
 
