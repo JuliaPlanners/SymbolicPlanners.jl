@@ -23,6 +23,7 @@ include("bidirectional.jl")
 
 # Policy-based planning algorithms
 include("rtdp.jl")
+include("rths.jl")
 include("mcts.jl")
 
 # External planners

@@ -17,10 +17,7 @@ get_action(sol::RandomPolicy, state::State) =
     rand_action(sol, state)
 
 function rand_action(sol::RandomPolicy, state::State)
-    actions = available(sol.domain, state)
-    if Base.IteratorSize(actions) == Base.SizeUnknown()
-        actions = collect(actions)
-    end
+    actions = lazy_collect(available(sol.domain, state))
     return rand(sol.rng, actions)
 end
 

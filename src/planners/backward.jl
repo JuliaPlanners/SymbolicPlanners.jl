@@ -101,7 +101,7 @@ function expand!(planner::BackwardPlanner, node::PathNode,
         path_cost = node.path_cost + act_cost
         # Update path costs if new path is shorter
         next_node = get!(search_tree, next_id,
-                         PathNode(next_id, next_state, Inf16))
+                         PathNode(next_id, next_state, Inf32))
         cost_diff = next_node.path_cost - path_cost
         if cost_diff > 0
             next_node.parent_id = node.id

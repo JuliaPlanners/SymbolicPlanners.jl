@@ -29,10 +29,7 @@ get_action_values(sol::EpsilonGreedyPolicy, state::State) =
 
 function rand_action(sol::EpsilonGreedyPolicy, state::State)
     if rand(sol.rng) < sol.epsilon
-        actions = available(sol.domain, state)
-        if Base.IteratorSize(actions) == Base.SizeUnknown()
-            actions = collect(actions)
-        end
+        actions = lazy_collect(available(sol.domain, state))
         return rand(sol.rng, actions)    
     else
         return best_action(sol.policy, state)
