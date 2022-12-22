@@ -64,16 +64,16 @@ function solve!(planner::RealTimeHeuristicSearch, sol::TabularVPolicy,
     # Iteratively perform heuristic search followed by simulated execution
     init_state = state
     for _ in 1:n_iters
+        # Restart if goal is reached
+        state = is_goal(spec, domain, state) ? init_state : state
         state_id = hash(state)
         # Update values of neighboring states via heuristic search
         best_q, best_act = -Inf, nothing
         for act in available(domain, state)
             next_state = transition(domain, state, act)
             next_id = hash(next_state)
-            if !haskey(sol.V, next_id)
-                search_sol = solve(planner.planner, domain, next_state, spec)
-                update_values!(planner, sol, search_sol, domain, spec)
-            end
+            search_sol = solve(planner.planner, domain, next_state, spec)
+            update_values!(planner, sol, search_sol, domain, spec)
             r = get_reward(spec, domain, state, act, next_state)
             q = get_discount(spec) * sol.V[next_id] + r
             if q > best_q
@@ -104,10 +104,23 @@ function update_values!(planner::RealTimeHeuristicSearch,
     final_h_val = search_sol.status == :success ?
         0.0 : compute(heuristic, domain, final_state, spec)
     final_f_val = final_g_val + h_mult * final_h_val
-    # Update estimated costs for each expanded node
-    for (node_id, node) in search_tree
-        est_cost_to_goal = final_f_val - node.path_cost
-        policy.V[node_id] = -est_cost_to_goal
+    # Add final state back to search frontier queue
+    final_priority = (final_f_val, final_h_val, 0)
+    queue = copy(search_sol.search_frontier)
+    enqueue!(queue, final_id, final_priority)
+    # Back-propogate values from frontier nodes in increasing priority order
+    visited = Set{UInt}()
+    while !isempty(queue)
+        node_id, (frontier_f_val, _, _) = dequeue_pair!(queue)
+        # Iterate until root or a node that is already visited
+        while !(node_id in visited)
+            push!(visited, node_id)
+            node = search_tree[node_id]
+            est_cost_to_goal = frontier_f_val - node.path_cost
+            policy.V[node_id] = -est_cost_to_goal
+            if node.parent_id === nothing break end
+            node_id = node.parent_id
+        end
     end
     return nothing
 end
