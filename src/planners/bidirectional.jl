@@ -1,6 +1,6 @@
 export BidirectionalPlanner, BiGreedyPlanner, BiAStarPlanner
 
-"BidirectionalPlanner best-first search planner."
+"Bidirectional best-first search planner."
 @kwdef mutable struct BidirectionalPlanner <: Planner
     forward::ForwardPlanner = ForwardPlanner()
     backward::BackwardPlanner = BackwardPlanner()
@@ -9,32 +9,38 @@ export BidirectionalPlanner, BiGreedyPlanner, BiAStarPlanner
     save_search::Bool = false # Flag to save search info
 end    
 
-"Bidirectional  Greedy best-first search, with cycle checking."
-BiGreedyPlanner(f_heuristic::Heuristic, b_heuristic::Heuristic;  kwargs...) = 
+function BidirectionalPlanner(
+    f_heuristic::Heuristic, b_heuristic::Heuristic;
+    max_nodes = typemax(Int64), max_time = Inf, save_search = false, kwargs...
+) 
     BidirectionalPlanner(
-    	ForwardPlanner(;heuristic=f_heuristic, g_mult=0, kwargs...),
-    	BackwardPlanner(;heuristic=b_heuristic, g_mult=0, kwargs...),
-        kwargs...
-    )
-
-
-BidirectionalPlanner(f_heuristic::Heuristic, b_heuristic::Heuristic; max_nodes = typemax(Int64), max_time = Inf, save_search = false) = 
-    BidirectionalPlanner(
-        ForwardPlanner(;heuristic=f_heuristic, max_nodes = max_nodes, max_time = max_time, save_search = save_search),
-        BackwardPlanner(;heuristic=b_heuristic, max_nodes = max_nodes, max_time = max_time, save_search = save_search),
+        ForwardPlanner(
+            heuristic= f_heuristic,
+            max_nodes = max_nodes,
+            max_time = max_time,
+            save_search = save_search,
+            kwargs...
+        ),
+        BackwardPlanner(
+            heuristic=b_heuristic,
+            max_nodes = max_nodes,
+            max_time = max_time,
+            save_search = save_search,
+            kwargs...
+        ),
         max_nodes, 
         max_time, 
         save_search
     )
+end
 
+"Bidirectional greedy best-first search."
+BiGreedyPlanner(f_heuristic::Heuristic, b_heuristic::Heuristic;  kwargs...) = 
+    BidirectionalPlanner(f_heuristic, b_heuristic; g_mult=0, kwargs...)
 
 "Bidirectional A* search."
 BiAStarPlanner(f_heuristic::Heuristic, b_heuristic::Heuristic; kwargs...) =
-    BidirectionalPlanner(
-    	ForwardPlanner(;heuristic=f_heuristic, kwargs...),
-    	BackwardPlanner(;heuristic=b_heuristic, kwargs...),
-        kwargs...
-    )
+    BidirectionalPlanner(f_heuristic, b_heuristic; kwargs...)
 
 function solve(planner::BidirectionalPlanner,
                domain::Domain, state::State, spec::Specification)
@@ -46,12 +52,12 @@ function solve(planner::BidirectionalPlanner,
     precompute!(planner.forward.heuristic, domain, state, forward_spec)
     precompute!(planner.backward.heuristic, domain, state, backward_spec)
     
-	f_search_tree, f_queue = init_forward(planner.forward, domain, state, spec)
-	b_search_tree, b_queue = init_backward(planner.backward, domain, state, spec)
+    f_search_tree, f_queue = init_forward(planner.forward, domain, state, spec)
+    b_search_tree, b_queue = init_backward(planner.backward, domain, state, spec)
 
     status, node_id, count = search!(planner, domain, 
-    	forward_spec, f_search_tree, f_queue,
-    	backward_spec, b_search_tree, b_queue)
+        forward_spec, f_search_tree, f_queue,
+        backward_spec, b_search_tree, b_queue)
 
     # Reconstruct plan and return solution
     if status != :failure
@@ -79,12 +85,12 @@ end
 function search!(planner::BidirectionalPlanner, domain::Domain, 
                  forward_spec::Specification, f_search_tree::Dict{UInt,<:PathNode}, f_queue::PriorityQueue,
                  backward_spec::Specification, b_search_tree::Dict{UInt,<:PathNode}, b_queue::PriorityQueue)
-	max_nodes = planner.max_nodes
-	max_time = planner.max_time
+    max_nodes = planner.max_nodes
+    max_time = planner.max_time
     count = 2
     start_time = time()
     while length(f_queue) > 0
-    	# progress the forward part 
+        # progress the forward part 
         # Get state with lowest estimated cost to goal
         node_id = dequeue!(f_queue)
         node = f_search_tree[node_id]
@@ -95,7 +101,7 @@ function search!(planner::BidirectionalPlanner, domain::Domain,
         expand!(planner.forward, node, f_search_tree, f_queue, domain, forward_spec)
         count += 1
 
-    	# progress the backward part 
+        # progress the backward part 
         # Get state with lowest estimated cost to goal
         node_id = dequeue!(b_queue)
         node = b_search_tree[node_id]
@@ -116,7 +122,7 @@ function search!(planner::BidirectionalPlanner, domain::Domain,
 end
 
 function init_backward(planner::BackwardPlanner,
-               domain::Domain, state::State, spec::Specification)
+                       domain::Domain, state::State, spec::Specification)
     @unpack h_mult, heuristic, save_search = planner
     spec = BackwardSearchGoal(spec, state)
     state = goalstate(domain, PDDL.get_objtypes(state), get_goal_terms(spec))
@@ -130,8 +136,8 @@ function init_backward(planner::BackwardPlanner,
 end
 
 function init_forward(planner::ForwardPlanner,
-               domain::Domain, state::State, spec::Specification)
-	@unpack h_mult, heuristic, save_search = planner
+                      domain::Domain, state::State, spec::Specification)
+    @unpack h_mult, heuristic, save_search = planner
     node_id = hash(state)
     search_tree = Dict(node_id => PathNode(node_id, state, 0.0))
     est_cost::Float32 = h_mult * compute(heuristic, domain, state, spec)

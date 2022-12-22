@@ -50,9 +50,12 @@ PathSearchSolution(status::Symbol, plan, trajectory) =
 
 function Base.copy(sol::PathSearchSolution)
     plan = copy(sol.plan)
-    trajectory = isnothing(sol.trajectory) ? nothing : copy(sol.trajectory)
-    search_tree = isnothing(sol.search_tree) ? nothing : copy(sol.search_tree)
-    search_frontier = isnothing(sol.search_frontier) ? nothing : copy(sol.search_frontier)
+    trajectory = isnothing(sol.trajectory) ?
+        nothing : copy(sol.trajectory)
+    search_tree = isnothing(sol.search_tree) ?
+        nothing : copy(sol.search_tree)
+    search_frontier = isnothing(sol.search_frontier) ?
+        nothing : copy(sol.search_frontier)
     search_order = copy(sol.search_order)
     return PathSearchSolution(sol.status, plan, trajectory, sol.expanded,
                               search_tree, search_frontier, search_order)
@@ -77,9 +80,13 @@ mutable struct BiPathSearchSolution{S<:State,T} <: AbstractPathSearchSolution
 end
 
 BiPathSearchSolution(status::Symbol, plan) =
-    BiPathSearchSolution(status, plan, nothing, -1, nothing, nothing, -1, nothing, nothing, nothing, -1, nothing)
+    BiPathSearchSolution(status, plan, nothing, -1,
+                         nothing, nothing, -1, nothing,
+                         nothing, nothing, -1, nothing)
 BiPathSearchSolution(status::Symbol, plan, trajectory) =
-    BiPathSearchSolution(status, plan, trajectory, -1, nothing, nothing, -1, nothing, nothing, nothing, -1, nothing)
+    BiPathSearchSolution(status, plan, trajectory, -1,
+                         nothing, nothing, -1, nothing,
+                         nothing, nothing, -1, nothing)
 
 function Base.copy(sol::BiPathSearchSolution)
     fields = map(fieldnames(BiPathSearchSolution)) do field 
@@ -110,8 +117,10 @@ function get_action(sol::AbstractPathSearchSolution, t::Int, state::State)
         get_action(sol, t) : get_action(sol, state)
 end
 
-best_action(sol::AbstractPathSearchSolution, state::State) = get_action(sol, state)
-rand_action(sol::AbstractPathSearchSolution, state::State) = get_action(sol, state)
+best_action(sol::AbstractPathSearchSolution, state::State) =
+    get_action(sol, state)
+rand_action(sol::AbstractPathSearchSolution, state::State) =
+    get_action(sol, state)
 
 function get_action_probs(sol::AbstractPathSearchSolution, state::State)
     act = get_action(sol, state)
