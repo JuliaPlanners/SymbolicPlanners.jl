@@ -199,7 +199,7 @@ actions, trajectory = simulator(sol, gridworld, gw_state, gw_spec)
 @test is_goal(gw_spec, gridworld, trajectory[end])
 @test actions == @pddl("down", "down", "right", "right", "up", "up")
 
-planner = RTHS(GoalCountHeuristic(), n_iters=5, max_nodes=20)
+planner = RTHS(GoalCountHeuristic(), n_iters=10, max_nodes=20)
 sol = planner(doors_keys_gems, dkg_state, dkg_spec)
 actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
 @test is_goal(dkg_spec, doors_keys_gems, trajectory[end])
@@ -207,7 +207,7 @@ actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
                        "(unlock key1 door1)", "(right)", "(right)",
                        "(up)", "(up)", "(pickup gem1)")
 
-planner = RTHS(HMax(), n_iters=5, max_nodes=20)
+planner = RTHS(HMax(), n_iters=5, max_nodes=10)
 sol = planner(blocksworld, bw_state, bw_spec)
 actions, trajectory = simulator(sol, blocksworld, bw_state, bw_spec)
 @test is_goal(bw_spec, blocksworld, trajectory[end])
