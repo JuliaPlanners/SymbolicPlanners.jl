@@ -1,5 +1,7 @@
 ## Utilities and solutions for path search algorithms ##
-export PathSearchSolution
+export PathSearchSolution, BiPathSearchSolution, AbstractPathSearchSolution
+
+abstract type AbstractPathSearchSolution <: OrderedSolution end
 
 mutable struct PathNode{S<:State}
     id::UInt
@@ -29,7 +31,7 @@ end
 "Solution type for search-based planners that produce fully ordered plans."
 @auto_hash_equals mutable struct PathSearchSolution{
     S <: State, T
-} <: OrderedSolution
+} <: AbstractPathSearchSolution
     status::Symbol
     plan::Vector{Term}
     trajectory::Union{Vector{S},Nothing}
@@ -59,7 +61,7 @@ end
 """
 Solution type for search-based planners that produce fully ordered plans.
 """
-mutable struct BiPathSearchSolution{S<:State,T} <: OrderedSolution
+mutable struct BiPathSearchSolution{S<:State,T} <: AbstractPathSearchSolution
     status::Symbol
     plan::Vector{Term}
     trajectory::Union{Vector{S},Nothing}
@@ -82,27 +84,19 @@ BiPathSearchSolution(status::Symbol, plan, trajectory) =
 function Base.copy(sol::BiPathSearchSolution)
     fields = map(fieldnames(BiPathSearchSolution)) do field 
         x = getfield(sol, field)
-        (x isa Symbol || isnothing(x)) && return(x)
-        copy(x)
+        (x isa Symbol || isnothing(x)) ? x : copy(x)
     end
     return BiPathSearchSolution(fields...)
 end
 
-const SearchSolutions = Union{PathSearchSolution, BiPathSearchSolution}
+Base.iterate(sol::AbstractPathSearchSolution) = iterate(sol.plan)
+Base.iterate(sol::AbstractPathSearchSolution, istate) = iterate(sol.plan, istate)
+Base.getindex(sol::AbstractPathSearchSolution, i::Int) = getindex(sol.plan, i)
+Base.length(sol::AbstractPathSearchSolution) = length(sol.plan)
 
-function Base.show(io::IO, sol::SearchSolutions)
-    pl = sol.status == :success ? length(sol.plan) : "-"
-    println(io, "BiPathSearchSolution: (", sol.status, ", ", pl, ", ", sol.expanded, ")")
-end
+get_action(sol::AbstractPathSearchSolution, t::Int) = sol.plan[t]
 
-Base.iterate(sol::SearchSolutions) = iterate(sol.plan)
-Base.iterate(sol::SearchSolutions, istate) = iterate(sol.plan, istate)
-Base.getindex(sol::SearchSolutions, i::Int) = getindex(sol.plan, i)
-Base.length(sol::SearchSolutions) = length(sol.plan)
-
-get_action(sol::SearchSolutions, t::Int) = sol.plan[t]
-
-function get_action(sol::SearchSolutions, state::State)
+function get_action(sol::AbstractPathSearchSolution, state::State)
     idx = findfirst(==(state), sol.trajectory)
     if isnothing(idx) || idx == length(sol.trajectory)
         return missing
@@ -111,15 +105,15 @@ function get_action(sol::SearchSolutions, state::State)
     end
 end
 
-function get_action(sol::SearchSolutions, t::Int, state::State)
+function get_action(sol::AbstractPathSearchSolution, t::Int, state::State)
     return isnothing(sol.trajectory) ?
         get_action(sol, t) : get_action(sol, state)
 end
 
-best_action(sol::SearchSolutions, state::State) = get_action(sol, state)
-rand_action(sol::SearchSolutions, state::State) = get_action(sol, state)
+best_action(sol::AbstractPathSearchSolution, state::State) = get_action(sol, state)
+rand_action(sol::AbstractPathSearchSolution, state::State) = get_action(sol, state)
 
-function get_action_probs(sol::SearchSolutions, state::State)
+function get_action_probs(sol::AbstractPathSearchSolution, state::State)
     act = get_action(sol, state)
     return ismissing(act) ? Dict() : Dict(act => 1.0)
 end
