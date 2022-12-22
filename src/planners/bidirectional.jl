@@ -20,8 +20,8 @@ BiGreedyPlanner(f_heuristic::Heuristic, b_heuristic::Heuristic;  kwargs...) =
 
 BidirectionalPlanner(f_heuristic::Heuristic, b_heuristic::Heuristic; max_nodes = typemax(Int64), max_time = Inf, save_search = false) = 
     BidirectionalPlanner(
-        ForwardPlanner(;heuristic=f_heuristic, max_nodes, max_time, save_search),
-        BackwardPlanner(;heuristic=b_heuristic, max_nodes, max_time, save_search),
+        ForwardPlanner(;heuristic=f_heuristic, max_nodes = max_nodes, max_time = max_time, save_search = save_search),
+        BackwardPlanner(;heuristic=b_heuristic, max_nodes = max_nodes, max_time = max_time, save_search = save_search),
         max_nodes, 
         max_time, 
         save_search
