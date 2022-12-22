@@ -25,7 +25,7 @@ rand_action(sol::FunctionalVPolicy, state::State) =
 
 function best_action(sol::FunctionalVPolicy, state::State)
     best_val = -Inf
-    best_act = nothing
+    best_act = missing
     for act in available(sol.domain, state)
         val = get_value(sol, state, act)
         if val > best_val
