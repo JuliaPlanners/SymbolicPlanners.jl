@@ -44,81 +44,41 @@ BiAStarPlanner(f_heuristic::Heuristic, b_heuristic::Heuristic; kwargs...) =
 
 function solve(planner::BidirectionalPlanner,
                domain::Domain, state::State, spec::Specification)
-
     # Simplify goal specification
-    forward_spec = simplify_goal(spec, domain, state)
-    backward_spec = BackwardSearchGoal(spec, state)
+    f_spec = simplify_goal(spec, domain, state)
+    b_spec = BackwardSearchGoal(spec, state)
     # Precompute heuristic information
-    precompute!(planner.forward.heuristic, domain, state, forward_spec)
-    precompute!(planner.backward.heuristic, domain, state, backward_spec)
-    
-    f_search_tree, f_queue = init_forward(planner.forward, domain, state, spec)
-    b_search_tree, b_queue = init_backward(planner.backward, domain, state, spec)
-
-    status, node_id, count = search!(planner, domain, 
-        forward_spec, f_search_tree, f_queue,
-        backward_spec, b_search_tree, b_queue)
-
-    # Reconstruct plan and return solution
-    if status != :failure
-        f_plan, f_trajectory = reconstruct(node_id, f_search_tree)
-        b_plan, b_trajectory = reconstruct(node_id, b_search_tree)
-        plan = vcat(f_plan, reverse(b_plan))
-        traj = simulate(StateRecorder(), domain, state, plan)
-
-        if planner.save_search
-            return BiPathSearchSolution(status, plan, traj, count, 
-                            f_search_tree, f_queue, length(f_search_tree), f_trajectory,
-                            b_search_tree, b_queue, length(b_search_tree), b_trajectory)
-        else
-            return BiPathSearchSolution(status, plan, traj)
-        end
-    elseif planner.save_search
-        S = typeof(state)
-        return BiPathSearchSolution(status, Term[], S[],
-                                  count, search_tree, queue)
+    precompute!(planner.forward.heuristic, domain, state, f_spec)
+    precompute!(planner.backward.heuristic, domain, state, b_spec)
+    # Initialize search queues and search solution
+    f_search_tree, f_queue =
+        init_forward(planner.forward, domain, state, f_spec)
+    b_search_tree, b_queue =
+        init_backward(planner.backward, domain, state, b_spec)
+    sol = BiPathSearchSolution(:in_progress, Term[], nothing, 0,
+                               f_search_tree, f_queue, 0, nothing,
+                               b_search_tree, b_queue, 0, nothing)
+    # Run the search
+    sol = search!(sol, planner, domain, state, f_spec, b_spec)
+    # Return solution
+    if planner.save_search
+        return sol
+    elseif sol.status == :failure
+        return NullSolution(sol.status)
     else
-        return NullSolution(status)
+        return BiPathSearchSolution(sol.status, sol.plan, sol.trajectory)
     end
 end
 
-function search!(planner::BidirectionalPlanner, domain::Domain, 
-                 forward_spec::Specification, f_search_tree::Dict{UInt,<:PathNode}, f_queue::PriorityQueue,
-                 backward_spec::Specification, b_search_tree::Dict{UInt,<:PathNode}, b_queue::PriorityQueue)
-    max_nodes = planner.max_nodes
-    max_time = planner.max_time
-    count = 2
-    start_time = time()
-    while length(f_queue) > 0
-        # progress the forward part 
-        # Get state with lowest estimated cost to goal
-        node_id = dequeue!(f_queue)
-        node = f_search_tree[node_id]
-        if is_goal(forward_spec, domain, node.state) || any(issubset(b_search_tree[first(fnode)].state, node.state) for fnode in b_queue)
-            return :success, node_id, count # Goal reached
-        end
-
-        expand!(planner.forward, node, f_search_tree, f_queue, domain, forward_spec)
-        count += 1
-
-        # progress the backward part 
-        # Get state with lowest estimated cost to goal
-        node_id = dequeue!(b_queue)
-        node = b_search_tree[node_id]
-        if is_goal(backward_spec, domain, node.state) || any(issubset(node.state, f_search_tree[first(fnode)].state) for fnode in f_queue)
-            return :success, node_id, count # Goal reached
-        end
-        expand!(planner.backward, node, b_search_tree, b_queue, domain, backward_spec)
-        count += 1
-
-        # check if we have not exceeded allowed time
-        if count >= max_nodes
-            return :max_nodes, node_id, count # Node budget reached
-        elseif time() - start_time >= max_time
-            return :max_time, node_id, count # Time budget reached
-        end
-    end
-    return :failure, nothing, count
+function init_forward(planner::ForwardPlanner,
+                      domain::Domain, state::State, spec::Specification)
+    @unpack h_mult, heuristic, save_search = planner
+    node_id = hash(state)
+    search_tree = Dict(node_id => PathNode(node_id, state, 0.0))
+    est_cost::Float32 = h_mult * compute(heuristic, domain, state, spec)
+    priority = (est_cost, est_cost, 0)
+    queue = PriorityQueue(node_id => priority)
+    return(search_tree, queue)
 end
 
 function init_backward(planner::BackwardPlanner,
@@ -135,13 +95,89 @@ function init_backward(planner::BackwardPlanner,
     return(search_tree, queue)
 end
 
-function init_forward(planner::ForwardPlanner,
-                      domain::Domain, state::State, spec::Specification)
-    @unpack h_mult, heuristic, save_search = planner
-    node_id = hash(state)
-    search_tree = Dict(node_id => PathNode(node_id, state, 0.0))
-    est_cost::Float32 = h_mult * compute(heuristic, domain, state, spec)
-    priority = (est_cost, est_cost, 0)
-    queue = PriorityQueue(node_id => priority)
-    return(search_tree, queue)
+function search!(sol::BiPathSearchSolution,  planner::BidirectionalPlanner,
+                 domain::Domain, state::State, 
+                 f_spec::Specification, b_spec::Specification)
+    @unpack max_nodes, max_time = planner
+    @unpack f_search_tree, b_search_tree = sol
+    f_queue, b_queue = sol.f_frontier, sol.b_frontier
+    sol.expanded, sol.f_expanded, sol.b_expanded = 0, 0, 0
+    f_node_id, b_node_id = nothing, nothing
+    f_reached, b_reached, crossed = false, false, false
+    # Functions for detecting frontier crossing
+    function find_f_in_b_queue(node)
+        for b_id in keys(b_queue)
+            issubset(b_search_tree[b_id].state, node.state) && return b_id
+        end
+        return nothing
+    end        
+    function find_b_in_f_queue(node)
+        for f_id in keys(f_queue)
+            issubset(node.state, f_search_tree[f_id].state) && return f_id
+        end
+        return nothing
+    end        
+    start_time = time()
+    while !isempty(f_queue) || !isempty(b_queue)
+        # Advance the forward search
+        if !isempty(f_queue)
+            f_node_id = dequeue!(f_queue)
+            f_node = f_search_tree[f_node_id]
+            # Check if goal is reached
+            if is_goal(f_spec, domain, f_node.state)
+                f_reached = true; sol.status = :success; break
+            end
+            # Check if frontiers cross
+            b_node_id = find_f_in_b_queue(f_node)
+            if !isnothing(b_node_id)
+                crossed = true; sol.status = :success; break
+            end                
+            expand!(planner.forward, f_node,
+                    f_search_tree, f_queue, domain, f_spec)
+            sol.f_expanded += 1
+            sol.expanded += 1
+        end
+         # Advance the backward search
+        if !isempty(b_queue)
+            b_node_id = dequeue!(b_queue)
+            b_node = b_search_tree[b_node_id]
+            # Check if goal is reached
+            if is_goal(b_spec, domain, b_node.state)
+                b_reached = true; sol.status = :success; break
+            end
+            # Check if frontiers cross
+            f_node_id = find_b_in_f_queue(b_node)
+            if !isnothing(f_node_id)
+                crossed = true; sol.status = :success; break
+            end
+            expand!(planner.backward, b_node,
+                    b_search_tree, b_queue, domain, b_spec)
+            sol.b_expanded += 1
+            sol.expanded += 1
+        end
+        # Check if resource limits are exceeded
+        if sol.expanded >= max_nodes
+            sol.status = :max_nodes # Node budget reached
+            break
+        elseif time() - start_time >= max_time
+            sol.status = :max_times # Time budget reached
+            break
+        end
+    end
+    # Reconstruct plan if one is found
+    if sol.status == :in_progress # No solution found
+        sol.status = :failure
+    elseif f_reached
+        sol.plan, sol.f_trajectory = reconstruct(f_node_id, f_search_tree)
+        sol.trajectory = sol.f_trajectory
+    elseif b_reached
+        sol.plan, sol.b_trajectory = reconstruct(b_node_id, b_search_tree)
+        sol.trajectory = simulate(StateRecorder(), domain, state, sol.plan)
+    elseif crossed
+        f_plan, sol.f_trajectory = reconstruct(f_node_id, f_search_tree)
+        b_plan, sol.b_trajectory = reconstruct(b_node_id, b_search_tree)
+        sol.plan = vcat(f_plan, reverse(b_plan))
+        sol.trajectory = simulate(StateRecorder(), domain, state, sol.plan)
+    end
+    return sol
 end

@@ -158,16 +158,19 @@ spec = SymbolicPlanners.BackwardSearchGoal(bw_spec, bw_state)
 
 end
 
-@testset "BiDirectional Planner" begin
-  planner = BidirectionalPlanner(HAdd(), HAddR(); save_search = true)
-  sol = planner(blocksworld, bw_state, bw_spec)
-  spec = SymbolicPlanners.BackwardSearchGoal(bw_spec, bw_state)
-  @test is_goal(spec, blocksworld, sol.trajectory[1])
-  @test is_goal(bw_spec, blocksworld, sol.trajectory[end])
-  @test collect(sol) == @pddl("(pick-up a)", "(stack a b)",
-                              "(pick-up c)", "(stack c a)")
-  @test length(sol.f_trajectory) <  length(sol.trajectory)
-  @test length(sol.b_trajectory) <  length(sol.trajectory)
+@testset "Bidirectional Planner" begin
+
+planner = BidirectionalPlanner(HAdd(), HAddR(), save_search = true)
+sol = planner(blocksworld, bw_state, bw_spec)
+spec = SymbolicPlanners.BackwardSearchGoal(bw_spec, bw_state)
+@test is_goal(spec, blocksworld, sol.trajectory[1])
+@test is_goal(bw_spec, blocksworld, sol.trajectory[end])
+@test collect(sol) == @pddl("(pick-up a)", "(stack a b)",
+                            "(pick-up c)", "(stack c a)")
+
+@test isnothing(sol.f_trajectory) || length(sol.f_trajectory) <  length(sol.trajectory)
+@test isnothing(sol.b_trajectory) || length(sol.b_trajectory) <  length(sol.trajectory)
+
 end
 
 @testset "Real Time Dynamic Programming" begin
