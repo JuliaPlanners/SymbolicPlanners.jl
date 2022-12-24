@@ -32,6 +32,8 @@ sol = planner(wgc_domain, wgc_state, wgc_spec)
                           "(ship-cabbage left right)", "(ship-self right left)",
                           "(ship-goat left right)",))
 
+@test copy(planner) == planner
+
 end
 
 @testset "Uniform Cost Planner" begin
@@ -66,6 +68,8 @@ sol = planner(wgc_domain, wgc_state, wgc_spec)
                           "(ship-wolf left right)", "(ship-goat right left)",
                           "(ship-cabbage left right)", "(ship-self right left)",
                           "(ship-goat left right)",))
+
+@test copy(planner) == planner
 
 end
 
@@ -106,6 +110,8 @@ sol = planner(wgc_domain, wgc_state, wgc_spec)
                           "(ship-cabbage left right)", "(ship-self right left)",
                           "(ship-goat left right)",))
 
+@test copy(planner) == planner
+
 end
 
 @testset "A* Planner" begin
@@ -145,6 +151,8 @@ sol = planner(wgc_domain, wgc_state, wgc_spec)
                           "(ship-cabbage left right)", "(ship-self right left)",
                           "(ship-goat left right)",))
 
+@test copy(planner) == planner
+
 end
 
 @testset "Backward Planner" begin
@@ -155,6 +163,8 @@ spec = SymbolicPlanners.BackwardSearchGoal(bw_spec, bw_state)
 @test is_goal(spec, blocksworld, sol.trajectory[1])
 @test collect(sol) == @pddl("(pick-up a)", "(stack a b)",
                             "(pick-up c)", "(stack c a)")
+
+@test copy(planner) == planner
 
 end
 
@@ -170,6 +180,8 @@ spec = SymbolicPlanners.BackwardSearchGoal(bw_spec, bw_state)
 
 @test isnothing(sol.f_trajectory) || length(sol.f_trajectory) <  length(sol.trajectory)
 @test isnothing(sol.b_trajectory) || length(sol.b_trajectory) <  length(sol.trajectory)
+
+@test copy(planner) == planner
 
 end
 
@@ -200,6 +212,8 @@ actions, trajectory = simulator(sol, blocksworld, bw_state, bw_spec)
 @test actions == @pddl("(pick-up a)", "(stack a b)",
                        "(pick-up c)", "(stack c a)")
 
+@test copy(planner) == planner
+
 end
 
 @testset "Real Time Heuristic Search" begin
@@ -229,6 +243,8 @@ actions, trajectory = simulator(sol, blocksworld, bw_state, bw_spec)
 @test actions == @pddl("(pick-up a)", "(stack a b)",
                        "(pick-up c)", "(stack c a)")
 
+@test copy(planner) == planner
+
 end
 
 @testset "Monte Carlo Tree Search" begin
@@ -256,6 +272,8 @@ actions, trajectory = simulator(sol, blocksworld, bw_state, bw_spec)
 @test is_goal(bw_spec, blocksworld, trajectory[end])
 @test actions == @pddl("(pick-up a)", "(stack a b)",
                        "(pick-up c)", "(stack c a)")
+
+@test copy(planner) == planner
 
 end
 

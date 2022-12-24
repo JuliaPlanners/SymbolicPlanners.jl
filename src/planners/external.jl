@@ -44,6 +44,14 @@ get_metric_expr(spec::MaxMetricGoal) = Compound(:maximize, [spec.metric])
     py_cmd::String = get(ENV, "PYTHON", "python") # Python path
 end
 
+@auto_hash FastDownward
+@auto_equals FastDownward
+
+function Base.copy(p::FastDownward)
+    return FastDownward(p.search, p.heuristic, p.h_params, p.max_time,
+                        p.max_time, p.verbose, p.log_stats, p.fd_path, p.py_cmd)
+end
+
 "Calls the FastDownward planning system to produce a plan."
 function solve(planner::FastDownward,
                domain::Domain, state::State, spec::Specification)
@@ -113,6 +121,14 @@ end
     py_cmd::String = get(ENV, "PYTHON", "python") # Python path
 end
 
+@auto_hash Pyperplan
+@auto_equals Pyperplan
+
+function Base.copy(p::Pyperplan)
+    return Pyperplan(p.search, p.heuristic, p.log_level, p.log_stats,
+                     p.max_time, p.verbose, p.py_cmd)
+end
+
 "Calls Pyperplan to produce a plan."
 function solve(planner::Pyperplan,
                domain::Domain, state::State, spec::Specification)
@@ -176,6 +192,14 @@ end
     verbose::Bool = false # Whether to print planner outputs
     enhsp_path::String = get(ENV, "ENHSP_PATH", "") # Path to enhsp.jar
     java_cmd::String = get(ENV, "JAVA", "java") # Java path
+end
+
+@auto_hash ENHSP
+@auto_equals ENHSP
+
+function Base.copy(p::ENHSP)
+    return ENHSP(p.search, p.heuristic, p.h_mult, p.log_stats,
+                 p.max_time, p.verbose, p.enhsp_path, p.java_cmd)
 end
 
 "Calls Pyperplan to produce a plan."

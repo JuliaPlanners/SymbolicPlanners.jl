@@ -12,6 +12,9 @@ export AStarPlanner, WeightedAStarPlanner
     save_search_order::Bool = false # Flag to save search order
 end
 
+@auto_hash ForwardPlanner
+@auto_equals ForwardPlanner
+
 "Best-first search planner (alias for `ForwardPlanner`)."
 BestFirstPlanner(args...; kwargs...) =
     ForwardPlanner(args...; kwargs...)
@@ -31,6 +34,12 @@ AStarPlanner(heuristic::Heuristic; kwargs...) =
 "Weighted A* search."
 WeightedAStarPlanner(heuristic::Heuristic, h_mult::Real; kwargs...) =
     ForwardPlanner(;heuristic=heuristic, h_mult=h_mult, kwargs...)
+
+function Base.copy(p::ForwardPlanner)
+    return ForwardPlanner(p.heuristic, p.g_mult, p.h_mult,
+                          p.max_nodes, p.max_time,
+                          p.save_search, p.save_search_order)
+end
 
 function solve(planner::ForwardPlanner,
                domain::Domain, state::State, spec::Specification)

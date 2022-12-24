@@ -6,6 +6,9 @@ mutable struct RealTimeHeuristicSearch <: Planner
     n_iters::Int
 end
 
+@auto_hash RealTimeHeuristicSearch
+@auto_equals RealTimeHeuristicSearch
+
 const RTHS = RealTimeHeuristicSearch
 
 function RealTimeHeuristicSearch(planner::ForwardPlanner)
@@ -38,6 +41,10 @@ end
 function Base.setproperty!(planner::RealTimeHeuristicSearch, name::Symbol, val)
     return name in (:planner, :n_iters) ?
         setfield!(planner, name, val) : setproperty!(planner.planner, name, val)
+end
+
+function Base.copy(p::RealTimeHeuristicSearch)
+    return RealTimeHeuristicSearch(copy(p.planner), p.n_iters)
 end
 
 function solve(planner::RealTimeHeuristicSearch,

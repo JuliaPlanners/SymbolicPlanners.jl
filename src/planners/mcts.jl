@@ -144,7 +144,15 @@ end
 	estimator::E = RandomRolloutEstimator() # Leaf node value estimator
 end
 
+@auto_hash MonteCarloTreeSearch
+@auto_equals MonteCarloTreeSearch
+
 const MCTS = MonteCarloTreeSearch
+
+function Base.copy(p::MonteCarloTreeSearch)
+    return MonteCarloTreeSearch(p.n_rollouts, p.max_depth, p.heuristic,
+								p.selector, p.estimator)
+end
 
 function solve(planner::MonteCarloTreeSearch,
 			   domain::Domain, state::State, spec::Specification)

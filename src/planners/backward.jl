@@ -11,6 +11,9 @@ export BackwardPlanner, BackwardGreedyPlanner, BackwardAStarPlanner
     save_search_order::Bool = false # Flag to save search order
 end
 
+@auto_hash BackwardPlanner
+@auto_equals BackwardPlanner
+
 "Backward greedy search, with cycle checking."
 BackwardGreedyPlanner(heuristic::Heuristic; kwargs...) =
     BackwardPlanner(;heuristic=heuristic, g_mult=0, kwargs...)
@@ -18,6 +21,12 @@ BackwardGreedyPlanner(heuristic::Heuristic; kwargs...) =
 "Backward A* search."
 BackwardAStarPlanner(heuristic::Heuristic; kwargs...) =
     BackwardPlanner(;heuristic=heuristic, kwargs...)
+
+function Base.copy(p::BackwardPlanner)
+    return BackwardPlanner(p.heuristic, p.g_mult, p.h_mult,
+                           p.max_nodes, p.max_time,
+                           p.save_search, p.save_search_order)
+end
 
 function solve(planner::BackwardPlanner,
                domain::Domain, state::State, spec::Specification)

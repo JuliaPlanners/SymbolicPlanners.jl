@@ -8,6 +8,14 @@ export BreadthFirstPlanner
     save_search_order::Bool = false # Flag to save search order
 end
 
+@auto_hash BreadthFirstPlanner
+@auto_equals BreadthFirstPlanner
+
+function Base.copy(p::BreadthFirstPlanner)
+    return BreadthFirstPlanner(p.max_nodes, p.max_time,
+                               p.save_search, p.save_search_order)
+end
+
 function solve(planner::BreadthFirstPlanner,
                domain::Domain, state::State, spec::Specification)
     @unpack save_search = planner

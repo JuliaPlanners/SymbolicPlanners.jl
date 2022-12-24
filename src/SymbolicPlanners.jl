@@ -3,7 +3,7 @@ module SymbolicPlanners
 using Base: @kwdef
 using Base.Iterators: countfrom
 using Parameters: @unpack
-using AutoHashEquals: @auto_hash_equals
+using AutoHashEquals: AutoHashEquals, @auto_hash_equals
 using DataStructures: PriorityQueue, enqueue!, dequeue!, dequeue_pair!
 using StatsBase: sample, Weights
 using PDDL: PDDL, flatten_conjs

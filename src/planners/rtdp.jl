@@ -9,7 +9,15 @@ export RealTimeDynamicPlanner, RTDP
     action_noise::Float64 = 0.0
 end
 
+@auto_hash RealTimeDynamicPlanner
+@auto_equals RealTimeDynamicPlanner
+
 const RTDP = RealTimeDynamicPlanner
+
+function Base.copy(p::RealTimeDynamicPlanner)
+    return RealTimeDynamicPlanner(p.heuristic, p.n_rollouts, p.max_depth,
+                                  p.rollout_noise, p.action_noise)
+end
 
 function solve(planner::RealTimeDynamicPlanner,
                domain::Domain, state::State, spec::Specification)

@@ -7,7 +7,10 @@ export BidirectionalPlanner, BiGreedyPlanner, BiAStarPlanner
     max_nodes::Int = typemax(Int) # Max search nodes before termination
     max_time::Float64 = Inf # Max time in seconds before timeout
     save_search::Bool = false # Flag to save search info
-end    
+end
+
+@auto_hash BidirectionalPlanner
+@auto_equals BidirectionalPlanner
 
 function BidirectionalPlanner(
     f_heuristic::Heuristic, b_heuristic::Heuristic;
@@ -42,6 +45,11 @@ BiGreedyPlanner(f_heuristic::Heuristic, b_heuristic::Heuristic;  kwargs...) =
 BiAStarPlanner(f_heuristic::Heuristic, b_heuristic::Heuristic; kwargs...) =
     BidirectionalPlanner(f_heuristic, b_heuristic; kwargs...)
 
+function Base.copy(p::BidirectionalPlanner)
+    return BidirectionalPlanner(copy(p.forward), copy(p.backward),
+                                p.max_nodes, p.max_time, p.save_search)
+end
+    
 function solve(planner::BidirectionalPlanner,
                domain::Domain, state::State, spec::Specification)
     # Simplify goal specification
