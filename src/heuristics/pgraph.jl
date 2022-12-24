@@ -1,12 +1,13 @@
 # Planning graph utilities for relaxed heuristic computation
 
 "Planning graph used by relaxation-based heuristics."
-struct PlanningGraph
+mutable struct PlanningGraph
     n_axioms::Int # Number of ground actions converted from axioms
     n_goals::Int # Number of ground actions converted from goals
     actions::Vector{GroundAction} # All ground actions
     act_parents::Vector{Vector{Vector{Int}}} # Parent conditions of each action
     act_children::Vector{Vector{Int}} # Child conditions of each action
+    effect_map::Dict{Term,Vector{Int}} # Map of affected fluents to actions
     conditions::Vector{Term} # All ground preconditions / goal conditions
     cond_children::Vector{Vector{Tuple{Int,Int}}} # Child actions of each condition
     cond_derived::BitVector # Whether the conditions are derived
@@ -14,22 +15,30 @@ struct PlanningGraph
 end
 
 """
-    build_planning_graph(domain, state, [goal::Term])
+    build_planning_graph(domain, state, [goal::Specification])
 
 Construct planning graph for a `domain` grounded in a `state`, with an
-optional `goal` formula that will be converted to action nodes.
+optional `goal` specification that will be converted to action nodes.
 """
-function build_planning_graph(domain::Domain, state::State,
-                              goal::Union{Term,Nothing}=nothing)
-    # Infer static and relevant fluents
-    statfluents = infer_static_fluents(domain)
-    relfluents = infer_relevant_fluents(domain, goal)
+function build_planning_graph(domain::Domain, state::State, goal::Specification;
+                              kwargs...)
+    goal = Compound(:and, get_goal_terms(goal))
+    return build_planning_graph(domain, state, goal; kwargs...)
+end
+
+function build_planning_graph(
+    domain::Domain, state::State, goal::Union{Term,Nothing}=nothing;
+    statics = infer_static_fluents(domain),
+    relevants = isnothing(goal) ? nothing : infer_relevant_fluents(domain, goal)
+)
     # Populate list of ground actions and converted axioms
     actions = GroundAction[]
     # Add axioms converted to ground actions
     for (name, axiom) in pairs(PDDL.get_axioms(domain))
-        if !(name in relfluents) continue end # Skip irrelevant axioms
-        for ax in groundaxioms(domain, state, axiom; statics=statfluents)
+        if !isnothing(goal) && !(name in relevants)
+            continue # Skip irrelevant axioms if goal is known
+        end 
+        for ax in groundaxioms(domain, state, axiom; statics=statics)
             if ax.effect isa PDDL.GenericDiff
                 push!(actions, ax)
             else # Handle conditional effects
@@ -39,7 +48,7 @@ function build_planning_graph(domain::Domain, state::State,
     end
     n_axioms = length(actions)
     # Add ground actions, flattening conditional actions
-    for act in groundactions(domain, state; statics=statfluents)
+    for act in groundactions(domain, state; statics=statics)
         # TODO: Eliminate redundant actions
         if act.effect isa PDDL.GenericDiff
             push!(actions, act)
@@ -51,20 +60,18 @@ function build_planning_graph(domain::Domain, state::State,
     n_goals = 0
     if !isnothing(goal)
         goal_actions = pgraph_goal_to_actions(domain, state, goal;
-                                              statics=statfluents)
+                                              statics=statics)
         n_goals = length(goal_actions)
         append!(actions, goal_actions)
-    end
-    # Ensure number of conditions doesn't exceed max limit of Sys.WORD_SIZE
-    for act in actions
-        if length(act.preconds) > Sys.WORD_SIZE
-            resize!(act.preconds, Sys.WORD_SIZE)
-        end
     end
     # Extract conditions and effects of ground actions
     cond_map = Dict{Term,Vector{Tuple{Int,Int}}}() # Map conditions to action indices
     effect_map = Dict{Term,Vector{Int}}() # Map effects to action indices
     for (i, act) in enumerate(actions)
+        # Limit number of conditions to max limit of Sys.WORD_SIZE
+        if length(act.preconds) > Sys.WORD_SIZE
+            resize!(act.preconds, Sys.WORD_SIZE)
+        end
         preconds = isempty(act.preconds) ? Term[Const(true)] : act.preconds
         for (j, cond) in enumerate(preconds) # Preconditions
             if cond.name == :or # Handle disjunctions
@@ -95,7 +102,7 @@ function build_planning_graph(domain::Domain, state::State,
     conditions = collect(keys(cond_map))
     # Determine parent and child conditions of each action
     act_parents = [[Int[] for c in act.preconds] for act in actions]
-    act_children = [Int[] for _ in 1:length(actions)]
+    act_children = [Int[] for _ in actions]
     for (i, cond) in enumerate(conditions)
         # Collect parent conditions
         idxs = get(Vector{Tuple{Int,Int}}, cond_map, cond)
@@ -121,32 +128,122 @@ function build_planning_graph(domain::Domain, state::State,
         broadcast(c -> PDDL.has_func(c, domain) ||
                        PDDL.has_global_func(c), conditions)
     # Construct and return graph
-    return PlanningGraph(n_axioms, n_goals, actions, act_parents, act_children,
-                         conditions, cond_children, cond_derived, cond_functional)
+    return PlanningGraph(
+        n_axioms, n_goals, actions, act_parents, act_children, effect_map,
+        conditions, cond_children, cond_derived, cond_functional
+    )
 end
 
-"Converts a goal formula into ground actions in a planning graph."
+"Add a goal formula as one or more ground actions in a planning graph."
 function pgraph_goal_to_actions(domain::Domain, state::State, goal::Term;
                                 statics=infer_static_fluents(domain))
     # Dequantify and simplify goal condition
     goal = PDDL.to_nnf(PDDL.dequantify(goal, domain, state, statics))
     goal = PDDL.simplify_statics(goal, domain, state, statics)
     # Convert goal condition to ground actions
-    actions = GroundAction[]
+    goal_actions = GroundAction[]
     name = :goal
     term = Compound(:goal, Term[])
     if PDDL.is_dnf(goal) # Split disjunctive goal into multiple goal actions
         for clause in goal.args
             conds = PDDL.flatten_conjs(clause)
             act = GroundAction(name, term, conds, PDDL.GenericDiff())
-            push!(actions, act)
+            push!(goal_actions, act)
         end
     else # Otherwise convert goal conditions to CNF form
         conds = PDDL.is_cnf(goal) ? goal.args : PDDL.to_cnf_clauses(goal)
         act = GroundAction(name, term, conds, PDDL.GenericDiff())
-        push!(actions, act)
+        push!(goal_actions, act)
     end
-    return actions
+    return goal_actions
+end
+
+"Add or replace goal actions in a planning graph."
+function update_pgraph_goal!(graph::PlanningGraph, domain::Domain, state::State,
+                             goal::Specification; kwargs...)
+    goal = Compound(:and, get_goal_terms(goal))
+    return update_pgraph_goal!(graph, domain, state, goal; kwargs...)
+end
+
+function update_pgraph_goal!(graph::PlanningGraph, domain::Domain, state::State,
+                             goal::Term; statics=infer_static_fluents(domain))
+    # Convert goal to ground actions
+    goal_actions = pgraph_goal_to_actions(domain, state, goal, statics=statics)
+    # Replace old goal actions with new ones
+    n_nongoals = length(graph.actions) - graph.n_goals
+    resize!(graph.actions, n_nongoals)
+    resize!(graph.act_parents, n_nongoals)
+    resize!(graph.act_children, n_nongoals)
+    graph.n_goals = length(goal_actions)
+    goal_parents = [[Int[] for c in act.preconds] for act in goal_actions]
+    goal_children = [Int[] for _ in goal_actions]
+    append!(graph.actions, goal_actions)
+    append!(graph.act_parents, goal_parents)
+    append!(graph.act_children, goal_children)    
+    # Extract conditions of goal actions
+    cond_map = Dict{Term,Vector{Tuple{Int,Int}}}()
+    for (i, act) in enumerate(goal_actions)
+        i += n_nongoals # Increment index by number of non-goal actions
+        # Limit number of conditions to max limit of Sys.WORD_SIZE
+        if length(act.preconds) > Sys.WORD_SIZE
+            resize!(act.preconds, Sys.WORD_SIZE)
+        end
+        preconds = isempty(act.preconds) ? Term[Const(true)] : act.preconds
+        for (j, cond) in enumerate(preconds)
+            if cond.name == :or # Handle disjunctions
+                for c in cond.args
+                    idxs = get!(Vector{Tuple{Int,Int}}, cond_map, c)
+                    push!(idxs, (i, j)) # Map to jth condition of ith action
+                end
+            else
+                idxs = get!(Vector{Tuple{Int,Int}}, cond_map, cond)
+                push!(idxs, (i, j)) # Map to jth condition of ith action
+            end
+        end
+    end
+    # Update children of existing conditions and parents of goal actions
+    for (i, cond) in enumerate(graph.conditions)
+        # Filter out old goal children
+        cond_children = graph.cond_children[i]
+        filter!(cond_children) do (act_idx, _) 
+            act_idx <= n_nongoals
+        end
+        # Add new goals as children to existing condition
+        child_idxs = get(Vector{Tuple{Int,Int}}, cond_map, cond)
+        if !isempty(child_idxs)
+            append!(cond_children, child_idxs)
+            delete!(cond_map, cond)
+        end
+        # Update parent indices for each child goal
+        for (act_idx, precond_idx) in child_idxs
+            push!(graph.act_parents[act_idx][precond_idx], i)
+        end
+    end
+    # Add any newly introduced conditions
+    effect_map = graph.effect_map
+    for (cond, child_idxs) in cond_map
+        push!(graph.conditions, cond)
+        push!(graph.cond_children, child_idxs)
+        new_idx = length(graph.conditions)
+        # Update parent indices for each child goal
+        for (act_idx, precond_idx) in child_idxs
+            push!(graph.act_parents[act_idx][precond_idx], new_idx)
+        end
+        # Update child indices for existing (non-goal) actions
+        if cond.name in (:not, true, false) || PDDL.is_pred(cond, domain)
+            idxs = get(Vector{Int}, effect_map, cond) # Handle literals
+        else # Handle functional terms
+            terms = PDDL.constituents(cond, domain)
+            idxs = reduce(union, (get(Vector{Int}, effect_map, t) for t in terms))
+        end
+        push!.(graph.act_children[idxs], new_idx)
+        # Flag whether condition is derived or functional
+        is_derived = PDDL.has_derived(cond, domain)
+        is_func = PDDL.has_func(cond, domain) || PDDL.has_global_func(cond)
+        push!(graph.cond_derived, is_derived)
+        push!(graph.cond_functional, is_func)
+    end
+    return graph
 end
 
 "Compute relaxed costs and paths to each fact node of a planning graph."

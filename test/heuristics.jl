@@ -47,11 +47,27 @@ end
 
 @testset "HSP Heuristics" begin
 
-@test HAdd()(blocksworld, bw_state, bw_problem.goal) == 4
-@test HMax()(blocksworld, bw_state, bw_problem.goal) == 2
+h_add = HAdd()
+h_max = HMax()
+@test h_add(blocksworld, bw_state, bw_problem.goal) == 4
+@test h_max(blocksworld, bw_state, bw_problem.goal) == 2
 
-@test HAdd()(bw_axioms, ba_state, ba_problem.goal) == 4
-@test HMax()(bw_axioms, ba_state, ba_problem.goal) == 2
+# Test dynamic goal updating
+precompute!(h_add, blocksworld, bw_state)
+precompute!(h_max, blocksworld, bw_state)
+@test compute(h_add, blocksworld, bw_state, bw_problem.goal) == 4
+@test compute(h_max, blocksworld, bw_state, bw_problem.goal) == 2
+
+h_add = HAdd()
+h_max = HMax()
+@test h_add(bw_axioms, ba_state, ba_problem.goal) == 4
+@test h_max(bw_axioms, ba_state, ba_problem.goal) == 2
+
+# Test dynamic goal updating
+precompute!(h_add, bw_axioms, ba_state)
+precompute!(h_max, bw_axioms, ba_state)
+@test compute(h_add, bw_axioms, ba_state, ba_problem.goal) == 4
+@test compute(h_max, bw_axioms, ba_state, ba_problem.goal) == 2
 
 end
 
@@ -69,8 +85,15 @@ end
 
 @testset "FF Heuristic" begin
 
-@test FFHeuristic()(blocksworld, bw_state, bw_problem.goal) <= 4
-@test FFHeuristic()(bw_axioms, ba_state, ba_problem.goal) <= 4
+ff = FFHeuristic()
+@test ff(blocksworld, bw_state, bw_problem.goal) <= 4
+@test ff(bw_axioms, ba_state, ba_problem.goal) <= 4
+
+# Test dynamic goal updating
+precompute!(ff, blocksworld, bw_state)
+@test compute(ff, blocksworld, bw_state, bw_problem.goal) <= 4
+precompute!(ff, bw_axioms, ba_state)
+@test compute(ff, bw_axioms, ba_state, ba_problem.goal) <= 4
 
 end
 

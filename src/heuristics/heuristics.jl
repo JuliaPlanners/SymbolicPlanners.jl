@@ -12,7 +12,7 @@ precompute!(h::Heuristic, domain::Domain, state::State, spec) =
 precompute!(h::Heuristic, domain::Domain, state::State) =
     precompute!(h, domain, state, NullGoal())
 precompute!(h::Heuristic, domain::Domain) =
-    precompute!(h, domain, GenericState(Term[]), NullGoal())
+    precompute!(h, domain, GenericState(Term[]))
 
 "Returns whether heuristic has been precomputed."
 is_precomputed(h::Heuristic) = false
