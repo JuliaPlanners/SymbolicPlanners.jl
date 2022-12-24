@@ -30,9 +30,10 @@ add https://github.com/JuliaPlanners/SymbolicPlanners.jl
 
 ## Planners
 
-- [Forward breadth-first search](src/planners/bfs.jl)
-- [Forward best-first search (A*, Greedy, etc.)](src/planners/forward.jl)
-- [Backward best-first search (A*, Greedy, etc.)](src/planners/backward.jl)
+- [Forward Breadth-First Search](src/planners/bfs.jl)
+- [Forward Heuristic Search (A*, Greedy, etc.)](src/planners/forward.jl)
+- [Backward Heuristic Search (A*, Greedy, etc.)](src/planners/backward.jl)
+- [Bidirectional Heuristic Search](src/planners/bidirectional.jl)
 - [Real Time Dynamic Programming (RTDP)](src/planners/rtdp.jl)
 - [Real Time Heuristic Search (RTHS)](src/planners/rths.jl)
 - [Monte Carlo Tree Search (MCTS)](src/planners/mcts.jl)
@@ -42,6 +43,7 @@ add https://github.com/JuliaPlanners/SymbolicPlanners.jl
 
 - [Goal Count](src/heuristics/basic.jl): counts the number of unsatisfied goals
 - [Manhattan](src/heuristics/metric.jl): L<sub>1</sub> distance for arbitrary numeric fluents
+- [Euclidean](src/heuristics/metric.jl): L<sub>2</sub> distance for arbitrary numeric fluents
 - [HSP heuristics](src/heuristics/hsp.jl): _h_<sub>add</sub>, _h_<sub>max</sub>, etc.
 - [HSPr heuristics](src/heuristics/hsp.jl): the above, but for backward search
 - [FF heuristic](src/heuristics/ff.jl): length of a relaxed plan, used by the Fast-Forward planner
