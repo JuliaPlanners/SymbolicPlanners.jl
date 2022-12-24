@@ -6,8 +6,8 @@ mutable struct MetricHeuristic{M} <: Heuristic
     fluents::Vector{Term}
     coeffs::Vector{Float32}
     goalvals::Vector{Float32}
-    MetricHeuristic(metric, fluents, coeffs) where M =
-        new{typeof(metric)}(metric, Vector{Term}(fluents), coeffs)
+    MetricHeuristic(metric::M, fluents, coeffs) where {M} =
+        new{M}(metric, Vector{Term}(fluents), coeffs)
 end
 
 MetricHeuristic(metric, fluents) =

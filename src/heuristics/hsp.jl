@@ -3,11 +3,24 @@ export HSPHeuristic, HAdd, HMax
 export HSPRHeuristic, HAddR, HMaxR
 
 "HSP family of relaxation heuristics."
-mutable struct HSPHeuristic <: Heuristic
-    op::Function # Aggregator (e.g. maximum, sum) for fact costs
+mutable struct HSPHeuristic{F <: Function} <: Heuristic
+    op::F # Aggregator (e.g. maximum, sum) for fact costs
     graph::PlanningGraph # Precomputed planning graph
-    HSPHeuristic(op) = new(op)
-    HSPHeuristic(op, graph) = new(op, graph)
+    HSPHeuristic{F}() where {F <: Function} = new{F}(F.instance)
+    HSPHeuristic{F}(graph) where {F <: Function} = new{F}(F.instance, graph)
+    HSPHeuristic(op::F) where {F <: Function} = new{F}(op)
+    HSPHeuristic(op::F, graph) where {F <: Function} = new{F}(op, graph)
+end
+
+"HSP heuristic where a fact's cost is the maximum cost of its dependencies."
+const HMax = HSPHeuristic{typeof(maximum)}
+
+"HSP heuristic where a fact's cost is the summed cost of its dependencies."
+const HAdd = HSPHeuristic{typeof(sum)}
+
+function Base.show(io::IO, h::HSPHeuristic)
+    is_precomputed_str = "precomputed=$(is_precomputed(h))"
+    print(io, summary(h), "(", h.op, ", ", is_precomputed_str, ")")
 end
 
 Base.hash(heuristic::HSPHeuristic, h::UInt) =
@@ -31,17 +44,23 @@ function compute(h::HSPHeuristic,
     return goal_cost
 end
 
-"HSP heuristic where a fact's cost is the maximum cost of its dependencies."
-HMax(args...) = HSPHeuristic(maximum, args...)
-
-"HSP heuristic where a fact's cost is the summed cost of its dependencies."
-HAdd(args...) = HSPHeuristic(sum, args...)
-
 "HSPr family of delete-relaxation heuristics for regression search."
-mutable struct HSPRHeuristic <: Heuristic
-    op::Function
+mutable struct HSPRHeuristic{F <: Function} <: Heuristic
+    op::F
     costs::Dict{Term,Float64} # Est. cost of reaching each fact from goal
-    HSPRHeuristic(op) = new(op)
+    HSPRHeuristic{F}() where {F <: Function} = new{F}(F.instance)
+    HSPRHeuristic(op::F) where {F <: Function} = new{F}(op)
+end
+
+"HSPr heuristic where a fact's cost is the maximum cost of its dependencies."
+const HMaxR = HSPRHeuristic{typeof(maximum)}
+
+"HSPr heuristic where a fact's cost is the summed cost of its dependencies."
+const HAddR = HSPRHeuristic{typeof(sum)}
+
+function Base.show(io::IO, h::HSPRHeuristic)
+    is_precomputed_str = "precomputed=$(is_precomputed(h))"
+    print(io, summary(h), "(", h.op, ", ", is_precomputed_str, ")")
 end
 
 Base.hash(heuristic::HSPRHeuristic, h::UInt) =
@@ -67,9 +86,3 @@ function compute(h::HSPRHeuristic,
     if length(facts) == 0 return 0.0 end
     return h.op(get(h.costs, f, 0) for f in facts)
 end
-
-"HSPr heuristic where a fact's cost is the maximum cost of its dependencies."
-HMaxR(args...) = HSPRHeuristic(maximum, args...)
-
-"HSPr heuristic where a fact's cost is the summed cost of its dependencies."
-HAddR(args...) = HSPRHeuristic(sum, args...)

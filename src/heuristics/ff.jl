@@ -8,6 +8,10 @@ mutable struct FFHeuristic <: Heuristic
     FFHeuristic(graph) = new(graph)
 end
 
+function Base.show(io::IO, h::FFHeuristic)
+    print(io, summary(h), "(precomputed=$(is_precomputed(h)))")
+end
+
 Base.hash(heuristic::FFHeuristic, h::UInt) = hash(FFHeuristic, h)
 
 is_precomputed(h::FFHeuristic) = isdefined(h, :graph)
