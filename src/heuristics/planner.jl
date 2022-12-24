@@ -18,15 +18,6 @@ function PlannerHeuristic(
                             s_transform=s_transform)
 end
 
-function Base.hash(heuristic::PlannerHeuristic{P}, h::UInt) where {P}
-    h = hash(P, hash(PlannerHeuristic, h))
-    for f in fieldnames(P)
-        h = hash(getfield(heuristic.planner, f), h)
-    end
-    h = hash(heuristic.s_transform, hash(heuristic.d_transform, h))
-    return h
-end
-
 function compute(h::PlannerHeuristic,
                  domain::Domain, state::State, spec::Specification)
     domain = h.d_transform(domain)

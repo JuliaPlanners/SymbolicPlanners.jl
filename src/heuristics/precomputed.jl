@@ -15,9 +15,6 @@ function PrecomputedHeuristic(h::PrecomputedHeuristic, args...)
     return PrecomputedHeuristic(h)
 end
 
-Base.hash(heuristic::PrecomputedHeuristic, h::UInt) =
-    hash(PrecomputedHeuristic, hash(heuristic.heuristic, h))
-
 is_precomputed(h::PrecomputedHeuristic) = true
 
 precompute!(h::PrecomputedHeuristic, ::Domain, ::State, ::Specification) = h

@@ -13,9 +13,6 @@ end
 
 MemoizedHeuristic(h::MemoizedHeuristic) = h
 
-Base.hash(heuristic::MemoizedHeuristic, h::UInt) =
-    hash(MemoizedHeuristic, hash(heuristic.heuristic, h))
-
 Base.empty!(h::MemoizedHeuristic) = empty!(h.cache)
 
 is_precomputed(h::MemoizedHeuristic) =

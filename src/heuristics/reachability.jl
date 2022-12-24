@@ -9,9 +9,6 @@ end
 
 ReachabilityHeuristic() = ReachabilityHeuristic(100)
 
-Base.hash(heuristic::ReachabilityHeuristic, h::UInt) =
-    hash(heuristic.op, hash(ReachabilityHeuristic, h))
-
 is_precomputed(h::ReachabilityHeuristic) = isdefined(h, :absdom)
 
 function precompute!(h::ReachabilityHeuristic,

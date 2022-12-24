@@ -23,9 +23,6 @@ function Base.show(io::IO, h::HSPHeuristic)
     print(io, summary(h), "(", h.op, ", ", is_precomputed_str, ")")
 end
 
-Base.hash(heuristic::HSPHeuristic, h::UInt) =
-    hash(heuristic.op, hash(HSPHeuristic, h))
-
 is_precomputed(h::HSPHeuristic) = isdefined(h, :graph)
 
 function precompute!(h::HSPHeuristic,
@@ -62,9 +59,6 @@ function Base.show(io::IO, h::HSPRHeuristic)
     is_precomputed_str = "precomputed=$(is_precomputed(h))"
     print(io, summary(h), "(", h.op, ", ", is_precomputed_str, ")")
 end
-
-Base.hash(heuristic::HSPRHeuristic, h::UInt) =
-    hash(heuristic.op, hash(HSPRHeuristic, h))
 
 is_precomputed(h::HSPRHeuristic) = isdefined(h, :costs)
 

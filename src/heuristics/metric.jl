@@ -13,9 +13,6 @@ end
 MetricHeuristic(metric, fluents) =
     MetricHeuristic(metric, fluents, ones(Float32, length(fluents)))
 
-Base.hash(mh::MetricHeuristic, h::UInt) =
-    hash(mh.metric, hash(mh.coeffs, hash(mh.fluents, hash(MetricHeuristic, h))))
-
 is_precomputed(h::MetricHeuristic) = isdefined(h, :goalvals)
 
 function precompute!(h::MetricHeuristic,
