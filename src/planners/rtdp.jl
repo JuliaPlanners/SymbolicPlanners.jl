@@ -75,22 +75,31 @@ end
 
 function update_values!(planner::RealTimeDynamicPlanner, sol::TabularPolicy,
                         domain::Domain, state::State, spec::Specification)
-    actions = lazy_collect(available(domain, state))
+    @unpack action_noise = planner
     state_id = hash(state)
+    qs = get!(Dict{Term,Float64}, sol.Q, state_id)
     if is_goal(spec, domain, state)
-        sol.Q[state_id] = Dict{Term,Float64}(a => 0 for a in actions)
-        sol.V[state_id] = 0.0
-        return
-    end
-    qs = map(actions) do act
-        next_state = transition(domain, state, act)
-        next_v = get!(sol.V, hash(next_state)) do
-            -compute(planner.heuristic, domain, next_state, spec)
+        # Value of goal / terminal state is zero
+        for act in available(domain, state)
+            qs[act] = 0.0
         end
-        r = get_reward(spec, domain, state, act, next_state)
-        return get_discount(spec) * next_v + r
+        sol.V[state_id] = 0.0
+    else
+        # Back-propogate values from successor states
+        for act in available(domain, state)
+            next_state = transition(domain, state, act)
+            next_v = get!(sol.V, hash(next_state)) do
+                -compute(planner.heuristic, domain, next_state, spec)
+            end
+            r = get_reward(spec, domain, state, act, next_state)
+            qs[act] =  get_discount(spec) * next_v + r
+        end
+        if action_noise == 0
+            sol.V[state_id] = maximum(values(qs))
+        else
+            qvals = collect(values(qs))
+            sol.V[state_id] = sum(softmax(qvals ./ action_noise) .* qvals)
+        end
     end
-    sol.Q[state_id] = Dict{Term,Float64}(zip(actions, qs))
-    sol.V[state_id] = planner.action_noise == 0 ?
-        maximum(qs) : sum(softmax(qs ./ planner.action_noise) .* qs)
+    return nothing
 end
