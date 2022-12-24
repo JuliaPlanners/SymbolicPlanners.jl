@@ -106,5 +106,32 @@ reachability = ReachabilityHeuristic()
 
 end
 
+@testset "Precomputed Heuristic" begin
+
+h = GoalCountHeuristic()
+hval = h(doors_keys_gems, dkg_state, dkg_problem.goal)
+h = precomputed(h, doors_keys_gems, dkg_state, dkg_problem.goal)
+@test h(doors_keys_gems, dkg_state, dkg_problem.goal) == hval
+
+h = FFHeuristic()
+hval = h(blocksworld, bw_state, bw_problem.goal)
+h = precomputed(FFHeuristic(), blocksworld, bw_state, bw_problem.goal)
+@test h(blocksworld, bw_state, bw_problem.goal) == hval
+
+end
+
+@testset "Memoized Heuristic" begin
+
+h = memoized(GoalCountHeuristic())
+hval = h(doors_keys_gems, dkg_state, dkg_problem.goal)
+@test h.heuristic(doors_keys_gems, dkg_state, dkg_problem.goal) == hval
+@test h(doors_keys_gems, dkg_state, dkg_problem.goal) == hval
+
+h = memoized(precomputed(FFHeuristic(), blocksworld, bw_state))
+hval = h(blocksworld, bw_state, bw_problem.goal)
+@test h.heuristic(blocksworld, bw_state, bw_problem.goal) == hval
+@test h(blocksworld, bw_state, bw_problem.goal) == hval
+
+end
 
 end

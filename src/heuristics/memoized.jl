@@ -19,8 +19,11 @@ is_precomputed(h::MemoizedHeuristic) =
     is_precomputed(h.heuristic)
 
 # TODO: CACHE PRECOMPUTED INFORMATION AS WELL
-precompute!(h::MemoizedHeuristic, domain::Domain, state::State, spec::Specification) =
+function precompute!(h::MemoizedHeuristic,
+                     domain::Domain, state::State, spec::Specification)
     precompute!(h.heuristic, domain, state, spec)
+    return h
+end
 
 function compute(h::MemoizedHeuristic,
                  domain::Domain, state::State, spec::Specification)
