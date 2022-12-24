@@ -1,7 +1,67 @@
 ## Utilities and solutions for path search algorithms ##
 export PathSearchSolution, BiPathSearchSolution, AbstractPathSearchSolution
 
+"Abstract solution type for search-based planners."
 abstract type AbstractPathSearchSolution <: OrderedSolution end
+
+function Base.show(io::IO, sol::AbstractPathSearchSolution)
+    print(io, typeof(sol), "(", repr(sol.status), ", ", repr(sol.plan), ")")
+end
+
+function Base.show(io::IO, ::MIME"text/plain", sol::AbstractPathSearchSolution)
+    println(io, typeof(sol))
+    println(io, "  status: ", sol.status)
+    println(io, "  plan: ", summary(sol.plan))
+    n_lines, _ = displaysize(io)
+    n_lines -= 5
+    if length(sol.plan) > n_lines
+        for act in sol.plan[1:(n_lines÷2-1)]
+            println(io, "    ", write_pddl(act))
+        end
+        println(io, "    ", "⋮")
+        for act in sol.plan[end-(n_lines÷2)+1:end]
+            println(io, "    ", write_pddl(act))
+        end
+    else
+        for act in sol.plan
+            println(io, "    ", write_pddl(act))
+        end
+    end
+    if !isnothing(sol.trajectory) && !isempty(sol.trajectory)
+        print(io, "  trajectory: ", summary(sol.trajectory))
+    end
+end
+
+Base.iterate(sol::AbstractPathSearchSolution) = iterate(sol.plan)
+Base.iterate(sol::AbstractPathSearchSolution, istate) = iterate(sol.plan, istate)
+Base.getindex(sol::AbstractPathSearchSolution, i::Int) = getindex(sol.plan, i)
+Base.length(sol::AbstractPathSearchSolution) = length(sol.plan)
+
+get_action(sol::AbstractPathSearchSolution, t::Int) = sol.plan[t]
+
+function get_action(sol::AbstractPathSearchSolution, state::State)
+    idx = findfirst(==(state), sol.trajectory)
+    if isnothing(idx) || idx == length(sol.trajectory)
+        return missing
+    else
+        return sol.plan[idx]
+    end
+end
+
+function get_action(sol::AbstractPathSearchSolution, t::Int, state::State)
+    return isnothing(sol.trajectory) ?
+        get_action(sol, t) : get_action(sol, state)
+end
+
+best_action(sol::AbstractPathSearchSolution, state::State) =
+    get_action(sol, state)
+rand_action(sol::AbstractPathSearchSolution, state::State) =
+    get_action(sol, state)
+
+function get_action_probs(sol::AbstractPathSearchSolution, state::State)
+    act = get_action(sol, state)
+    return ismissing(act) ? Dict() : Dict(act => 1.0)
+end
 
 mutable struct PathNode{S<:State}
     id::UInt
@@ -42,7 +102,7 @@ end
 end
 
 PathSearchSolution(status::Symbol, plan) =
-    PathSearchSolution(status, convert(Vector{Term}, plan), nothing,
+    PathSearchSolution(status, convert(Vector{Term}, plan), State[],
                        -1, nothing, nothing, UInt[])
 PathSearchSolution(status::Symbol, plan, trajectory) =
     PathSearchSolution(status, convert(Vector{Term}, plan), trajectory,
@@ -61,9 +121,21 @@ function Base.copy(sol::PathSearchSolution)
                               search_tree, search_frontier, search_order)
 end
 
-"""
-Solution type for search-based planners that produce fully ordered plans.
-"""
+function Base.show(io::IO, m::MIME"text/plain", sol::PathSearchSolution)
+    # Invoke call to Base.show for AbstractPathSearchSolution
+    invoke(show, Tuple{IO, typeof(m), AbstractPathSearchSolution}, io, m, sol)
+    # Print search information if present
+    if !isnothing(sol.search_tree)
+        print(io, "\n  expanded: ", sol.expanded)
+        print(io, "\n  search_tree: ", summary(sol.search_tree))
+        print(io, "\n  search_frontier: ", summary(sol.search_frontier))
+        if !isempty(sol.search_order)
+            print(io, "\n  search_order: ", summary(sol.search_order))
+        end
+    end
+end
+
+"Solution type for bidirectional search-based planners."
 mutable struct BiPathSearchSolution{S<:State,T} <: AbstractPathSearchSolution
     status::Symbol
     plan::Vector{Term}
@@ -80,7 +152,7 @@ mutable struct BiPathSearchSolution{S<:State,T} <: AbstractPathSearchSolution
 end
 
 BiPathSearchSolution(status::Symbol, plan) =
-    BiPathSearchSolution(status, plan, nothing, -1,
+    BiPathSearchSolution(status, plan, State[], -1,
                          nothing, nothing, -1, nothing,
                          nothing, nothing, -1, nothing)
 BiPathSearchSolution(status::Symbol, plan, trajectory) =
@@ -96,33 +168,25 @@ function Base.copy(sol::BiPathSearchSolution)
     return BiPathSearchSolution(fields...)
 end
 
-Base.iterate(sol::AbstractPathSearchSolution) = iterate(sol.plan)
-Base.iterate(sol::AbstractPathSearchSolution, istate) = iterate(sol.plan, istate)
-Base.getindex(sol::AbstractPathSearchSolution, i::Int) = getindex(sol.plan, i)
-Base.length(sol::AbstractPathSearchSolution) = length(sol.plan)
-
-get_action(sol::AbstractPathSearchSolution, t::Int) = sol.plan[t]
-
-function get_action(sol::AbstractPathSearchSolution, state::State)
-    idx = findfirst(==(state), sol.trajectory)
-    if isnothing(idx) || idx == length(sol.trajectory)
-        return missing
-    else
-        return sol.plan[idx]
+function Base.show(io::IO, m::MIME"text/plain", sol::BiPathSearchSolution)
+    # Invoke call to Base.show for AbstractPathSearchSolution
+    invoke(show, Tuple{IO, typeof(m), AbstractPathSearchSolution}, io, m, sol)
+    # Print nodes expanded if present
+    if sol.expanded >= 0
+        print(io, "\n  expanded: ", sol.expanded)
     end
-end
-
-function get_action(sol::AbstractPathSearchSolution, t::Int, state::State)
-    return isnothing(sol.trajectory) ?
-        get_action(sol, t) : get_action(sol, state)
-end
-
-best_action(sol::AbstractPathSearchSolution, state::State) =
-    get_action(sol, state)
-rand_action(sol::AbstractPathSearchSolution, state::State) =
-    get_action(sol, state)
-
-function get_action_probs(sol::AbstractPathSearchSolution, state::State)
-    act = get_action(sol, state)
-    return ismissing(act) ? Dict() : Dict(act => 1.0)
+    # Print forward search information if present
+    if !isnothing(sol.f_search_tree)
+        print(io, "\n  f_search_tree: ", summary(sol.f_search_tree))
+        print(io, "\n  f_frontier: ", summary(sol.f_frontier))
+        print(io, "\n  f_expanded: ", sol.f_expanded)
+        print(io, "\n  f_trajectory: ", summary(sol.f_trajectory))
+    end
+    # Print backward search information if present
+    if !isnothing(sol.b_search_tree)
+        print(io, "\n  b_search_tree: ", summary(sol.b_search_tree))
+        print(io, "\n  b_frontier: ", summary(sol.b_frontier))
+        print(io, "\n  b_expanded: ", sol.b_expanded)
+        print(io, "\n  b_trajectory: ", summary(sol.b_trajectory))
+    end
 end
