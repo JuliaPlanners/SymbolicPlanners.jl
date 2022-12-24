@@ -67,7 +67,7 @@ function solve!(planner::RealTimeHeuristicSearch, sol::TabularVPolicy,
                 domain::Domain, state::State, spec::Specification)
     @unpack n_iters, heuristic = planner
     # Use previously computed policy values to guide search 
-    planner.heuristic = PolicyHeuristic(sol)
+    planner.heuristic = PolicyValueHeuristic(sol)
     # Iteratively perform heuristic search followed by simulated execution
     init_state = state
     for _ in 1:n_iters

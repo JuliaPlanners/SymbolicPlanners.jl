@@ -1,9 +1,9 @@
-export PolicyHeuristic
+export PolicyValueHeuristic
 
 "Computes distance to the goal based on policy value."
-struct PolicyHeuristic{P <: PolicySolution} <: Heuristic
+struct PolicyValueHeuristic{P <: PolicySolution} <: Heuristic
     policy::P
 end
 
-compute(h::PolicyHeuristic, ::Domain, state::State, ::Specification) =
+compute(h::PolicyValueHeuristic, ::Domain, state::State, ::Specification) =
     -get_value(h.policy, state)
