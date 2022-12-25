@@ -63,6 +63,9 @@ function get_action_probs(sol::AbstractPathSearchSolution, state::State)
     return ismissing(act) ? Dict() : Dict(act => 1.0)
 end
 
+get_action_prob(sol::AbstractPathSearchSolution, state::State, action::Term) =
+    action == best_action(sol, state) ? 1.0 : 0.0
+
 mutable struct PathNode{S<:State}
     id::UInt
     state::S

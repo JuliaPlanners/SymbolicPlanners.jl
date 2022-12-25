@@ -27,3 +27,8 @@ function get_action_probs(sol::RandomPolicy, state::State)
     map!(x -> x / n_actions, values(probs))
     return probs
 end
+
+function get_action_prob(sol::RandomPolicy, state::State, action::Term)
+    actions = lazy_collect(available(sol.domain, state))
+    return action in actions ? (1.0 / length(actions)) : 0.0
+end

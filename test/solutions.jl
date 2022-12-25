@@ -1,6 +1,7 @@
 @testset "Solutions" begin
 
-using SymbolicPlanners: get_value, get_action_values, get_action_probs
+using SymbolicPlanners:
+    get_value, get_action_values, get_action_probs, get_action_prob
 
 # Available actions in initial Blocksworld state
 bw_init_actions = collect(available(blocksworld, bw_state))
@@ -44,6 +45,7 @@ sol = PathSearchSolution(:success, plan, trajectory)
 @test ismissing(get_action(sol, trajectory[end]))
 @test get_action_probs(sol, trajectory[2]) == Dict(plan[2] => 1.0)
 @test get_action_probs(sol, trajectory[end]) == Dict()
+@test get_action_prob(sol, trajectory[1], plan[1]) == 1.0
 
 @test copy(sol) == sol
 
@@ -55,8 +57,10 @@ sol = RandomPolicy(blocksworld)
 @test get_action(sol, bw_state) in bw_init_actions
 @test rand_action(sol, bw_state) in bw_init_actions
 
-probs = Dict(a => 1.0 / length(bw_init_actions) for a in bw_init_actions)
+n_actions = length(bw_init_actions)
+probs = Dict(a => 1.0 / n_actions for a in bw_init_actions)
 @test get_action_probs(sol, bw_state) == probs
+@test get_action_prob(sol, bw_state, pddl"(pick-up a)") == 1.0 / n_actions
 
 @test copy(sol) == sol
 
@@ -78,6 +82,8 @@ sol.Q[hash(bw_state)] = bw_init_q
 
 probs = Dict(a => a == pddl"(pick-up a)" ? 1.0 : 0.0 for a in bw_init_actions)
 @test get_action_probs(sol, bw_state) == probs
+@test get_action_prob(sol, bw_state, pddl"(pick-up a)") == 1.0 
+@test get_action_prob(sol, bw_state, pddl"(pick-up b)") == 0.0 
 
 @test copy(sol) == sol
 
@@ -102,6 +108,8 @@ end
 
 probs = Dict(a => a == pddl"(pick-up a)" ? 1.0 : 0.0 for a in bw_init_actions)
 @test get_action_probs(sol, bw_state) == probs
+@test get_action_prob(sol, bw_state, pddl"(pick-up a)") == 1.0 
+@test get_action_prob(sol, bw_state, pddl"(pick-up b)") == 0.0 
 
 @test copy(sol) == sol
 
@@ -123,6 +131,8 @@ sol = FunctionalVPolicy(heuristic, blocksworld, bw_spec)
 
 probs = Dict(a => a == pddl"(pick-up a)" ? 1.0 : 0.0 for a in bw_init_actions)
 @test get_action_probs(sol, bw_state) == probs
+@test get_action_prob(sol, bw_state, pddl"(pick-up a)") == 1.0 
+@test get_action_prob(sol, bw_state, pddl"(pick-up b)") == 0.0 
 
 @test copy(sol) == sol
 
@@ -146,6 +156,8 @@ sol = BoltzmannPolicy(sol, 1.0)
 probs = SymbolicPlanners.softmax(collect(values(bw_init_q)))
 probs = Dict(zip(keys(bw_init_q), probs))
 @test get_action_probs(sol, bw_state) == probs
+act_prob = probs[pddl"(pick-up a)"]
+@test get_action_prob(sol, bw_state, pddl"(pick-up a)") == act_prob
 
 @test copy(sol) == sol
 
@@ -169,6 +181,8 @@ sol = EpsilonGreedyPolicy(blocksworld, sol, 0.1)
 probs = Dict(a => 0.1 / length(bw_init_actions) for a in bw_init_actions)
 probs[pddl"(pick-up a)"] += 0.9
 @test get_action_probs(sol, bw_state) == probs
+act_prob = probs[pddl"(pick-up a)"]
+@test get_action_prob(sol, bw_state, pddl"(pick-up a)") == act_prob
 
 @test copy(sol) == sol
 

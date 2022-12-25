@@ -54,16 +54,20 @@ rand_action(::PolicySolution, ::State) = error("Not implemented.")
 get_value(::PolicySolution, ::State) = error("Not implemented.")
 get_value(::PolicySolution, ::State, ::Term) = error("Not implemented.")
 
-"Return Q-values of actions for the given state as a dictionary."
+"Return a dictionary of action Q-values for the given state."
 get_action_values(::PolicySolution, ::State) = error("Not implemented.")
 
-"Return probability of each action for the given state as a dictionary."
+"Return a dictionary of action probabilities for the given state."
 function get_action_probs(sol::PolicySolution, state::State)
     best_act = best_action(sol, state)
     actions = keys(get_action_values(sol, state))
     probs = Dict(act => (act == best_act ? 1.0 : 0.0) for act in actions)
     return probs
 end
+
+"Return the probability of taking an `action` at the given `state`."
+get_action_prob(sol::PolicySolution, state::State, action::Term) =
+    action == best_action(sol, state) ? 1.0 : 0.0
 
 "Null policy which has no method implementations."
 struct NullPolicy <: PolicySolution end

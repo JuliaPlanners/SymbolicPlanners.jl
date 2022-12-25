@@ -44,3 +44,6 @@ function get_action_probs(sol::EpsilonGreedyPolicy, state::State)
     probs[best_act] += 1 - sol.epsilon
     return probs
 end
+
+get_action_prob(sol::EpsilonGreedyPolicy, state::State, action::Term) =
+    get(get_action_probs(sol, state), action, 0.0)
