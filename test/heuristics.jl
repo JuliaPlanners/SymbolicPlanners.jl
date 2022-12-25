@@ -1,5 +1,22 @@
 @testset "Heuristics" begin
 
+@testset "Interface" begin
+
+goal_count = GoalCountHeuristic()
+hval1 = goal_count(doors_keys_gems, dkg_problem)
+hval2 = goal_count(doors_keys_gems, dkg_state, dkg_problem.goal)
+hval3 = goal_count(doors_keys_gems, dkg_state, dkg_spec)
+@test hval1 == hval2 == hval3
+
+h_add = HAdd()
+SymbolicPlanners.ensure_precomputed!(h_add, blocksworld, bw_state, bw_spec)
+hval1 = h_add(blocksworld, bw_problem; precompute=false)
+hval2 = h_add(blocksworld, bw_state, bw_problem.goal; precompute=false)
+hval3 = h_add(blocksworld, bw_state, bw_spec; precompute=false)
+@test hval1 == hval2 == hval3
+
+end
+
 @testset "Goal Count Heuristic" begin
 
 goal_count = GoalCountHeuristic()

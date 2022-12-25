@@ -2,6 +2,22 @@
 
 @testset "Planners" begin
 
+@testset "Interface" begin
+
+planner = AStarPlanner(GoalCountHeuristic())
+sol1 = planner(doors_keys_gems, dkg_problem)
+sol2 = planner(doors_keys_gems, dkg_state, dkg_problem.goal)
+sol3 = planner(doors_keys_gems, dkg_state, dkg_spec)
+@test sol1 == sol2 == sol3
+
+planner = AStarPlanner(HAdd())
+sol1 = planner(blocksworld, bw_problem)
+sol2 = planner(blocksworld, bw_state, bw_problem.goal)
+sol3 = planner(blocksworld, bw_state, bw_spec)
+@test sol1 == sol2 == sol3
+
+end
+
 @testset "Breadth-First Planner" begin
 
 planner = BreadthFirstPlanner()

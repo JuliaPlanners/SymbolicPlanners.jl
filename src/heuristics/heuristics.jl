@@ -42,6 +42,12 @@ function (h::Heuristic)(domain::Domain, state::State, spec;
     return h(domain, state, Specification(spec); precompute=precompute)
 end
 
+function (h::Heuristic)(domain::Domain, problem::Problem; precompute::Bool=true)
+    state = initstate(domain, problem)
+    spec = Specification(problem)
+    return h(domain, state, spec; precompute=precompute)
+end
+
 include("memoized.jl")
 include("precomputed.jl")
 include("basic.jl")

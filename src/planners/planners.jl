@@ -6,6 +6,8 @@ abstract type Planner end
 
 (planner::Planner)(domain::Domain, state::State, spec) =
     solve(planner, domain, state, spec)
+(planner::Planner)(domain::Domain, problem::Problem) =
+    solve(planner, domain, problem)
 
 solve(planner::Planner, domain::Domain, state::State, spec::Specification) =
     error("Not implemented.")
@@ -13,6 +15,8 @@ solve(planner::Planner, domain::Domain, state::State, goals::Vector{<:Term}) =
     solve(planner, domain, state, Specification(goals))
 solve(planner::Planner, domain::Domain, state::State, goal::Term) =
     solve(planner, domain, state, Specification(goal))
+solve(planner::Planner, domain::Domain, problem::Problem) =
+    solve(planner, domain, initstate(domain, problem), Specification(problem))
 
 # Path-search planning algorithms
 include("path_search.jl")
