@@ -57,13 +57,13 @@ function solve(planner::RealTimeHeuristicSearch,
     # Initialize then refine solution
     default = FunctionalVPolicy(planner.heuristic, domain, spec)
     sol = TabularVPolicy(domain, spec, default)
-    sol = solve!(planner, sol, domain, state, spec)
+    sol = solve!(sol, planner, domain, state, spec)
     # Reset to original heuristic
     planner.heuristic = heuristic
     return sol
 end
 
-function solve!(planner::RealTimeHeuristicSearch, sol::TabularVPolicy,
+function solve!(sol::TabularVPolicy, planner::RealTimeHeuristicSearch,
                 domain::Domain, state::State, spec::Specification)
     @unpack n_iters, heuristic = planner
     # Use previously computed policy values to guide search 
@@ -104,19 +104,9 @@ function update_values!(planner::RealTimeHeuristicSearch,
                         domain::Domain, spec::Specification)
     @unpack h_mult, heuristic = planner
     @unpack trajectory, search_tree = search_sol
-    # Compute f-value of final state found
-    final_state = trajectory[end]
-    final_id = hash(final_state)
-    final_g_val = search_tree[final_id].path_cost
-    final_h_val = search_sol.status == :success ?
-        0.0 : compute(heuristic, domain, final_state, spec)
-    final_f_val = final_g_val + h_mult * final_h_val
-    # Add final state back to search frontier queue
-    final_priority = (final_f_val, final_h_val, 0)
-    queue = copy(search_sol.search_frontier)
-    enqueue!(queue, final_id, final_priority)
-    # Back-propogate values from frontier nodes in increasing priority order
+    # Back-propagate values from frontier nodes in increasing priority order
     visited = Set{UInt}()
+    queue = copy(search_sol.search_frontier)
     while !isempty(queue)
         node_id, (frontier_f_val, _, _) = dequeue_pair!(queue)
         # Iterate until root or a node that is already visited
@@ -130,4 +120,9 @@ function update_values!(planner::RealTimeHeuristicSearch,
         end
     end
     return nothing
+end
+
+function refine!(sol::PolicySolution, planner::RealTimeHeuristicSearch,
+                 domain::Domain, state::State, spec::Specification)
+    return solve!(sol, planner, domain, state, spec)
 end

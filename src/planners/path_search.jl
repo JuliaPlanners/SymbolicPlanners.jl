@@ -66,7 +66,7 @@ end
 get_action_prob(sol::AbstractPathSearchSolution, state::State, action::Term) =
     action == best_action(sol, state) ? 1.0 : 0.0
 
-mutable struct PathNode{S<:State}
+@auto_hash_equals mutable struct PathNode{S<:State}
     id::UInt
     state::S
     path_cost::Float32
@@ -194,12 +194,20 @@ function Base.show(io::IO, m::MIME"text/plain", sol::BiPathSearchSolution)
     end
 end
 
-"Probabilistically dequeue a key, according to a Boltzmann distribution."
+"Dequeue a key according to a Boltzmann distribution over priority values."
 function prob_dequeue!(queue::PriorityQueue, temperature::Float64)
     if temperature == 0.0 return dequeue!(queue) end
+    key, _ = prob_peek(queue, temperature)
+    delete!(queue, key)
+    return key
+end
+
+"Return a key according to a Boltzmann distribution over priority values."
+function prob_peek(queue::PriorityQueue, temperature::Float64)
+    if temperature == 0.0 return peek(queue) end
     _, min_priority = peek(queue)
     min_weight = first(min_priority)
-    best_key, best_weight = nothing, -Inf
+    best_key, best_weight, best_priority = nothing, -Inf, nothing
     # Use Gumbel-Max reservoir sampling
     for (key, priority) in queue.xs
         weight = (min_weight - first(priority)) / temperature
@@ -207,8 +215,8 @@ function prob_dequeue!(queue::PriorityQueue, temperature::Float64)
         if weight > best_weight
             best_weight = weight
             best_key = key
+            best_priority = priority
         end
     end
-    delete!(queue, best_key)
-    return best_key
+    return best_key => best_priority
 end

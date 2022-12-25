@@ -29,13 +29,13 @@ function solve(planner::RealTimeDynamicPlanner,
     default = FunctionalVPolicy(planner.heuristic, domain, spec)
     sol = TabularPolicy(default)
     sol.V[hash(state)] = -compute(planner.heuristic, domain, state, spec)
-    sol = solve!(planner, sol, domain, state, spec)
+    sol = solve!(sol, planner, domain, state, spec)
     # Wrap in Boltzmann policy if needed
     return planner.action_noise == 0 ?
         sol : BoltzmannPolicy(sol, planner.action_noise)
 end
 
-function solve!(planner::RealTimeDynamicPlanner, sol::TabularPolicy,
+function solve!(sol::TabularPolicy, planner::RealTimeDynamicPlanner,
                 domain::Domain, state::State, spec::Specification)
     @unpack heuristic, action_noise = planner
     @unpack n_rollouts, max_depth, rollout_noise = planner
@@ -66,8 +66,8 @@ function solve!(planner::RealTimeDynamicPlanner, sol::TabularPolicy,
     return sol
 end
 
-function solve!(planner::RealTimeDynamicPlanner,
-                sol::BoltzmannPolicy{TabularPolicy},
+function solve!(sol::BoltzmannPolicy{TabularPolicy},
+                planner::RealTimeDynamicPlanner,
                 domain::Domain, state::State, spec::Specification)
     sol = solve!(planner, sol.policy, domain, state, spec)
     return BoltzmannPolicy(sol, planner.action_noise)
@@ -102,4 +102,9 @@ function update_values!(planner::RealTimeDynamicPlanner, sol::TabularPolicy,
         end
     end
     return nothing
+end
+
+function refine!(sol::PolicySolution, planner::RealTimeDynamicPlanner,
+                 domain::Domain, state::State, spec::Specification)
+    return solve!(sol, planner, domain, state, spec)
 end

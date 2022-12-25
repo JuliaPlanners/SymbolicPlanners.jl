@@ -10,11 +10,23 @@ sol2 = planner(doors_keys_gems, dkg_state, dkg_problem.goal)
 sol3 = planner(doors_keys_gems, dkg_state, dkg_spec)
 @test sol1 == sol2 == sol3
 
+planner = AStarPlanner(GoalCountHeuristic(), save_search=true)
+sol1 = planner(doors_keys_gems, dkg_state, dkg_spec)
+sol2 = refine!(sol1, planner, doors_keys_gems, dkg_state, dkg_spec)
+sol3 = refine(sol1, planner, doors_keys_gems, dkg_state, dkg_problem.goal)
+@test sol1 === sol2 == sol3
+
 planner = AStarPlanner(HAdd())
 sol1 = planner(blocksworld, bw_problem)
 sol2 = planner(blocksworld, bw_state, bw_problem.goal)
 sol3 = planner(blocksworld, bw_state, bw_spec)
 @test sol1 == sol2 == sol3
+
+planner = AStarPlanner(HAdd(), save_search=true)
+sol1 = planner(blocksworld, bw_state, bw_spec)
+sol2 = refine!(sol1, planner, blocksworld, bw_state, bw_spec)
+sol3 = refine(sol1, planner, blocksworld, bw_state, bw_problem.goal)
+@test sol1 === sol2 == sol3
 
 end
 
@@ -47,6 +59,15 @@ sol = planner(wgc_domain, wgc_state, wgc_spec)
                           "(ship-wolf left right)", "(ship-goat right left)",
                           "(ship-cabbage left right)", "(ship-self right left)",
                           "(ship-goat left right)",))
+
+# Test solution refinement
+planner = BreadthFirstPlanner(max_nodes=2, save_search=true)
+sol = planner(blocksworld, bw_state, bw_spec)
+planner.max_nodes = typemax(Int)
+refine!(sol, planner, blocksworld, bw_state, bw_spec)
+@test is_goal(bw_spec, blocksworld, sol.trajectory[end])
+@test collect(sol) == @pddl("(pick-up a)", "(stack a b)",
+                            "(pick-up c)", "(stack c a)")
 
 @test copy(planner) == planner
 
@@ -167,6 +188,16 @@ sol = planner(wgc_domain, wgc_state, wgc_spec)
                           "(ship-cabbage left right)", "(ship-self right left)",
                           "(ship-goat left right)",))
 
+planner = AStarPlanner(HAdd(), max_nodes=2, save_search=true)
+sol = planner(blocksworld, bw_state, bw_spec)
+@test sol.status == :max_nodes
+planner.max_nodes = typemax(Int)
+refine!(sol, planner, blocksworld, bw_state, bw_spec)
+@test sol.status == :success
+@test is_goal(bw_spec, blocksworld, sol.trajectory[end])
+@test collect(sol) == @pddl("(pick-up a)", "(stack a b)",
+                            "(pick-up c)", "(stack c a)")
+
 @test copy(planner) == planner
 
 end
@@ -204,6 +235,17 @@ Random.seed!(2)
 sol2 = planner(doors_keys_gems, dkg_state, dkg_spec)
 @test sol1.search_order != sol2.search_order
 
+# Test solution refinement
+planner = ProbAStarPlanner(HAdd(), max_nodes=2, save_search=true)
+sol = planner(blocksworld, bw_state, bw_spec)
+@test sol.status == :max_nodes
+planner.max_nodes = typemax(Int)
+refine!(sol, planner, blocksworld, bw_state, bw_spec)
+@test sol.status == :success
+@test is_goal(bw_spec, blocksworld, sol.trajectory[end])
+@test collect(sol) == @pddl("(pick-up a)", "(stack a b)",
+                            "(pick-up c)", "(stack c a)")
+
 @test copy(planner) == planner
 
 end
@@ -213,6 +255,17 @@ end
 planner = BackwardPlanner(heuristic=HAddR())
 sol = planner(blocksworld, bw_state, bw_spec)
 spec = SymbolicPlanners.BackwardSearchGoal(bw_spec, bw_state)
+@test is_goal(spec, blocksworld, sol.trajectory[1])
+@test collect(sol) == @pddl("(pick-up a)", "(stack a b)",
+                            "(pick-up c)", "(stack c a)")
+
+# Test solution refinement
+planner = BackwardPlanner(heuristic=HAddR(), max_nodes=2, save_search=true)
+sol = planner(blocksworld, bw_state, bw_spec)
+@test sol.status == :max_nodes
+planner.max_nodes = typemax(Int)
+refine!(sol, planner, blocksworld, bw_state, bw_spec)
+@test sol.status == :success
 @test is_goal(spec, blocksworld, sol.trajectory[1])
 @test collect(sol) == @pddl("(pick-up a)", "(stack a b)",
                             "(pick-up c)", "(stack c a)")
@@ -233,15 +286,25 @@ spec = SymbolicPlanners.BackwardSearchGoal(bw_spec, bw_state)
                             "(pick-up c)", "(stack c a)")
 
 # Test that search order differs with enough randomness
-planner = ProbBackwardPlanner(
-    heuristic=GoalCountHeuristic(), search_noise=0.1, 
-    save_search=true, save_search_order=true
-)
+planner = ProbBackwardPlanner(heuristic=HAddR(), search_noise=0.1, 
+                              save_search=true, save_search_order=true)
 Random.seed!(1)
 sol1 = planner(blocksworld, bw_state, bw_spec)
 Random.seed!(2)
 sol2 = planner(blocksworld, bw_state, bw_spec)
 @test sol1.search_order != sol2.search_order
+
+# Test solution refinement
+planner = ProbBackwardPlanner(heuristic=HAddR(), max_nodes=2,
+                              search_noise=0.1, save_search=true)
+sol = planner(blocksworld, bw_state, bw_spec)
+@test sol.status == :max_nodes
+planner.max_nodes = typemax(Int)
+refine!(sol, planner, blocksworld, bw_state, bw_spec)
+@test sol.status == :success
+@test is_goal(spec, blocksworld, sol.trajectory[1])
+@test collect(sol) == @pddl("(pick-up a)", "(stack a b)",
+                            "(pick-up c)", "(stack c a)")
 
 @test copy(planner) == planner
 
@@ -249,7 +312,7 @@ end
 
 @testset "Bidirectional Planner" begin
 
-planner = BidirectionalPlanner(HAdd(), HAddR(), save_search = true)
+planner = BidirectionalPlanner(HAdd(), HAddR(), save_search=true)
 sol = planner(blocksworld, bw_state, bw_spec)
 spec = SymbolicPlanners.BackwardSearchGoal(bw_spec, bw_state)
 @test is_goal(spec, blocksworld, sol.trajectory[1])
@@ -259,6 +322,17 @@ spec = SymbolicPlanners.BackwardSearchGoal(bw_spec, bw_state)
 
 @test isnothing(sol.f_trajectory) || length(sol.f_trajectory) <  length(sol.trajectory)
 @test isnothing(sol.b_trajectory) || length(sol.b_trajectory) <  length(sol.trajectory)
+
+# Test solution refinement
+planner = BidirectionalPlanner(HAdd(), HAddR(), save_search=true, max_nodes=2)
+sol = planner(blocksworld, bw_state, bw_spec)
+@test sol.status == :max_nodes
+planner.max_nodes = typemax(Int)
+refine!(sol, planner, blocksworld, bw_state, bw_spec)
+@test sol.status == :success
+@test is_goal(spec, blocksworld, sol.trajectory[1])
+@test collect(sol) == @pddl("(pick-up a)", "(stack a b)",
+                            "(pick-up c)", "(stack c a)")
 
 @test copy(planner) == planner
 
@@ -291,6 +365,19 @@ actions, trajectory = simulator(sol, blocksworld, bw_state, bw_spec)
 @test actions == @pddl("(pick-up a)", "(stack a b)",
                        "(pick-up c)", "(stack c a)")
 
+# Test solution refinement
+planner = RTDP(heuristic=GoalCountHeuristic(), rollout_noise=1.0, n_rollouts=1)
+sol = planner(doors_keys_gems, dkg_state, dkg_spec)
+actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
+@test !is_goal(dkg_spec, doors_keys_gems, trajectory[end])
+planner.n_rollouts = 9
+refine!(sol, planner, doors_keys_gems, dkg_state, dkg_spec)
+actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
+@test is_goal(dkg_spec, doors_keys_gems, trajectory[end])
+@test actions == @pddl("(down)", "(pickup key1)", "(down)",
+                       "(unlock key1 door1)", "(right)", "(right)",
+                       "(up)", "(up)", "(pickup gem1)")
+
 @test copy(planner) == planner
 
 end
@@ -321,6 +408,19 @@ actions, trajectory = simulator(sol, blocksworld, bw_state, bw_spec)
 @test is_goal(bw_spec, blocksworld, trajectory[end])
 @test actions == @pddl("(pick-up a)", "(stack a b)",
                        "(pick-up c)", "(stack c a)")
+
+# Test solution refinement
+planner = RTHS(heuristic=GoalCountHeuristic(), n_iters=1, max_nodes=20)
+sol = planner(doors_keys_gems, dkg_state, dkg_spec)
+actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
+@test !is_goal(dkg_spec, doors_keys_gems, trajectory[end])
+planner.n_iters = 9
+refine!(sol, planner, doors_keys_gems, dkg_state, dkg_spec)
+actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
+@test is_goal(dkg_spec, doors_keys_gems, trajectory[end])
+@test actions == @pddl("(down)", "(pickup key1)", "(down)",
+                       "(unlock key1 door1)", "(right)", "(right)",
+                       "(up)", "(up)", "(pickup gem1)")
 
 @test copy(planner) == planner
 

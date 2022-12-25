@@ -76,13 +76,14 @@ end
 
 function search!(sol::PathSearchSolution, planner::BackwardPlanner,
                  domain::Domain, spec::BackwardSearchGoal)
+    @unpack search_noise = planner
     start_time = time()
     sol.expanded = 0
     queue, search_tree = sol.search_frontier, sol.search_tree
     while length(queue) > 0
         # Get state with lowest estimated cost to goal
-        node_id = isnothing(planner.search_noise) ?
-            dequeue!(queue) : prob_dequeue!(queue, planner.search_noise)
+        node_id, _ = isnothing(search_noise) ?
+            peek(queue) : prob_peek(queue, search_noise)
         node = search_tree[node_id]
         # Check search termination criteria
         if is_goal(spec, domain, node.state)
@@ -92,7 +93,10 @@ function search!(sol::PathSearchSolution, planner::BackwardPlanner,
         elseif time() - start_time >= planner.max_time
             sol.status = :max_time # Time budget reached
         end
-        if sol.status == :in_progress # Expand current node
+        if sol.status == :in_progress
+            # Dequeue current node
+            isnothing(search_noise) ? dequeue!(queue) : dequeue!(queue, node_id) 
+            # Expand current node
             expand!(planner, node, search_tree, queue, domain, spec)
             sol.expanded += 1
             if planner.save_search && planner.save_search_order
@@ -144,4 +148,17 @@ function expand!(planner::BackwardPlanner, node::PathNode,
             end
         end
     end
+end
+
+function refine!(
+    sol::PathSearchSolution{S, T}, planner::BackwardPlanner,
+    domain::Domain, state::State, spec::Specification
+) where {S, T <: PriorityQueue}
+    # TODO : re-root search tree at new state?
+    sol.status == :success && return sol
+    sol.status = :in_progress
+    spec = simplify_goal(spec, domain, state)
+    spec = BackwardSearchGoal(spec, state)
+    ensure_precomputed!(planner.heuristic, domain, state, spec)
+    return search!(sol, planner, domain, spec)
 end

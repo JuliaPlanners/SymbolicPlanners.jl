@@ -46,8 +46,8 @@ function search!(sol::PathSearchSolution, planner::BreadthFirstPlanner,
     sol.expanded = 0
     queue, search_tree = sol.search_frontier, sol.search_tree
     while length(queue) > 0
-        # Pop state off the queue
-        node_id = popfirst!(queue)
+        # Look-up first state on queue
+        node_id = first(queue)
         node = search_tree[node_id]
         # Check search termination criteria
         if is_goal(spec, domain, node.state)
@@ -58,6 +58,7 @@ function search!(sol::PathSearchSolution, planner::BreadthFirstPlanner,
             sol.status = :max_time # Time budget reached
         end
         if sol.status == :in_progress # Expand current node
+            popfirst!(queue)
             expand!(planner, node, search_tree, queue, domain, spec)
             sol.expanded += 1
             if planner.save_search && planner.save_search_order
@@ -91,4 +92,14 @@ function expand!(planner::BreadthFirstPlanner, node::PathNode,
             PathNode(next_id, next_state, path_cost, node.id, act)
         push!(queue, next_id)
     end
+end
+
+function refine!(
+    sol::PathSearchSolution{S, T}, planner::BreadthFirstPlanner,
+    domain::Domain, state::State, spec::Specification
+) where {S, T <: Vector}
+    sol.status == :success && return sol
+    sol.status = :in_progress
+    spec = simplify_goal(spec, domain, state)
+    return search!(sol, planner, domain, spec)
 end

@@ -131,8 +131,8 @@ function search!(sol::BiPathSearchSolution,  planner::BidirectionalPlanner,
     while !isempty(f_queue) || !isempty(b_queue)
         # Advance the forward search
         if !isempty(f_queue)
-            f_node_id = isnothing(f_search_noise) ?
-                dequeue!(f_queue) : prob_dequeue!(f_queue, f_search_noise)
+            f_node_id, _ = isnothing(f_search_noise) ?
+                peek(f_queue) : prob_peek(f_queue, f_search_noise)
             f_node = f_search_tree[f_node_id]
             # Check if goal is reached
             if is_goal(f_spec, domain, f_node.state)
@@ -142,7 +142,11 @@ function search!(sol::BiPathSearchSolution,  planner::BidirectionalPlanner,
             b_node_id = find_f_in_b_queue(f_node)
             if !isnothing(b_node_id)
                 crossed = true; sol.status = :success; break
-            end                
+            end
+            # Dequeue node          
+            isnothing(f_search_noise) ?
+                dequeue!(f_queue) : dequeue!(f_queue, f_node_id)
+            # Expand node
             expand!(planner.forward, f_node,
                     f_search_tree, f_queue, domain, f_spec)
             sol.f_expanded += 1
@@ -150,8 +154,8 @@ function search!(sol::BiPathSearchSolution,  planner::BidirectionalPlanner,
         end
          # Advance the backward search
         if !isempty(b_queue)
-            b_node_id = isnothing(b_search_noise) ?
-                dequeue!(b_queue) : prob_dequeue!(b_queue, b_search_noise)
+            b_node_id, _ = isnothing(b_search_noise) ?
+                peek(b_queue) : prob_peek(b_queue, b_search_noise)
             b_node = b_search_tree[b_node_id]
             # Check if goal is reached
             if is_goal(b_spec, domain, b_node.state)
@@ -162,6 +166,10 @@ function search!(sol::BiPathSearchSolution,  planner::BidirectionalPlanner,
             if !isnothing(f_node_id)
                 crossed = true; sol.status = :success; break
             end
+            # Dequeue node          
+            isnothing(b_search_noise) ?
+                dequeue!(b_queue) : dequeue!(b_queue, b_node_id)
+            # Expand node
             expand!(planner.backward, b_node,
                     b_search_tree, b_queue, domain, b_spec)
             sol.b_expanded += 1
@@ -192,4 +200,17 @@ function search!(sol::BiPathSearchSolution,  planner::BidirectionalPlanner,
         sol.trajectory = simulate(StateRecorder(), domain, state, sol.plan)
     end
     return sol
+end
+
+function refine!(
+    sol::BiPathSearchSolution{S, T}, planner::BidirectionalPlanner,
+    domain::Domain, state::State, spec::Specification
+) where {S, T <: PriorityQueue}
+    sol.status == :success && return sol
+    sol.status = :in_progress
+    f_spec = simplify_goal(spec, domain, state)
+    b_spec = BackwardSearchGoal(spec, state)
+    ensure_precomputed!(planner.forward.heuristic, domain, state, f_spec)
+    ensure_precomputed!(planner.backward.heuristic, domain, state, b_spec)
+    return search!(sol, planner, domain, state, f_spec, b_spec)
 end
