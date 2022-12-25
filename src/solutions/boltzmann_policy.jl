@@ -31,14 +31,18 @@ unzip_pairs(ps::AbstractDict) = collect(keys(ps)), collect(values(ps))
 unzip_pairs(ps::AbstractArray{<:Pair}) = first.(ps), last.(ps)
 
 function rand_action(sol::BoltzmannPolicy, state::State)
-    actions, q_values = unzip_pairs(get_action_values(sol, state))
     if sol.temperature == 0
-        probs = zeros(length(actions))
-        probs[argmax(q_values)] = 1.0
-    else
-        probs = softmax(q_values ./ sol.temperature)
+        return best_action(sol, state)
     end
-    return sample(sol.rng, actions, Weights(probs, 1.0))
+    chosen_act, chosen_score = missing, -Inf
+    for (act, q) in get_action_values(sol, state)
+        score = q / sol.temperature + randgumbel()
+        if score > chosen_score
+            chosen_act = act
+            chosen_score = score
+        end
+    end
+    return chosen_act
 end
 
 function get_action_probs(sol::BoltzmannPolicy, state::State)
@@ -53,5 +57,14 @@ function get_action_probs(sol::BoltzmannPolicy, state::State)
     return probs
 end
 
-get_action_prob(sol::BoltzmannPolicy, state::State, action::Term) =
-    get(get_action_probs(sol, state), action, 0.0)
+function get_action_prob(sol::BoltzmannPolicy, state::State, action::Term)
+    if sol.temperature == 0.0
+        return action == best_action(sol, state) ? 1.0 : 0.0
+    end
+    actions, q_values = unzip_pairs(get_action_values(sol, state))
+    probs = softmax(q_values ./ sol.temperature)
+    for (a, p) in zip(actions, probs)
+        a == action && return p
+    end
+    return 0.0        
+end
