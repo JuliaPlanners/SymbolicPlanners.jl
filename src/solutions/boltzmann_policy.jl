@@ -9,6 +9,9 @@ export BoltzmannPolicy
     rng::R
 end
 
+BoltzmannPolicy(policy::BoltzmannPolicy, temperature, rng) =
+    BoltzmannPolicy(policy.policy, temperature, rng)
+
 BoltzmannPolicy(policy, temperature) =
     BoltzmannPolicy(policy, temperature, Random.GLOBAL_RNG)
 
