@@ -108,6 +108,8 @@ function search!(sol::BiPathSearchSolution,  planner::BidirectionalPlanner,
                  f_spec::Specification, b_spec::Specification)
     @unpack max_nodes, max_time = planner
     @unpack f_search_tree, b_search_tree = sol
+    f_search_noise = planner.forward.search_noise
+    b_search_noise = planner.backward.search_noise
     f_queue, b_queue = sol.f_frontier, sol.b_frontier
     sol.expanded, sol.f_expanded, sol.b_expanded = 0, 0, 0
     f_node_id, b_node_id = nothing, nothing
@@ -129,7 +131,8 @@ function search!(sol::BiPathSearchSolution,  planner::BidirectionalPlanner,
     while !isempty(f_queue) || !isempty(b_queue)
         # Advance the forward search
         if !isempty(f_queue)
-            f_node_id = dequeue!(f_queue)
+            f_node_id = isnothing(f_search_noise) ?
+                dequeue!(f_queue) : prob_dequeue!(f_queue, f_search_noise)
             f_node = f_search_tree[f_node_id]
             # Check if goal is reached
             if is_goal(f_spec, domain, f_node.state)
@@ -147,7 +150,8 @@ function search!(sol::BiPathSearchSolution,  planner::BidirectionalPlanner,
         end
          # Advance the backward search
         if !isempty(b_queue)
-            b_node_id = dequeue!(b_queue)
+            b_node_id = isnothing(b_search_noise) ?
+                dequeue!(b_queue) : prob_dequeue!(b_queue, b_search_noise)
             b_node = b_search_tree[b_node_id]
             # Check if goal is reached
             if is_goal(b_spec, domain, b_node.state)

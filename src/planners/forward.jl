@@ -1,11 +1,13 @@
 export ForwardPlanner, BestFirstPlanner, UniformCostPlanner, GreedyPlanner
 export AStarPlanner, WeightedAStarPlanner
+export ProbForwardPlanner, ProbAStarPlanner
 
 "Forward best-first search planner."
-@kwdef mutable struct ForwardPlanner <: Planner
+@kwdef mutable struct ForwardPlanner{T <: Union{Nothing, Float64}} <: Planner
     heuristic::Heuristic = GoalCountHeuristic()
-    g_mult::Float32 = 1.0 # Path cost multiplier
-    h_mult::Float32 = 1.0 # Heuristic multiplier
+    search_noise::T = nothing # Amount of (Boltzmann) search noise
+    g_mult::Float32 = 1.0f0 # Path cost multiplier
+    h_mult::Float32 = 1.0f0 # Heuristic multiplier
     max_nodes::Int = typemax(Int) # Max search nodes before termination
     max_time::Float64 = Inf # Max time in seconds before timeout
     save_search::Bool = false # Flag to save search tree in solution
@@ -14,6 +16,9 @@ end
 
 @auto_hash ForwardPlanner
 @auto_equals ForwardPlanner
+
+ForwardPlanner(heuristic::Heuristic, search_noise::T, args...) where {T} =
+    ForwardPlanner{T}(heuristic, search_noise, args...)
 
 "Best-first search planner (alias for `ForwardPlanner`)."
 BestFirstPlanner(args...; kwargs...) =
@@ -35,9 +40,19 @@ AStarPlanner(heuristic::Heuristic; kwargs...) =
 WeightedAStarPlanner(heuristic::Heuristic, h_mult::Real; kwargs...) =
     ForwardPlanner(;heuristic=heuristic, h_mult=h_mult, kwargs...)
 
+"Probabilistic forward best-first search planner."
+const ProbForwardPlanner = ForwardPlanner{Float64}
+
+ProbForwardPlanner(;search_noise=1.0, kwargs...) = 
+    ForwardPlanner(;search_noise=search_noise, kwargs...)
+
+"Probabilistic A* search."
+ProbAStarPlanner(heuristic::Heuristic; search_noise=1.0, kwargs...) =
+    ForwardPlanner(;heuristic=heuristic, search_noise=search_noise, kwargs...)
+
 function Base.copy(p::ForwardPlanner)
-    return ForwardPlanner(p.heuristic, p.g_mult, p.h_mult,
-                          p.max_nodes, p.max_time,
+    return ForwardPlanner(p.heuristic, p.search_noise, 
+                          p.g_mult, p.h_mult, p.max_nodes, p.max_time,
                           p.save_search, p.save_search_order)
 end
 
@@ -76,7 +91,8 @@ function search!(sol::PathSearchSolution, planner::ForwardPlanner,
     queue, search_tree = sol.search_frontier, sol.search_tree
     while length(queue) > 0
         # Get state with lowest estimated cost to goal
-        node_id = dequeue!(queue)
+        node_id = isnothing(planner.search_noise) ?
+            dequeue!(queue) : prob_dequeue!(queue, planner.search_noise)
         node = search_tree[node_id]
         # Check search termination criteria
         if is_goal(spec, domain, node.state)

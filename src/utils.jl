@@ -29,3 +29,16 @@ macro auto_equals(type)
     end
     return expr
 end
+
+"Convert vector of unnormalized scores to probabiities."
+function softmax(scores)
+    if isempty(scores) return Float64[] end
+    ws = exp.(scores .- maximum(scores))
+    z = sum(ws)
+    return isnan(z) ? ones(length(scores)) ./ length(scores) : ws ./ z
+end
+
+"Return sample from the standard Gumbel distribution."
+function randgumbel(rng::AbstractRNG=Random.GLOBAL_RNG)
+    return -log(-log(rand(rng)))
+end

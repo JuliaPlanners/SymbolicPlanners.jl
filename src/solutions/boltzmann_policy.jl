@@ -55,11 +55,3 @@ end
 
 get_action_prob(sol::BoltzmannPolicy, state::State, action::Term) =
     get(get_action_probs(sol, state), action, 0.0)
-
-"Convert vector of scores to probabiities."
-function softmax(scores)
-    if isempty(scores) return Float64[] end
-    ws = exp.(scores .- maximum(scores))
-    z = sum(ws)
-    return isnan(z) ? ones(length(scores)) ./ length(scores) : ws ./ z
-end

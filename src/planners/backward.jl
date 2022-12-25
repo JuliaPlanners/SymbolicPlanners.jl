@@ -1,8 +1,10 @@
 export BackwardPlanner, BackwardGreedyPlanner, BackwardAStarPlanner
+export ProbBackwardPlanner, ProbBackwardAStarPlanner
 
 "Heuristic-guided best-first backward search."
-@kwdef mutable struct BackwardPlanner <: Planner
+@kwdef mutable struct BackwardPlanner{T <: Union{Nothing, Float64}} <: Planner
     heuristic::Heuristic = GoalCountHeuristic(:backward)
+    search_noise::T = nothing # Amount of (Boltzmann) search noise
     g_mult::Float32 = 1.0 # Path cost multiplier
     h_mult::Float32 = 1.0 # Heuristic multiplier
     max_nodes::Int = typemax(Int) # Max search nodes before termination
@@ -14,6 +16,9 @@ end
 @auto_hash BackwardPlanner
 @auto_equals BackwardPlanner
 
+BackwardPlanner(heuristic::Heuristic, search_noise::T, args...) where {T} =
+    BackwardPlanner{T}(heuristic, search_noise, args...)
+
 "Backward greedy search, with cycle checking."
 BackwardGreedyPlanner(heuristic::Heuristic; kwargs...) =
     BackwardPlanner(;heuristic=heuristic, g_mult=0, kwargs...)
@@ -22,9 +27,19 @@ BackwardGreedyPlanner(heuristic::Heuristic; kwargs...) =
 BackwardAStarPlanner(heuristic::Heuristic; kwargs...) =
     BackwardPlanner(;heuristic=heuristic, kwargs...)
 
+"Probabilistic backward best-first search planner."
+const ProbBackwardPlanner = BackwardPlanner{Float64}
+
+ProbBackwardPlanner(;search_noise=1.0, kwargs...) = 
+    BackwardPlanner(;search_noise=search_noise, kwargs...)
+
+"Probabilistic backward A* search."
+ProbBackwardAStarPlanner(heuristic::Heuristic; search_noise=1.0, kwargs...) =
+    BackwardPlanner(;heuristic=heuristic, search_noise=search_noise, kwargs...)
+
 function Base.copy(p::BackwardPlanner)
-    return BackwardPlanner(p.heuristic, p.g_mult, p.h_mult,
-                           p.max_nodes, p.max_time,
+    return BackwardPlanner(p.heuristic, p.search_noise,
+                           p.g_mult, p.h_mult, p.max_nodes, p.max_time,
                            p.save_search, p.save_search_order)
 end
 
@@ -66,7 +81,8 @@ function search!(sol::PathSearchSolution, planner::BackwardPlanner,
     queue, search_tree = sol.search_frontier, sol.search_tree
     while length(queue) > 0
         # Get state with lowest estimated cost to goal
-        node_id = dequeue!(queue)
+        node_id = isnothing(planner.search_noise) ?
+            dequeue!(queue) : prob_dequeue!(queue, planner.search_noise)
         node = search_tree[node_id]
         # Check search termination criteria
         if is_goal(spec, domain, node.state)

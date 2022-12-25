@@ -193,3 +193,22 @@ function Base.show(io::IO, m::MIME"text/plain", sol::BiPathSearchSolution)
         print(io, "\n  b_trajectory: ", summary(sol.b_trajectory))
     end
 end
+
+"Probabilistically dequeue a key, according to a Boltzmann distribution."
+function prob_dequeue!(queue::PriorityQueue, temperature::Float64)
+    if temperature == 0.0 return dequeue!(queue) end
+    _, min_priority = peek(queue)
+    min_weight = first(min_priority)
+    best_key, best_weight = nothing, -Inf
+    # Use Gumbel-Max reservoir sampling
+    for (key, priority) in queue.xs
+        weight = (min_weight - first(priority)) / temperature
+        weight += randgumbel()
+        if weight > best_weight
+            best_weight = weight
+            best_key = key
+        end
+    end
+    delete!(queue, best_key)
+    return best_key
+end

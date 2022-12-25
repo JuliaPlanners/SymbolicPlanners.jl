@@ -155,6 +155,43 @@ sol = planner(wgc_domain, wgc_state, wgc_spec)
 
 end
 
+@testset "Probabilistic A* Planner" begin
+
+Random.seed!(0)
+
+planner = ProbAStarPlanner(ManhattanHeuristic(@pddl("xpos", "ypos")))
+sol = planner(gridworld, gw_state, gw_spec)
+@test is_goal(gw_spec, gridworld, sol.trajectory[end])
+@test collect(sol) == @pddl("down", "down", "right", "right", "up", "up")
+
+planner = ProbAStarPlanner(GoalCountHeuristic())
+sol = planner(doors_keys_gems, dkg_state, dkg_spec)
+@test is_goal(dkg_spec, doors_keys_gems, sol.trajectory[end])
+@test collect(sol) == @pddl("(down)", "(pickup key1)", "(down)",
+                            "(unlock key1 door1)", "(right)", "(right)",
+                            "(up)", "(up)", "(pickup gem1)")
+
+planner = ProbAStarPlanner(HAdd())
+sol = planner(blocksworld, bw_state, bw_spec)
+@test is_goal(bw_spec, blocksworld, sol.trajectory[end])
+@test collect(sol) == @pddl("(pick-up a)", "(stack a b)",
+                            "(pick-up c)", "(stack c a)")
+
+# Test that search order differs with enough randomness
+planner = ProbAStarPlanner(
+    GoalCountHeuristic(), search_noise=2.0, 
+    save_search=true, save_search_order=true
+)
+Random.seed!(1)
+sol1 = planner(doors_keys_gems, dkg_state, dkg_spec)
+Random.seed!(2)
+sol2 = planner(doors_keys_gems, dkg_state, dkg_spec)
+@test sol1.search_order != sol2.search_order
+
+@test copy(planner) == planner
+
+end
+
 @testset "Backward Planner" begin
 
 planner = BackwardPlanner(heuristic=HAddR())
@@ -163,6 +200,32 @@ spec = SymbolicPlanners.BackwardSearchGoal(bw_spec, bw_state)
 @test is_goal(spec, blocksworld, sol.trajectory[1])
 @test collect(sol) == @pddl("(pick-up a)", "(stack a b)",
                             "(pick-up c)", "(stack c a)")
+
+@test copy(planner) == planner
+
+end
+
+@testset "Probabilistic Backward Planner" begin
+
+Random.seed!(0)
+
+planner = ProbBackwardPlanner(heuristic=HAddR(), search_noise=0.1)
+sol = planner(blocksworld, bw_state, bw_spec)
+spec = SymbolicPlanners.BackwardSearchGoal(bw_spec, bw_state)
+@test is_goal(spec, blocksworld, sol.trajectory[1])
+@test collect(sol) == @pddl("(pick-up a)", "(stack a b)",
+                            "(pick-up c)", "(stack c a)")
+
+# Test that search order differs with enough randomness
+planner = ProbBackwardPlanner(
+    heuristic=GoalCountHeuristic(), search_noise=0.1, 
+    save_search=true, save_search_order=true
+)
+Random.seed!(1)
+sol1 = planner(blocksworld, bw_state, bw_spec)
+Random.seed!(2)
+sol2 = planner(blocksworld, bw_state, bw_spec)
+@test sol1.search_order != sol2.search_order
 
 @test copy(planner) == planner
 
