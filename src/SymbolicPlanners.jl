@@ -1,6 +1,6 @@
 module SymbolicPlanners
 
-using Base: @kwdef
+using Base: @kwdef, peek
 using Base.Iterators: countfrom
 using Parameters: @unpack
 using AutoHashEquals: AutoHashEquals, @auto_hash_equals
