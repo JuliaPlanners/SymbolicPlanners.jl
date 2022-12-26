@@ -157,7 +157,7 @@ probs = SymbolicPlanners.softmax(collect(values(bw_init_q)))
 probs = Dict(zip(keys(bw_init_q), probs))
 @test get_action_probs(sol, bw_state) == probs
 act_prob = probs[pddl"(pick-up a)"]
-@test get_action_prob(sol, bw_state, pddl"(pick-up a)") == act_prob
+@test get_action_prob(sol, bw_state, pddl"(pick-up a)") ≈ act_prob
 
 @test copy(sol) == sol
 
@@ -182,7 +182,7 @@ probs = Dict(a => 0.1 / length(bw_init_actions) for a in bw_init_actions)
 probs[pddl"(pick-up a)"] += 0.9
 @test get_action_probs(sol, bw_state) == probs
 act_prob = probs[pddl"(pick-up a)"]
-@test get_action_prob(sol, bw_state, pddl"(pick-up a)") == act_prob
+@test get_action_prob(sol, bw_state, pddl"(pick-up a)") ≈ act_prob
 
 @test copy(sol) == sol
 

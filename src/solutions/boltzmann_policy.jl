@@ -49,7 +49,11 @@ function rand_action(sol::BoltzmannPolicy, state::State)
 end
 
 function get_action_probs(sol::BoltzmannPolicy, state::State)
-    actions, q_values = unzip_pairs(get_action_values(sol, state))
+    action_values = get_action_values(sol, state)
+    if isempty(action_values)
+        return Dict{Term,Float64}()
+    end
+    actions, q_values = unzip_pairs(action_values)
     if sol.temperature == 0
         probs = zeros(length(actions))
         probs[argmax(q_values)] = 1.0
@@ -64,10 +68,14 @@ function get_action_prob(sol::BoltzmannPolicy, state::State, action::Term)
     if sol.temperature == 0.0
         return action == best_action(sol, state) ? 1.0 : 0.0
     end
-    actions, q_values = unzip_pairs(get_action_values(sol, state))
+    action_values = get_action_values(sol, state)
+    if isempty(action_values)
+        return 0.0
+    end
+    actions, q_values = unzip_pairs(action_values)
     probs = softmax(q_values ./ sol.temperature)
     for (a, p) in zip(actions, probs)
         a == action && return p
     end
-    return 0.0        
+    return 0.0
 end

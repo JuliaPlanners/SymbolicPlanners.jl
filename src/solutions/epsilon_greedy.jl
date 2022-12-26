@@ -39,11 +39,21 @@ end
 function get_action_probs(sol::EpsilonGreedyPolicy, state::State)
     probs = Dict(act => sol.epsilon for act in available(sol.domain, state))
     n_actions = length(probs)
+    if n_actions == 0 return probs end
     map!(x -> x / n_actions, values(probs))
     best_act = best_action(sol.policy, state)
     probs[best_act] += 1 - sol.epsilon
     return probs
 end
 
-get_action_prob(sol::EpsilonGreedyPolicy, state::State, action::Term) =
-    get(get_action_probs(sol, state), action, 0.0)
+function get_action_prob(sol::EpsilonGreedyPolicy, state::State, action::Term)
+    n_actions = length(lazy_collect(available(sol.domain, state)))
+    if n_actions == 0 return 0.0 end
+    prob = sol.epsilon / n_actions
+    best_act = best_action(sol.policy, state)
+    if action == best_act
+        return prob + (1 - sol.epsilon)
+    else
+        return prob
+    end
+end
