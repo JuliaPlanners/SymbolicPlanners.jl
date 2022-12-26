@@ -1,4 +1,5 @@
 export MinActionCosts, ExtraActionCosts
+export infer_action_costs
 
 "Returns whether a specification has action-specific costs."
 has_action_cost(spec::Specification) = false
@@ -190,7 +191,6 @@ function infer_ground_action_costs(
     static_fluents=infer_static_fluents(domain)
 )
     costs = Dict{Term,Float64}()
-    cost_fluents = PDDL.constituents(metric, domain)
     for act in groundactions(domain, state)
         diff = PDDL.effect_diff(domain, state, PDDL.get_effect(act))
         act_cost = Float64(0)

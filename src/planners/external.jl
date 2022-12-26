@@ -52,7 +52,6 @@ function Base.copy(p::FastDownward)
                         p.max_time, p.verbose, p.log_stats, p.fd_path, p.py_cmd)
 end
 
-"Calls the FastDownward planning system to produce a plan."
 function solve(planner::FastDownward,
                domain::Domain, state::State, spec::Specification)
     if isempty(planner.fd_path)
@@ -129,7 +128,6 @@ function Base.copy(p::Pyperplan)
                      p.max_time, p.verbose, p.py_cmd)
 end
 
-"Calls Pyperplan to produce a plan."
 function solve(planner::Pyperplan,
                domain::Domain, state::State, spec::Specification)
     @unpack search, heuristic, log_level, max_time, verbose, py_cmd = planner
@@ -202,7 +200,6 @@ function Base.copy(p::ENHSP)
                  p.max_time, p.verbose, p.enhsp_path, p.java_cmd)
 end
 
-"Calls Pyperplan to produce a plan."
 function solve(planner::ENHSP,
                domain::Domain, state::State, spec::Specification)
     @unpack search, heuristic, h_mult = planner

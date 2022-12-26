@@ -1,5 +1,6 @@
 ## Interface for planning heuristics ##
 export Heuristic, precompute!, compute
+export is_precomputed, ensure_precomputed!
 
 "Abstract heuristic type, which defines the interface for planning heuristics."
 abstract type Heuristic end
