@@ -204,7 +204,7 @@ function solve(planner::MonteCarloTreeSearch,
 			# Take weighted average with existing Q value
 			sol.Q[state_id][act] +=
 				(value-sol.Q[state_id][act]) / sol.a_visits[state_id][act]
-			state = next_state
+			next_state = state
         end
 	end
 	return sol
