@@ -1,6 +1,10 @@
 export MemoizedHeuristic, memoized
 
-"Wraps an existing heursitic and memoizes heuristic computation."
+"""
+    MemoizedHeuristic(heuristic::Heuristic)
+
+Wraps an existing heuristic and memoizes heuristic evaluations in a hash table.
+"""
 struct MemoizedHeuristic{H <: Heuristic} <: Heuristic
     heuristic::H
     cache::Dict{NTuple{3,UInt}, Float32}
@@ -25,6 +29,12 @@ function precompute!(h::MemoizedHeuristic,
     return h
 end
 
+precompute!(h::MemoizedHeuristic, domain::Domain, state::State) =
+    (precompute!(h.heuristic, domain, state); h)
+
+precompute!(h::MemoizedHeuristic, domain::Domain) =
+    (precompute!(h.heuristic, domain); h)
+
 function compute(h::MemoizedHeuristic,
                  domain::Domain, state::State, spec::Specification)
     key = (hash(domain), hash(state), hash(spec))
@@ -45,5 +55,10 @@ function (h::MemoizedHeuristic)(domain::Domain, state::State, spec::Specificatio
     return val
 end
 
-"Memoize heuristic values in a cache."
+"""
+    memoized(h::Heuristic)
+
+Constructs a memoized version of `h` which caches outputs in a hash table after
+each evaluation of the heuristic on a new domain, state, or specification.
+"""
 memoized(h::Heuristic) = MemoizedHeuristic(h)

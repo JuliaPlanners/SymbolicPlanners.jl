@@ -1,6 +1,11 @@
 export PrecomputedHeuristic, precomputed
 
-"Heuristic that is already precomputed, and will not be precomputed again."
+"""
+    PrecomputedHeuristic(heuristic::Heuristic, args...)
+
+Wraps an existing `heuristic` and ensures that it is precomputed, preventing
+repeated pre-computation on subsequent calls to [`precompute!`](@ref).
+"""
 struct PrecomputedHeuristic{H <: Heuristic} <: Heuristic
     heuristic::H
 end
@@ -22,6 +27,11 @@ precompute!(h::PrecomputedHeuristic, ::Domain, ::State, ::Specification) = h
 compute(h::PrecomputedHeuristic, domain::Domain, state::State, spec::Specification) =
     compute(h.heuristic, domain, state, spec)
 
-"Precomputes a heuristic in advance, preventing recomputation later."
+"""
+    precomputed(h::Heuristic, domain::Domain, args...)
+
+Precomputes a heuristic in advance, returning a [`PrecomputedHeuristic`](@ref)
+that prevents repeated pre-computation later.
+"""
 precomputed(h::Heuristic, domain::Domain, args...) =
     PrecomputedHeuristic(h, domain, args...)

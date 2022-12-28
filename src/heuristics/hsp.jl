@@ -2,7 +2,31 @@
 export HSPHeuristic, HAdd, HMax
 export HSPRHeuristic, HAddR, HMaxR
 
-"HSP family of relaxation heuristics."
+"""
+    HSPHeuristic(op::Function)
+
+A family of relaxed planning graph heuristics, introduced by the HSP 
+planner [1]. The heuristic precomputes a graph that stores the dependencies
+between all ground actions and plan-relevant conditions. The cost of achieving
+each action  (and also the goal) is then recursively estimated as the aggregated
+cost of achieving each (pre)condition the action or goal depends upon, where
+`op` is an aggregation function (e.g. `maximum` or `sum`).
+    
+In turn, the cost of achieving each condition (a.k.a. "fact") is estimated
+as the minimum cost among all actions that achieve that condition. Once a
+condition is achieved by an action, it is considered to remain true through
+the rest of the process, hence the relaxed nature of the heuristic.
+
+This implementation supports domains with negative preconditions, disjunctive
+preconditions (i.e., `or`, `exists`), and functional preconditions (e.g.
+numeric comparisons, or other Boolean-valued functions of non-Boolean fluents).
+Functional preconditions are handled by (optimistically) assuming they become
+true once a constituent fluent is modified by some action.
+
+[1] B. Bonet and H. Geffner, "Planning as Heuristic Search," Artificial
+Intelligence, vol. 129, no. 1, pp. 5–33, Jun. 2001,
+https://doi.org/10.1016/S0004-3702(01)00108-4
+"""
 mutable struct HSPHeuristic{F <: Function} <: Heuristic
     op::F # Aggregator (e.g. maximum, sum) for fact costs
     dynamic_goal::Bool # Flag whether goal-relevant information is dynamic
@@ -13,10 +37,20 @@ mutable struct HSPHeuristic{F <: Function} <: Heuristic
     HSPHeuristic(op::F) where {F <: Function} = new{F}(op)
 end
 
-"HSP heuristic where a fact's cost is the maximum cost of its dependencies."
+"""
+    HMax()
+
+[`HSPHeuristic`](@ref) where an action's cost is the `maximum` cost of the 
+conditions it depends upon.
+"""
 const HMax = HSPHeuristic{typeof(maximum)}
 
-"HSP heuristic where a fact's cost is the summed cost of its dependencies."
+"""
+    HAdd()
+
+[`HSPHeuristic`](@ref) where an action's cost is the `sum`` of costs of the 
+conditions it depends upon.
+"""
 const HAdd = HSPHeuristic{typeof(sum)}
 
 function Base.show(io::IO, h::HSPHeuristic)
@@ -60,7 +94,21 @@ function compute(h::HSPHeuristic,
     return goal_cost
 end
 
-"HSPr family of delete-relaxation heuristics for regression search."
+"""
+    HSPRHeuristic(op::Function)
+
+A family of relaxed planning graph heuristics for backward search, introduced
+by the HSPr planner ("r" stands for regression) [1]. The costs of achieving 
+a condition are estimated in the same way as the forward variant, 
+[`HSPHeuristic`](@ref), but this estimation is performed only once during 
+heuristic precomputation. During heuristic evaluation, the cost from the current
+partial state to the start state is estimated as the aggregated cost of each
+condition that is true in the partial state.
+
+[1] B. Bonet and H. Geffner, "Planning as Heuristic Search," Artificial
+Intelligence, vol. 129, no. 1, pp. 5–33, Jun. 2001,
+https://doi.org/10.1016/S0004-3702(01)00108-4
+"""
 mutable struct HSPRHeuristic{F <: Function} <: Heuristic
     op::F
     costs::Dict{Term,Float64} # Est. cost of reaching each fact from goal
@@ -68,10 +116,20 @@ mutable struct HSPRHeuristic{F <: Function} <: Heuristic
     HSPRHeuristic(op::F) where {F <: Function} = new{F}(op)
 end
 
-"HSPr heuristic where a fact's cost is the maximum cost of its dependencies."
+"""
+    HMaxR()
+
+[`HSPRHeuristic`](@ref) for backward search, where an action's cost is the
+`maximum` cost of its dependencies.
+"""
 const HMaxR = HSPRHeuristic{typeof(maximum)}
 
-"HSPr heuristic where a fact's cost is the summed cost of its dependencies."
+"""
+    HAddR()
+
+[`HSPRHeuristic`](@ref) for backward search, where an action's cost is the
+`sum` of costs of its dependencies.
+"""
 const HAddR = HSPRHeuristic{typeof(sum)}
 
 function Base.show(io::IO, h::HSPRHeuristic)
