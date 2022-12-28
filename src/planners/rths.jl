@@ -14,8 +14,8 @@ export RealTimeHeuristicSearch, RTHS
     )
 
 A real time heuristic search algorithm (`RTHS` for short) [1]. Similar to
-[`RTDP`](@ref), except that instead of greedy rollouts, lookahead heuristic
-search is performed from each neighbor of the current state (up to a budget of
+`RTDP`, except that instead of greedy rollouts, lookahead heuristic search is
+performed from each neighbor of the current state (up to a budget of
 `max_nodes`). States encountered during search are used to update the neighbors'
 value estimates, then a simulated step is taken from the current state to the
 highest-value neighbor. This is repeated for `n_iters`,  with future searches
@@ -33,9 +33,9 @@ where ``g(n)`` is the path cost from the root of the search tree to ``n``,
 ``h(n)`` is the heuristic goal-distance estimate for ``n``, and
 ``f(n) = g(n) + h(n)``, the priority value for the frontier node.
 
-Intuitively, the updated value of `V(a)` is the (negative) estimated cost
-from `a` to the goal, computed by summing the distance from ``a`` to ``n`` with
-the estimated distance of ``n`` to the goal. In cases where frontier nodes
+Intuitively, the updated value of ``V(a)`` is the (negative) estimated cost
+from ``a`` to the goal, computed by summing the distance from ``a`` to ``n``
+with the estimated distance of ``n`` to the goal. In cases where frontier nodes
 share the same ancestor, frontier nodes with lower ``f`` values take precedence.
 This update rule is a variant of Learning Real Time A* (LRTA) [1], similar 
 to the update rule used by Real-Time Adaptive A* (RTAA) [2] because it updates 
