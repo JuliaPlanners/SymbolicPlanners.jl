@@ -1,11 +1,32 @@
 export BreadthFirstPlanner
 
-"Uninformed breadth-first search planner."
+"""
+    BreadthFirstPlanner(;
+        max_nodes::Int = typemax(Int),
+        max_time::Float64 = Inf,
+        save_search::Bool = false,
+        save_search_order::Bool = false
+    )
+
+Breadth-first search planner. Nodes are expanded in order of increasing distance
+from the initial state (skipping previously visited nodes).
+
+Returns a [`PathSearchSolution`](@ref) or [`NullSolution`](@ref), similar to
+[`ForwardPlanner`](@ref).
+
+# Arguments
+
+$(FIELDS)
+"""
 @kwdef mutable struct BreadthFirstPlanner <: Planner
+    "Maximum number of search nodes before termination."
     max_nodes::Int = typemax(Int)
-    max_time::Float64 = Inf # Max time in seconds before timeout
-    save_search::Bool = false # Flag to save search tree in solution
-    save_search_order::Bool = false # Flag to save search order
+    "Maximum time in seconds before planner times out."
+    max_time::Float64 = Inf
+    "Flag to save the search tree and frontier in the returned solution."
+    save_search::Bool = false
+    "Flag to save the node expansion order in the returned solution."
+    save_search_order::Bool = false
 end
 
 @auto_hash BreadthFirstPlanner

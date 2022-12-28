@@ -1,6 +1,56 @@
 export RealTimeHeuristicSearch, RTHS
 
-"Planner that uses Real Time Heuristic Search (RTHS)."
+"""
+    RealTimeHeuristicSearch(;
+        heuristic::Heuristic = GoalCountHeuristic(),
+        n_iters::Int = 10,
+        max_nodes::Int = 50,
+        kwargs...
+    )
+
+    RealTimeHeuristicSearch(
+        planner::ForwardPlanner,
+        n_iters::Int
+    )
+
+A real time heuristic search algorithm (`RTHS` for short) [1]. Similar to
+[`RTDP`](@ref), except that instead of greedy rollouts, lookahead heuristic
+search is performed from each neighbor of the current state (up to a budget of
+`max_nodes`). States encountered during search are used to update the neighbors'
+value estimates, then a simulated step is taken from the current state to the
+highest-value neighbor. This is repeated for `n_iters`,  with future searches
+using the updated value estimates as more informed heuristics. Any `kwargs`
+are passed to the [`ForwardPlanner`](@ref) used internally for search.
+
+Each time heuristic search is performed, state values are updated by
+backpropagating the value estimates of all frontier nodes (including goal nodes)
+to their parents. That is, for each ancestor ``a`` of a frontier node ``n`` in
+the search tree, its updated value estimate is:
+
+``V(a) = -[f(n) - g(a)] = -[g(n) + h(n) - g(a)] = -[(g(n) - g(a)) + h(n)]``
+
+where ``g(n)`` is the path cost from the root of the search tree to ``n``, 
+``h(n)`` is the heuristic goal-distance estimate for ``n``, and
+``f(n) = g(n) + h(n)``, the priority value for the frontier node.
+
+Intuitively, the updated value of `V(a)` is the (negative) estimated cost
+from `a` to the goal, computed by summing the distance from ``a`` to ``n`` with
+the estimated distance of ``n`` to the goal. In cases where frontier nodes
+share the same ancestor, frontier nodes with lower ``f`` values take precedence.
+This update rule is a variant of Learning Real Time A* (LRTA) [1], similar 
+to the update rule used by Real-Time Adaptive A* (RTAA) [2] because it updates 
+both the root node and other nodes in the search tree.
+
+Returns a [`TabularVPolicy`](@ref), which stores the value estimates for each
+encountered state. Note that while this planner returns a policy, it expects
+a deterministic domain as input.
+
+[1] R. E. Korf, "Real-Time Heuristic Search," Artificial Intelligence, vol. 42,
+no. 2, pp. 189–211, Mar. 1990, https://doi.org/10.1016/0004-3702(90)90054-4.
+
+[2] S. Koenig and M. Likhachev, “Real-Time Adaptive A*,” AAMAS (2006), 
+pp. 281–288. https://doi.org/10.1145/1160633.1160682.
+"""
 mutable struct RealTimeHeuristicSearch <: Planner
     planner::ForwardPlanner
     n_iters::Int

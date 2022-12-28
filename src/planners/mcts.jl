@@ -1,5 +1,6 @@
 export MonteCarloTreeSearch, MCTS, MCTSTreeSolution
 export MCTSNodeSelector, MaxUCBSelector, BoltzmannUCBSelector
+export MCTSLeafEstimator, RandomRolloutEstimator, ConstantEstimator
 
 ## MCTS solution type ##
 
@@ -135,19 +136,43 @@ end
 
 ## Main algorithm ##
 
-"Planner that uses Monte Carlo Tree Search (MCTS)."
-@kwdef mutable struct MonteCarloTreeSearch{S,E} <: Planner
+"""
+	MonteCarloTreeSearch(
+		n_rollouts::Int64 = 50,
+		max_depth::Int64 = 50,
+		heuristic::Heuristic = NullHeuristic(),
+		selector::MCTSNodeSelector = BoltzmannUCBSelector(),
+		estimator::MCTSLeafEstimator = RandomRolloutEstimator()
+	end
+
+Planner that uses Monte Carlo Tree Search (`MCTS` for short) [1], with a 
+customizable initial value `heuristic`, node `selector` strategy, and leaf
+node value `estimator`.
+
+# Arguments
+
+$(FIELDS)
+"""
+@kwdef mutable struct MonteCarloTreeSearch{
+	S <: MCTSNodeSelector, E <: MCTSLeafEstimator
+} <: Planner
+	"Number of search rollouts to perform."
 	n_rollouts::Int64 = 50
+	"Maximum depth of rollout (including the selection and estimation phases)."
 	max_depth::Int64 = 50
-	heuristic::Heuristic = NullHeuristic() # Initial value heuristic
-	selector::S = BoltzmannUCBSelector() # Node selection strategy
-	estimator::E = RandomRolloutEstimator() # Leaf node value estimator
+	"Initial value heuristic for newly encountered states / leaf nodes."
+	heuristic::Heuristic = NullHeuristic() 
+	"Node selection strategy for previously visited nodes (e.g. MaxUCB)."
+	selector::S = BoltzmannUCBSelector()
+	"Estimator for leaf node values (e.g. random or policy-based rollouts)."
+	estimator::E = RandomRolloutEstimator()
 end
 
 @auto_hash MonteCarloTreeSearch
 @auto_equals MonteCarloTreeSearch
 
 const MCTS = MonteCarloTreeSearch
+@doc (@doc MonteCarloTreeSearch) MCTS
 
 function Base.copy(p::MonteCarloTreeSearch)
     return MonteCarloTreeSearch(p.n_rollouts, p.max_depth, p.heuristic,

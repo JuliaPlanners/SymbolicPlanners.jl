@@ -1,7 +1,18 @@
 ## Abstract interface for planners and solutions ##
 export Planner, refine, refine!
 
-"Abstract planner type, which defines the interface for planners."
+"""
+    $(TYPEDEF)
+
+Abstract planner type. Once constructed, a `planner` can be run on
+a `domain`, initial `state`, and a `spec`, returning a [`Solution`](@ref).
+A `problem` can be provided instead of a `state` and `spec`:
+
+    planner(domain::Domain, state::State, spec)
+    planner(domain::Domain, problem::Problem)
+
+New planners should define [`solve`](@ref) and (optionally) [`refine!`](@ref).
+"""
 abstract type Planner end
 
 (planner::Planner)(domain::Domain, state::State, spec) =
@@ -9,7 +20,13 @@ abstract type Planner end
 (planner::Planner)(domain::Domain, problem::Problem) =
     solve(planner, domain, problem)
 
-"Solve a planning problem using the specified `planner`."
+"""
+    solve(planner::Planner, domain::Domain, state::State, spec::Specification)
+
+Solve a planning problem using the specified `planner`.
+
+New subtypes of [`Planner`](@ref) should implement this method.
+"""
 solve(planner::Planner, domain::Domain, state::State, spec::Specification) =
     error("Not implemented.")
 solve(planner::Planner, domain::Domain, state::State, goals) =
@@ -17,13 +34,23 @@ solve(planner::Planner, domain::Domain, state::State, goals) =
 solve(planner::Planner, domain::Domain, problem::Problem) =
     solve(planner, domain, initstate(domain, problem), Specification(problem))
 
-"Refine an existing solution to a planning problem (in-place)."
+"""
+    refine!(sol::Solution, planner::Planner, domain::Domain, state::State, spec)
+
+Refine an existing solution (`sol`) to a planning problem (in-place).
+The `spec` argument can be provided as a `Specification` or as one or more
+goal `Term`s to be satisfied.
+"""
 refine!(sol::Solution, planner::Planner, domain::Domain, state::State, spec::Specification) =
     error("Not implemented.")
 refine!(sol::Solution, planner::Planner, domain::Domain, state::State, goals) =
     refine!(sol, planner, domain, state, Specification(goals))
 
-"Refine a copy of an existing solution to a planning problem."
+"""
+    refine(sol::Solution, planner::Planner, domain::Domain, state::State, spec)
+
+Refine a copy of an existing solution to a planning problem.
+"""
 refine(sol::Solution, planner::Planner, domain::Domain, state::State, spec::Specification) =
     refine!(copy(sol), planner, domain, state, spec)
 refine(sol::Solution, planner::Planner, domain::Domain, state::State, goals) =

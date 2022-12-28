@@ -2,16 +2,58 @@ export ForwardPlanner, BestFirstPlanner, UniformCostPlanner, GreedyPlanner
 export AStarPlanner, WeightedAStarPlanner
 export ProbForwardPlanner, ProbAStarPlanner
 
-"Forward best-first search planner."
+"""
+    ForwardPlanner(;
+        heuristic::Heuristic = GoalCountHeuristic(),
+        search_noise::Union{Nothing,Float64} = nothing,
+        g_mult::Float32 = 1.0f0,
+        h_mult::Float32 = 1.0f0,
+        max_nodes::Int = typemax(Int),
+        max_time::Float64 = Inf,
+        save_search::Bool = false,
+        save_search_order::Bool = false
+    )
+
+Forward best-first search planner, which encompasses uniform-cost search, 
+greedy search, and A* search. Each node ``n`` is expanded in order of increasing
+priority ``f(n)``, defined as:
+
+``f(n) = g_\\text{mult} \\cdot g(n) + h_\\text{mult} \\cdot h(n)``
+
+where ``g(n)`` is the path cost from the initial state to ``n``, and ``h(n)``
+is the heuristic's goal distance estimate.
+
+Returns a [`PathSearchSolution`](@ref) if the goal is achieved, containing a 
+plan that reaches the goal node, and `status` set to `:success`. If the node
+or time budget runs out, the solution will instead contain a partial plan to
+the last node selected for expansion, with `status` set to `:max_nodes` or 
+`max_time` accordingly.
+
+If `save_search` is true, the returned solution will contain the search tree
+and frontier so far. If `save_search` is true and the search space is exhausted
+return a `NullSolution  with `status` set to `:failure`.
+
+# Arguments
+
+$(FIELDS)
+"""
 @kwdef mutable struct ForwardPlanner{T <: Union{Nothing, Float64}} <: Planner
+    "Search heuristic that estimates cost of a state to the goal."
     heuristic::Heuristic = GoalCountHeuristic()
-    search_noise::T = nothing # Amount of (Boltzmann) search noise
-    g_mult::Float32 = 1.0f0 # Path cost multiplier
-    h_mult::Float32 = 1.0f0 # Heuristic multiplier
-    max_nodes::Int = typemax(Int) # Max search nodes before termination
-    max_time::Float64 = Inf # Max time in seconds before timeout
-    save_search::Bool = false # Flag to save search tree in solution
-    save_search_order::Bool = false # Flag to save search order
+    "Amount of Boltzmann search noise (`nothing` for deterministic search)."
+    search_noise::T = nothing
+    "Path cost multiplier when computing the ``f`` value of a search node."
+    g_mult::Float32 = 1.0f0
+    "Heuristic multiplier when computing the ``f`` value of a search node."
+    h_mult::Float32 = 1.0f0
+    "Maximum number of search nodes before termination."
+    max_nodes::Int = typemax(Int)
+    "Maximum time in seconds before planner times out."
+    max_time::Float64 = Inf
+    "Flag to save the search tree and frontier in the returned solution."
+    save_search::Bool = false
+    "Flag to save the node expansion order in the returned solution."
+    save_search_order::Bool = false
 end
 
 @auto_hash ForwardPlanner
@@ -20,33 +62,84 @@ end
 ForwardPlanner(heuristic::Heuristic, search_noise::T, args...) where {T} =
     ForwardPlanner{T}(heuristic, search_noise, args...)
 
-"Best-first search planner (alias for `ForwardPlanner`)."
+"""
+$(SIGNATURES)
+
+Best-first search planner (alias for [`ForwardPlanner`](@ref)).
+"""
 BestFirstPlanner(args...; kwargs...) =
     ForwardPlanner(args...; kwargs...)
 
-"Uniform-cost search."
+"""
+$(SIGNATURES)
+
+Uniform-cost search. Nodes with the lowest path cost from the initial state
+are expanded first (i.e. the search heuristic is not used).
+"""
 UniformCostPlanner(;kwargs...) =
     ForwardPlanner(;heuristic=NullHeuristic(), h_mult=0, kwargs...)
 
-"Greedy best-first search, with cycle checking."
+"""
+$(SIGNATURES)
+
+Greedy best-first search, with cycle checking. Nodes with the lowest heuristic
+value are expanded first (i.e. the cost of reaching them from the initial state
+is ignored).
+"""
 GreedyPlanner(heuristic::Heuristic; kwargs...) =
     ForwardPlanner(;heuristic=heuristic, g_mult=0, kwargs...)
 
-"A* search."
+"""
+$(SIGNATURES)
+
+A* search. Nodes with the lowest ``f`` value are expanded first. This is 
+guaranteed to produce a cost-optimal solution if the `heuristic` is admissible.
+"""
 AStarPlanner(heuristic::Heuristic; kwargs...) =
     ForwardPlanner(;heuristic=heuristic, kwargs...)
 
-"Weighted A* search."
+"""
+$(SIGNATURES)
+
+Weighted A* search, which multiplies the heuristic estimate by `h_mult`
+when computing the ``f`` value of a node. Nodes with the lowest ``f`` value
+are expanded first.
+"""
 WeightedAStarPlanner(heuristic::Heuristic, h_mult::Real; kwargs...) =
     ForwardPlanner(;heuristic=heuristic, h_mult=h_mult, kwargs...)
 
-"Probabilistic forward best-first search planner."
+"""
+    ProbForwardPlanner(;
+        search_noise::Float64 = 1.0,
+        kwargs...
+    )
+
+A probabilistic variant of forward best-first search. Instead of always
+expanding the node with lowest ``f`` value in the search frontier, this samples
+a node to expand according to Boltzmann distribution, where the ``f`` value of
+a frontier node is treated as the unnormalized log probability of expansion.
+
+The temperature for Boltzmann sampling is defined by `search_noise`. Higher
+values lead to more random search, lower values lead to more deterministic 
+search.
+
+Useful for simulating a diversity of potentially sub-optimal plans, especially
+when paired with a limited `max_nodes` budget.    
+
+An alias for `ForwardPlanner{Float64}`. See [`ForwardPlanner`](@ref) for other
+arguments.
+"""
 const ProbForwardPlanner = ForwardPlanner{Float64}
 
 ProbForwardPlanner(;search_noise=1.0, kwargs...) = 
     ForwardPlanner(;search_noise=search_noise, kwargs...)
 
-"Probabilistic A* search."
+"""
+$(SIGNATURES)
+
+A probabilistic variant of A* search. See [`ProbForwardPlanner`](@ref) for 
+how nodes are probabilistically expanded.
+"""
 ProbAStarPlanner(heuristic::Heuristic; search_noise=1.0, kwargs...) =
     ForwardPlanner(;heuristic=heuristic, search_noise=search_noise, kwargs...)
 

@@ -1,16 +1,65 @@
 export BackwardPlanner, BackwardGreedyPlanner, BackwardAStarPlanner
 export ProbBackwardPlanner, ProbBackwardAStarPlanner
 
-"Heuristic-guided best-first backward search."
+"""
+    BackwardPlanner(;
+        heuristic::Heuristic = GoalCountHeuristic(:backward),
+        search_noise::Union{Nothing,Float64} = nothing,
+        g_mult::Float32 = 1.0f0,
+        h_mult::Float32 = 1.0f0,
+        max_nodes::Int = typemax(Int),
+        max_time::Float64 = Inf,
+        save_search::Bool = false,
+        save_search_order::Bool = false
+    )
+
+Heuristic-guided backward (i.e. regression) search planner. Instead of searching
+forwards, searches backwards from the goal, which is treated as a *set* of 
+states which satisfy the goal predicates (equivalently, a *partial* state, 
+because only some predicates and fluents may be specified). Each expanded node
+also corresponds to a partial state. [1]
+
+As with [`ForwardPlanner`](@ref), each node ``n`` is expanded in order of
+increasing priority ``f(n)``, defined as:
+
+``f(n) = g_\\text{mult} \\cdot g(n) + h_\\text{mult} \\cdot h(n)``
+
+However ``g(n)`` is instead defined as the path cost from the goal to the
+current node ``n``, and ``h(n)`` is a heuristic estimate of the distance
+from the initial state. As such, only certain heuristics, such as
+[`GoalCountHeuristic`](@ref) and  [`HSPRHeuristic`](@ref) can be used with
+backward search.
+
+Returns a [`PathSearchSolution`](@ref) or [`NullSolution`](@ref), similar to
+[`ForwardPlanner`](@ref).
+
+This planner does not currently support domains with non-Boolean fluents.
+
+[1] B. Bonet and H. Geffner, "Planning as Heuristic Search," Artificial
+Intelligence, vol. 129, no. 1, pp. 5–33, Jun. 2001,
+https://doi.org/10.1016/S0004-3702(01)00108-4
+
+# Arguments
+
+$(FIELDS)
+"""
 @kwdef mutable struct BackwardPlanner{T <: Union{Nothing, Float64}} <: Planner
+    "Search heuristic that estimates cost of a state to the goal."
     heuristic::Heuristic = GoalCountHeuristic(:backward)
-    search_noise::T = nothing # Amount of (Boltzmann) search noise
-    g_mult::Float32 = 1.0 # Path cost multiplier
-    h_mult::Float32 = 1.0 # Heuristic multiplier
-    max_nodes::Int = typemax(Int) # Max search nodes before termination
-    max_time::Float64 = Inf # Max time in seconds before timeout
-    save_search::Bool = false # Flag to save search tree in solution
-    save_search_order::Bool = false # Flag to save search order
+    "Amount of Boltzmann search noise (`nothing` for deterministic search)."
+    search_noise::T = nothing
+    "Path cost multiplier when computing the ``f`` value of a search node."
+    g_mult::Float32 = 1.0f0
+    "Heuristic multiplier when computing the ``f`` value of a search node."
+    h_mult::Float32 = 1.0f0
+    "Maximum number of search nodes before termination."
+    max_nodes::Int = typemax(Int)
+    "Maximum time in seconds before planner times out."
+    max_time::Float64 = Inf
+    "Flag to save the search tree and frontier in the returned solution."
+    save_search::Bool = false
+    "Flag to save the node expansion order in the returned solution."
+    save_search_order::Bool = false
 end
 
 @auto_hash BackwardPlanner
@@ -19,21 +68,44 @@ end
 BackwardPlanner(heuristic::Heuristic, search_noise::T, args...) where {T} =
     BackwardPlanner{T}(heuristic, search_noise, args...)
 
-"Backward greedy search, with cycle checking."
+"""
+$(SIGNATURES)
+
+Backward greedy search, with cycle checking.
+"""
 BackwardGreedyPlanner(heuristic::Heuristic; kwargs...) =
     BackwardPlanner(;heuristic=heuristic, g_mult=0, kwargs...)
 
-"Backward A* search."
+"""
+$(SIGNATURES)
+
+Backward A* search.
+"""
 BackwardAStarPlanner(heuristic::Heuristic; kwargs...) =
     BackwardPlanner(;heuristic=heuristic, kwargs...)
 
-"Probabilistic backward best-first search planner."
+"""
+    ProbBackwardPlanner(;
+        search_noise::Float64 = 1.0,
+        kwargs...
+    )
+
+A probabilistic variant of backward search, with the same node expansion
+rule as [`ProbForwardPlanner`](@ref).
+
+An alias for `BackwardPlanner{Float64}`. See [`BackwardPlanner`](@ref) for
+other arguments.
+"""
 const ProbBackwardPlanner = BackwardPlanner{Float64}
 
 ProbBackwardPlanner(;search_noise=1.0, kwargs...) = 
     BackwardPlanner(;search_noise=search_noise, kwargs...)
 
-"Probabilistic backward A* search."
+"""
+$(SIGNATURES)
+
+A probabilistic variant of backward A* search.
+"""
 ProbBackwardAStarPlanner(heuristic::Heuristic; search_noise=1.0, kwargs...) =
     BackwardPlanner(;heuristic=heuristic, search_noise=search_noise, kwargs...)
 

@@ -7,6 +7,7 @@ using AutoHashEquals: AutoHashEquals, @auto_hash_equals
 using DataStructures: PriorityQueue, enqueue!, dequeue!, dequeue_pair!
 using StatsBase: sample, Weights
 using PDDL: PDDL, flatten_conjs
+using DocStringExtensions
 using Random, PDDL
 
 abstract type Specification end
