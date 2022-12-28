@@ -24,7 +24,7 @@ benefit of detecting a crossing, in lieu of more sophisticated methods [1].
 
 [1] V. Alcázar, S. Fernández, and D. Borrajo, "Analyzing the Impact of Partial
 States on Duplicate Detection and Collision of Frontiers," ICAPS (2014),
-https://doi.org/10.1609/icaps.v24i1.13677.
+<https://doi.org/10.1609/icaps.v24i1.13677>
 
 # Arguments
 

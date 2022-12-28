@@ -46,10 +46,10 @@ encountered state. Note that while this planner returns a policy, it expects
 a deterministic domain as input.
 
 [1] R. E. Korf, "Real-Time Heuristic Search," Artificial Intelligence, vol. 42,
-no. 2, pp. 189–211, Mar. 1990, https://doi.org/10.1016/0004-3702(90)90054-4.
+no. 2, pp. 189–211, Mar. 1990, <https://doi.org/10.1016/0004-3702(90)90054-4>.
 
 [2] S. Koenig and M. Likhachev, “Real-Time Adaptive A*,” AAMAS (2006), 
-pp. 281–288. https://doi.org/10.1145/1160633.1160682.
+pp. 281–288. <https://doi.org/10.1145/1160633.1160682>.
 """
 mutable struct RealTimeHeuristicSearch <: Planner
     planner::ForwardPlanner

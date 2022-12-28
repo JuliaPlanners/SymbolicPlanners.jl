@@ -50,7 +50,7 @@ documentation for further explanation of options.
 
 [1] M. Helmert, "The Fast Downward Planning System," Journal of Artificial
 Intelligence Research, vol. 26, pp. 191–246, Jul. 2006,
-https://doi.org/10.1613/jair.1705.
+<https://doi.org/10.1613/jair.1705>.
 
 # Arguments
 
@@ -156,7 +156,7 @@ installed locally for this wrapper to be used. Consult the Pyperplan
 documentation for further explanation of options.
 
 [1] Y. Alkhazraji et al., "Pyperplan." Zenodo, 2020.
-https://doi.org/10.5281/zenodo.3700819
+<https://doi.org/10.5281/zenodo.3700819>.
 
 # Arguments
 
@@ -255,7 +255,7 @@ Wrapper for the Expressive Numeric Heuristic Search Planner (ENHSP) [1]. The
 planner has to be installed locally for this wrapper to be used. Consult
 the ENHSP documentation for further explanation of options.
 
-[1] E. Scala et al., "ENHSP", https://sites.google.com/view/enhsp/.
+[1] E. Scala et al., "ENHSP", <https://sites.google.com/view/enhsp/>.
 
 # Arguments
 

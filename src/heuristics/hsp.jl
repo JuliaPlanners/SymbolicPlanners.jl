@@ -25,7 +25,7 @@ true once a constituent fluent is modified by some action.
 
 [1] B. Bonet and H. Geffner, "Planning as Heuristic Search," Artificial
 Intelligence, vol. 129, no. 1, pp. 5–33, Jun. 2001,
-https://doi.org/10.1016/S0004-3702(01)00108-4
+<https://doi.org/10.1016/S0004-3702(01)00108-4>.
 """
 mutable struct HSPHeuristic{F <: Function} <: Heuristic
     op::F # Aggregator (e.g. maximum, sum) for fact costs
@@ -107,7 +107,7 @@ condition that is true in the partial state.
 
 [1] B. Bonet and H. Geffner, "Planning as Heuristic Search," Artificial
 Intelligence, vol. 129, no. 1, pp. 5–33, Jun. 2001,
-https://doi.org/10.1016/S0004-3702(01)00108-4
+<https://doi.org/10.1016/S0004-3702(01)00108-4>.
 """
 mutable struct HSPRHeuristic{F <: Function} <: Heuristic
     op::F

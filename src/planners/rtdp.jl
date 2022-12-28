@@ -28,7 +28,7 @@ each encountered state.
 
 [1] A. G. Barto, S. J. Bradtke, and S. P. Singh, "Learning to Act using
 Real-Time Dynamic Programming," Artificial Intelligence, vol. 72, no. 1,
-pp. 81–138, Jan. 1995, https://doi.org/10.1016/0004-3702(94)00011-O.
+pp. 81–138, Jan. 1995, <https://doi.org/10.1016/0004-3702(94)00011-O>.
 
 # Arguments
 

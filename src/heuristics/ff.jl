@@ -23,7 +23,7 @@ Functional preconditions are handled by (optimistically) assuming they become
 true once a constituent fluent is modified by some action.
 
 [1] J. Hoffmann, "FF: The Fast-Forward Planning System," AI Magazine, vol. 22,
-no. 3, pp. 57–57, Sep. 2001, https://doi.org/10.1609/aimag.v22i3.1572.
+no. 3, pp. 57–57, Sep. 2001, <https://doi.org/10.1609/aimag.v22i3.1572>.
 """
 mutable struct FFHeuristic <: Heuristic
     dynamic_goal::Bool # Flag whether goal-relevant information is dynamic
