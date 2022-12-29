@@ -1,14 +1,35 @@
 export MinActionCosts, ExtraActionCosts
 export infer_action_costs
 
-"Returns whether a specification has action-specific costs."
+"""
+$(SIGNATURES)
+
+Returns whether a specification has action-specific costs.
+"""
 has_action_cost(spec::Specification) = false
 
-"Returns the cost for `act` for specifications with fixed action costs."
+"""
+$(SIGNATURES)
+
+Returns the cost for `act` for specifications with fixed action costs.
+"""
 get_action_cost(spec::Specification, act::Term) =
     error("Not implemented.")
 
-"Goal specification with action-specific costs."
+"""
+    MinActionCosts(terms, costs)
+    MinActionCosts(terms, actions, costs)
+
+[`Goal`](@ref) specification where each action has a specific cost, and the goal
+formula is a conjunction of `terms`. Planners called with this specification
+will try to minimize the total action cost in the returned [`Solution`](@ref).
+
+Costs can be provided as mapping from action names (specified as `Symbol`s)
+to `Real`s, such that each lifted action has an associated cost. Alternatively,
+costs can be provided as a mapping from ground action `Term`s to `Real`s.
+A mapping can be provided directly as a `NamedTuple` or `Dictionary`, or as
+a list of `actions` and corresponding `costs`.
+"""
 struct MinActionCosts{C} <: Goal
     terms::Vector{Term} # Goal terms to be satisfied
     costs::C # Named tuple or dictionary of action costs
@@ -37,6 +58,12 @@ function MinActionCosts(terms; costs...)
     return MinActionCosts(terms, actions, costs)
 end
 
+"""
+    MinActionCosts(domain::Domain, problem::Problem)
+
+Attempts to infer action costs from a `domain` and `problem`, and constructs
+a corresponding specification if successful.
+"""
 function MinActionCosts(domain::Domain, problem::Problem)
     costs = infer_action_costs(domain, problem)
     if costs === nothing
@@ -71,10 +98,21 @@ get_goal_terms(spec::MinActionCosts) = spec.terms
 set_goal_terms(spec::MinActionCosts, terms) =
     MinActionCosts(terms, spec.costs)
 
-"Adds action-specific costs to an underlying specification."
+"""
+    ExtraActionCosts(spec::Specification, costs)
+    ExtraActionCosts(spec::Specification, actions, costs)
+
+Wrapper that adds action-specific costs to an underlying `spec`.
+
+Costs can be provided as mapping from action names (specified as `Symbol`s)
+to `Real`s, such that each lifted action has an associated cost. Alternatively,
+costs can be provided as a mapping from ground action `Term`s to `Real`s.
+A mapping can be provided directly as a `NamedTuple` or `Dictionary`, or as
+a list of `actions` and corresponding `costs`.
+"""
 struct ExtraActionCosts{S <: Specification, C} <: Specification
     spec::S # Underlying specification
-    costs::C # Named tuple of action costs
+    costs::C # Named tuple or dictionary of action costs
 end
 
 function ExtraActionCosts(spec::Specification,
@@ -127,7 +165,12 @@ get_discount(spec::ExtraActionCosts) =
 set_goal_terms(spec::ExtraActionCosts, terms) =
     ExtraActionCosts(set_goal_terms(spec.spec, terms), spec.costs)
 
-"Infer fixed action costs, returning `nothing` if unsuccessful."
+"""
+$(SIGNATURES)
+
+Infer fixed action costs for a `domain` and `problem`, returning `nothing`
+if unsuccessful.
+"""
 function infer_action_costs(domain::Domain, problem::Problem)
     # Extract fluents in metric expression
     metric = PDDL.get_metric(problem)
@@ -140,6 +183,16 @@ function infer_action_costs(domain::Domain, problem::Problem)
     return infer_action_costs(domain, state, metric)
 end
 
+"""
+    infer_action_costs(
+        domain::Domain, state::State, metric::Term,
+        cost_fluents=PDDL.constituents(metric, domain),
+        static_fluents=infer_static_fluents(domain)
+    )
+
+Infer fixed action costs for a `domain` and initial `state`, and `metric`
+formula, returning `nothing` if unsuccessful.
+"""
 function infer_action_costs(
     domain::Domain, state::State, metric::Term,
     cost_fluents=PDDL.constituents(metric, domain),
@@ -155,7 +208,15 @@ function infer_action_costs(
     return costs
 end
 
-"Infer costs for each lifted action, returning `nothing` if unsuccessful."
+"""
+    infer_lifted_action_costs(
+        domain::Domain, state::State, metric::Term,
+        cost_fluents=PDDL.constituents(metric, domain),
+        static_fluents=infer_static_fluents(domain)
+    )
+
+Infer costs for each lifted action, returning `nothing` if unsuccessful.
+"""
 function infer_lifted_action_costs(
     domain::Domain, state::State, metric::Term,
     cost_fluents=PDDL.constituents(metric, domain),
@@ -184,7 +245,15 @@ function infer_lifted_action_costs(
     return costs
 end
 
-"Infer costs for each ground action, returning `nothing` if unsuccessful."
+"""
+    infer_ground_action_costs(
+        domain::Domain, state::State, metric::Term,
+        cost_fluents=PDDL.constituents(metric, domain),
+        static_fluents=infer_static_fluents(domain)
+    )
+
+Infer costs for each ground action, returning `nothing` if unsuccessful.
+"""
 function infer_ground_action_costs(
     domain::Domain, state::State, metric::Term,
     cost_fluents=PDDL.constituents(metric, domain),

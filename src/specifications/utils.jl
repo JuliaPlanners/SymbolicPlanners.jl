@@ -1,6 +1,12 @@
 # Utilities for working with specifications
 
-"Simplifies a goal specification with respect to a domain and initial state."
+"""
+$(SIGNATURES)
+
+Simplifies a goal `spec` with respect to a `domain` and initial `state`.
+Universal or existential conditions are expanded into conjuctions or
+disjunctions, and predicates with statically known truth values are pruned.
+"""
 function simplify_goal(spec::Specification, domain::Domain, state::State)
     # Dequantify and simplify goal condition
     statics = PDDL.infer_static_fluents(domain)
