@@ -42,6 +42,10 @@ end
 
 sim = StateActionRecorder()
 
+actions, traj = sim(blocksworld, bw_state, collect(bw_plan))
+@test actions == collect(bw_plan)
+@test traj == bw_traj
+
 actions, traj = sim(bw_plan, blocksworld, bw_state, bw_spec)
 @test actions == collect(bw_plan)
 @test traj == bw_traj
@@ -55,6 +59,9 @@ end
 @testset "Reward Accumulator" begin
 
 sim = RewardAccumulator()
+
+reward = sim(blocksworld, bw_state, collect(bw_plan), bw_spec)
+@test reward == -length(bw_plan)
 
 reward = sim(bw_plan, blocksworld, bw_state, bw_spec)
 @test reward == -length(bw_plan)

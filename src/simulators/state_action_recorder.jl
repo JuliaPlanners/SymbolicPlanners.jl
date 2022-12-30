@@ -11,11 +11,9 @@ end
 
 function simulate(sim::StateActionRecorder,
 				  domain::Domain, state::State, actions)
-    actions = Term[]
     trajectory = State[state]
 	for (t, act) in enumerate(actions)
         state = transition(domain, state, act)
-		push!(actions, act)
 		push!(trajectory, state)
 		sim.max_steps !== nothing && t >= sim.max_steps && break
     end
