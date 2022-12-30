@@ -1,5 +1,7 @@
 # SymbolicPlanners.jl
 
+[![Documentation (Stable)](https://img.shields.io/badge/docs-stable-blue.svg)](https://juliaplanners.github.io/SymbolicPlanners.jl/stable)
+[![Documentation (Latest)](https://img.shields.io/badge/docs-latest-blue.svg)](https://juliaplanners.github.io/SymbolicPlanners.jl/dev)
 ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/JuliaPlanners/SymbolicPlanners.jl/CI.yml?branch=master)
 ![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/JuliaPlanners/SymbolicPlanners.jl)
 ![License](https://img.shields.io/github/license/JuliaPlanners/SymbolicPlanners.jl?color=lightgrey)
@@ -27,6 +29,25 @@ add https://github.com/JuliaPlanners/SymbolicPlanners.jl
 - Policy and plan simulation
 - Modular framework for goal, reward and cost specifications
 - Support for PDDL domains with numeric fluents and custom datatypes
+
+## Usage
+
+A simple usage example is shown below. More information can be found in the [documentation](https://juliaplanners.github.io/SymbolicPlanners.jl/dev).
+
+```julia
+using PDDL, PlanningDomains, SymbolicPlanners
+# Load Blocksworld domain and problem
+domain = load_domain(:blocksworld)
+problem = load_problem(:blocksworld, "problem-4")
+# Construct initial state from domain and problem
+state = initstate(domain, problem)
+# Construct goal specification that requires minimizing plan length
+spec = MinStepsGoal(problem)
+# Construct A* planner with h_add heuristic
+planner = AStarPlanner(HAdd())
+# Find a solution given the initial state and specification
+sol = planner(domain, state, spec)
+```
 
 ## Planners
 
