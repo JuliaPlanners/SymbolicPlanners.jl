@@ -1,0 +1,6 @@
+[deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+SymbolicPlanners = "b6fe5377-9711-4fad-95b0-be4eed71ecbb"
+
+[compat]
+Documenter = "0.27, 0.28"
