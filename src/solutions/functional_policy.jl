@@ -1,6 +1,17 @@
 export FunctionalVPolicy, FunctionalQPolicy
 
-"Policy solution where (state) values are evaluated by a function."
+"""
+    FunctionalVPolicy(evaluator, domain, spec)
+    FunctionalVPolicy(heuristic:Heuristic, domain, spec)
+
+Policy solution where state values are defined by an `evaluator`, a one-argument
+function that outputs a value estimate for each `state`. An `evaluator` can
+be automatically constructed from a `heuristic`, by negating the heuristic's
+estimate of the distance to the goal.
+    
+The domain and specification also have to be provided, so that the policy knows
+how to derive action Q-values for each state.
+"""
 @auto_hash_equals struct FunctionalVPolicy{
     F, D <: Domain, S <: Specification
 } <: PolicySolution

@@ -1,7 +1,11 @@
 ## Utilities and solutions for path search algorithms ##
 export PathSearchSolution, BiPathSearchSolution, AbstractPathSearchSolution
 
-"Abstract solution type for search-based planners."
+"""
+$(TYPEDEF)
+
+Abstract solution type for search-based planners.
+"""
 abstract type AbstractPathSearchSolution <: OrderedSolution end
 
 function Base.show(io::IO, sol::AbstractPathSearchSolution)
@@ -66,6 +70,13 @@ end
 get_action_prob(sol::AbstractPathSearchSolution, state::State, action::Term) =
     action == best_action(sol, state) ? 1.0 : 0.0
 
+"""
+    PathNode(id::UInt, state::State, path_cost::Float32,
+             parent_id::Union{UInt,Nothing},
+             parent_action::Union{Term,Nothing})
+
+Representation of search node with a backpointer, used by search-based planners.
+"""
 @auto_hash_equals mutable struct PathNode{S<:State}
     id::UInt
     state::S
@@ -91,16 +102,34 @@ function reconstruct(node_id::UInt, search_tree::Dict{UInt,PathNode{S}}) where S
     return plan, traj
 end
 
-"Solution type for search-based planners that produce fully ordered plans."
+"""
+    PathSearchSolution(status, plan)
+    PathSearchSolution(status, plan, trajectory)
+    PathSearchSolution(status, plan, trajectory, expanded,
+                       search_tree, search_frontier, search_order)
+
+Solution type for search-based planners that produce fully ordered plans.
+
+# Fields
+
+$(FIELDS)
+"""
 @auto_hash_equals mutable struct PathSearchSolution{
     S <: State, T
 } <: AbstractPathSearchSolution
+    "Status of the returned solution."
     status::Symbol
+    "Sequence of actions that reach the goal. May be partial / incomplete."
     plan::Vector{Term}
+    "Trajectory of states that will be traversed while following the plan."
     trajectory::Union{Vector{S},Nothing}
+    "Number of nodes expanded during search."
     expanded::Int
+    "Tree of [`PathNode`](@ref)s expanded or evaluated during search."
     search_tree::Union{Dict{UInt,PathNode{S}},Nothing}
+    "Frontier of yet-to-be-expanded search nodes (stored as references)."
     search_frontier::T
+    "Order of nodes expanded during search (stored as references)."
     search_order::Vector{UInt}
 end
 
@@ -138,19 +167,43 @@ function Base.show(io::IO, m::MIME"text/plain", sol::PathSearchSolution)
     end
 end
 
-"Solution type for bidirectional search-based planners."
+"""
+    BiPathSearchSolution(status, plan)
+    BiPathSearchSolution(status, plan, trajectory)
+    BiPathSearchSolution(status, plan, trajectory, expanded,
+                         f_search_tree, f_frontier, f_expanded, f_trajectory,
+                         b_search_tree, b_frontier, b_expanded, b_trajectory)
+
+Solution type for bidirectional search-based planners.
+
+# Fields
+
+$(FIELDS)
+"""
 mutable struct BiPathSearchSolution{S<:State,T} <: AbstractPathSearchSolution
+    "Status of the returned solution."
     status::Symbol
+    "Sequence of actions that reach the goal. May be partial / incomplete."
     plan::Vector{Term}
+    "Trajectory of states that will be traversed while following the plan."
     trajectory::Union{Vector{S},Nothing}
+    "Number of nodes expanded during search."
     expanded::Int
+    "Forward search tree."
     f_search_tree::Union{Dict{UInt,PathNode{S}},Nothing}
+    "Forward search frontier."
     f_frontier::T
+    "Number of nodes expanded via forward search."
     f_expanded::Int
+    "Trajectory of states returned by forward search."
     f_trajectory::Union{Vector{S},Nothing}
+    "Backward search tree."
     b_search_tree::Union{Dict{UInt,PathNode{S}},Nothing}
+    "Backward search frontier."
     b_frontier::T
+    "Number of nodes expanded via backward search."
     b_expanded::Int
+    "Trajectory of states returned by backward search."
     b_trajectory::Union{Vector{S},Nothing}
 end
 

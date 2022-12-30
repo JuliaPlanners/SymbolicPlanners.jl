@@ -1,12 +1,27 @@
 export FastDownward, Pyperplan, ENHSP
 export ExternalPlan
 
-"Solution type for plans produced by external planners."
+"""
+    ExternalPlan(plan::AbstractVector{<:Term})
+    ExternalPlan(plan, runtime, expanded, evaluated)
+    ExternalPlan(status, plan, runtime, expanded, evaluated)
+
+Generic solution type for plans produced by external planners.
+
+# Fields
+
+$(FIELDS)
+"""
 @auto_hash_equals struct ExternalPlan <: OrderedSolution
+    "Status of returned solution."
     status::Symbol
+    "Sequence of actions returned by the external planner."
     plan::Vector{Term}
+    "Runtime of external planner."
     runtime::Float64
+    "Number of nodes expanded during search."
     expanded::Int
+    "Number of nodes evaluated with a heuristic during search."
     evaluated::Int
 end
 

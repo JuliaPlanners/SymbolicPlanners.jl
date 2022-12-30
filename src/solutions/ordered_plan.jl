@@ -1,6 +1,10 @@
 export OrderedPlan
 
-"Solution type for fully ordered plans."
+"""
+    OrderedPlan(plan::AbstractVector{<:Term})
+
+Generic solution type for fully ordered plans.
+"""
 @auto_hash_equals struct OrderedPlan <: OrderedSolution
     plan::Vector{Term}
 end

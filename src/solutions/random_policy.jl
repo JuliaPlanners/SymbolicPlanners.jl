@@ -1,6 +1,12 @@
 export RandomPolicy
 
-"Policy that selects actions uniformly at random."
+"""
+    RandomPolicy(domain)
+    RandomPolicy(domain, rng::AbstractRNG)
+
+Policy that selects available actions uniformly at random. The `domain` has
+to be provided to determine the actions available in each state.
+"""
 @auto_hash_equals struct RandomPolicy{
     D <: Domain, R <: AbstractRNG
 } <: PolicySolution

@@ -1,6 +1,13 @@
 export EpsilonGreedyPolicy
 
-"Policy that acts uniformly at random with ϵ chance, but is otherwise greedy."
+"""
+    EpsilonGreedyPolicy(domain, policy, epsilon)
+    EpsilonGreedyPolicy(domain, policy, epsilon, rng::AbstractRNG)
+
+Policy that acts uniformly at random with `epsilon` chance, but otherwise 
+selects the best action according the underlying `policy`. The `domain` has
+to be provided to determine the actions available in each state.
+"""
 @auto_hash_equals struct EpsilonGreedyPolicy{
     P <: PolicySolution, R <: AbstractRNG
 } <: PolicySolution

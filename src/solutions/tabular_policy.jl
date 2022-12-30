@@ -1,6 +1,16 @@
 export TabularPolicy, TabularVPolicy
 
-"Policy solution where values and Q-values are stored in a lookup table."
+"""
+    TabularPolicy(V::Dict, Q::Dict, default)
+    TabularPolicy(default = NullPolicy())
+
+Policy solution where state values and action Q-values are stored in lookup
+tables `V` and `Q`, where `V` maps state hashes to values, and `Q` maps state
+hashes to dictionaries of Q-values for each action in the corresponding state.
+
+A `default` policy can be specified, so that if a state doesn't already exist
+in the lookup tables, the value returned by `default` will be used instead.
+"""
 @auto_hash_equals struct TabularPolicy{P <: PolicySolution} <: PolicySolution
     V::Dict{UInt64,Float64} # Value table
     Q::Dict{UInt64,Dict{Term,Float64}} # Q-value table
@@ -55,7 +65,17 @@ function get_action_values(sol::TabularPolicy, state::State)
     end
 end
 
-"Policy solution where state values are stored in a lookup table."
+"""
+    TabularVPolicy(V::Dict, domain, spec, default)
+    TabularVPolicy(domain, spec, default = NullPolicy())
+
+Policy solution where state values are stored in a lookup table `V` that maps
+state hashes to values. The domain and specification also have to be provided,
+so that the policy knows how to derive action Q-values in each state.
+
+A `default` policy can be specified, so that if a state doesn't already exist
+in the lookup table, the value returned by `default` will be used instead.
+"""
 @auto_hash_equals struct TabularVPolicy{
     D <: Domain,
     S <: Specification,
