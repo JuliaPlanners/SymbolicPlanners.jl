@@ -33,9 +33,9 @@ is_violated(spec::StateConstrainedGoal, domain::Domain, state::State) =
     !satisfy(domain, state, spec.constraints) ||
     is_violated(spec.goal, domain, state)
 get_cost(spec::StateConstrainedGoal, d::Domain, s1::State, a::Term, s2::State) =
-    get_cost(spec.goal, d, s1, a, s2)
+    is_violated(spec.goal, d, s2) ? Inf : get_cost(spec.goal, d, s1, a, s2)
 get_reward(spec::StateConstrainedGoal, d::Domain, s1::State, a::Term, s2::State) =
-    get_reward(spec.goal, d, s1, a, s2)
+    is_violated(spec.goal, d, s2) ? -Inf : get_reward(spec.goal, d, s1, a, s2)
 get_goal_terms(spec::StateConstrainedGoal) = get_goal_terms(spec.goal)
 
 set_goal_terms(spec::StateConstrainedGoal, terms) =
