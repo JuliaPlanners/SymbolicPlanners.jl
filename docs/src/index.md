@@ -65,17 +65,20 @@ A* search produces an ordered plan as a [`Solution`](@ref), which we can inspect
 
 ```julia-repl
 julia> collect(sol)
-10-element Vector{Any}:
- unstack(b, a)
- put-down(b)
- unstack(a, d)
- stack(a, e)
- pick-up(b)
- stack(b, a)
- pick-up(c)
- stack(c, b)
- pick-up(d)
- stack(d, c)
+PathSearchSolution{GenericState, Nothing}
+  status: success
+  plan: 10-element Vector{Term}
+    (unstack b a)
+    (put-down b)
+    (unstack a d)
+    (stack a e)
+    (pick-up b)
+    (stack b a)
+    (pick-up c)
+    (stack c b)
+    (pick-up d)
+    (stack d c)
+  trajectory: 11-element Vector{GenericState}
 
 julia> PDDL.satisfy(domain, sol.trajectory[end], PDDL.get_goal(problem))
 true
