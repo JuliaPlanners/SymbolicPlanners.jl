@@ -27,7 +27,9 @@ backpropagating the value estimates of all frontier nodes (including goal nodes)
 to their parents. That is, for each ancestor ``a`` of a frontier node ``n`` in
 the search tree, its updated value estimate is:
 
-``V(a) = -[f(n) - g(a)] = -[g(n) + h(n) - g(a)] = -[(g(n) - g(a)) + h(n)]``
+```math
+V(a) = -[f(n) - g(a)] = -[g(n) + h(n) - g(a)] = -[(g(n) - g(a)) + h(n)]
+```
 
 where ``g(n)`` is the path cost from the root of the search tree to ``n``, 
 ``h(n)`` is the heuristic goal-distance estimate for ``n``, and

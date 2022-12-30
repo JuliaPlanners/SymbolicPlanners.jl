@@ -18,7 +18,9 @@ Forward best-first search planner, which encompasses uniform-cost search,
 greedy search, and A* search. Each node ``n`` is expanded in order of increasing
 priority ``f(n)``, defined as:
 
-``f(n) = g_\\text{mult} \\cdot g(n) + h_\\text{mult} \\cdot h(n)``
+```math
+f(n) = g_\\text{mult} \\cdot g(n) + h_\\text{mult} \\cdot h(n)
+```
 
 where ``g(n)`` is the path cost from the initial state to ``n``, and ``h(n)``
 is the heuristic's goal distance estimate.
@@ -27,7 +29,7 @@ Returns a [`PathSearchSolution`](@ref) if the goal is achieved, containing a
 plan that reaches the goal node, and `status` set to `:success`. If the node
 or time budget runs out, the solution will instead contain a partial plan to
 the last node selected for expansion, with `status` set to `:max_nodes` or 
-`max_time` accordingly.
+`:max_time` accordingly.
 
 If `save_search` is true, the returned solution will contain the search tree
 and frontier so far. If `save_search` is true and the search space is exhausted

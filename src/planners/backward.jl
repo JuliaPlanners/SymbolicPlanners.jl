@@ -22,7 +22,9 @@ also corresponds to a partial state. [1]
 As with [`ForwardPlanner`](@ref), each node ``n`` is expanded in order of
 increasing priority ``f(n)``, defined as:
 
-``f(n) = g_\\text{mult} \\cdot g(n) + h_\\text{mult} \\cdot h(n)``
+```math
+f(n) = g_\\text{mult} \\cdot g(n) + h_\\text{mult} \\cdot h(n)
+```
 
 However ``g(n)`` is instead defined as the path cost from the goal to the
 current node ``n``, and ``h(n)`` is a heuristic estimate of the distance
