@@ -110,3 +110,13 @@ RealTimeDynamicPlanner
 RealTimeHeuristicSearch
 MonteCarloTreeSearch
 ```
+
+## External Planners
+
+Wrappers for several external planners are provided:
+
+```@docs
+FastDownward
+Pyperplan
+ENHSP
+```
