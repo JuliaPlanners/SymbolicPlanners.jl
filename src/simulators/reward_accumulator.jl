@@ -1,6 +1,10 @@
 export RewardAccumulator
 
-"Simulator that returns accumulated reward."
+"""
+	RewardAccumulator(max_steps::Union{Int,Nothing} = nothing)
+
+Simulator that returns accumulated reward.
+"""
 @kwdef struct RewardAccumulator <: Simulator
 	max_steps::Union{Int,Nothing} = nothing
 end

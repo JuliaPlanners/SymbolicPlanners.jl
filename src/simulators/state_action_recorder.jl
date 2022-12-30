@@ -1,6 +1,10 @@
 export StateActionRecorder
 
-"Simulator that records the state-action trajectory, including the start state."
+"""
+	StateActionRecorder(max_steps::Union{Int,Nothing} = nothing)
+
+Simulator that records the state-action trajectory, including the start state.
+"""
 @kwdef struct StateActionRecorder <: Simulator
 	max_steps::Union{Int,Nothing} = nothing
 end
