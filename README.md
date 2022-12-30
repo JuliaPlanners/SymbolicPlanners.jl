@@ -45,7 +45,6 @@ problem = load_problem(:blocksworld, "problem-4")
 state = initstate(domain, problem)
 
 # Construct goal specification that requires minimizing plan length
-
 spec = MinStepsGoal(problem)
 
 # Construct A* planner with h_add heuristic
