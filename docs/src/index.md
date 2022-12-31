@@ -64,7 +64,7 @@ sol = planner(domain, state, spec)
 A* search produces an ordered plan as a [`Solution`](@ref), which we can inspect and validate:
 
 ```julia-repl
-julia> collect(sol)
+julia> sol
 PathSearchSolution{GenericState, Nothing}
   status: success
   plan: 10-element Vector{Term}
