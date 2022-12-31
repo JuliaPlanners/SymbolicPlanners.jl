@@ -33,7 +33,7 @@ the last node selected for expansion, with `status` set to `:max_nodes` or
 
 If `save_search` is true, the returned solution will contain the search tree
 and frontier so far. If `save_search` is true and the search space is exhausted
-return a `NullSolution  with `status` set to `:failure`.
+return a `NullSolution` with `status` set to `:failure`.
 
 # Arguments
 

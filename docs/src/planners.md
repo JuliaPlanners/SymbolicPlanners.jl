@@ -100,7 +100,7 @@ Unlike most systems for automated symbolic planning, SymbolicPlanners.jl
 includes several policy-based planners which return [`PolicySolution`](@ref)s.
 
 These planners are especially useful for stochastic environments (even if the
-planner operators over a determinized version of the true domain), since they
+planner operates over a determinized version of the true domain), since they
 compute what action should be performed in each encountered state, rather than
 just a sequence of ordered actions. They are also useful for real-time planning
 via reuse of previous solutions.
