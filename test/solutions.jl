@@ -41,10 +41,11 @@ sol = PathSearchSolution(:success, plan, trajectory)
 @test length(sol) == 4
 @test eltype(sol) == Term
 
+no_op = convert(Term, PDDL.no_op)
 @test get_action(sol, trajectory[3]) == plan[3]
-@test ismissing(get_action(sol, trajectory[end]))
+@test get_action(sol, trajectory[end]) == no_op
 @test get_action_probs(sol, trajectory[2]) == Dict(plan[2] => 1.0)
-@test get_action_probs(sol, trajectory[end]) == Dict()
+@test get_action_probs(sol, trajectory[end]) == Dict(no_op => 1.0)
 @test get_action_prob(sol, trajectory[1], plan[1]) == 1.0
 
 @test copy(sol) == sol

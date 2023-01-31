@@ -8,9 +8,7 @@ Policy that acts uniformly at random with `epsilon` chance, but otherwise
 selects the best action according the underlying `policy`. The `domain` has
 to be provided to determine the actions available in each state.
 """
-@auto_hash_equals struct EpsilonGreedyPolicy{
-    P <: PolicySolution, R <: AbstractRNG
-} <: PolicySolution
+@auto_hash_equals struct EpsilonGreedyPolicy{P, R <: AbstractRNG} <: PolicySolution
     domain::Domain
     policy::P
     epsilon::Float64
@@ -49,7 +47,7 @@ function get_action_probs(sol::EpsilonGreedyPolicy, state::State)
     if n_actions == 0 return probs end
     map!(x -> x / n_actions, values(probs))
     best_act = best_action(sol.policy, state)
-    probs[best_act] += 1 - sol.epsilon
+    probs[best_act] = 1 - sol.epsilon + get(probs, best_act, 0.0)
     return probs
 end
 

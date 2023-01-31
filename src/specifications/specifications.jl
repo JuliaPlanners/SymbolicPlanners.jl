@@ -149,3 +149,8 @@ Constructs a [`MinStepsGoal`](@ref) specification from one or more goals.
 """
 Specification(goals::AbstractVector{<:Term}) = MinStepsGoal(goals)
 Specification(goal::Term) = MinStepsGoal(goal)
+
+Base.convert(::Type{Specification}, goals::AbstractVector{<:Term}) =
+    Specification(goals)
+Base.convert(::Type{Specification}, goal::Term) =
+    Specification(goal)

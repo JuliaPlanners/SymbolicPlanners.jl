@@ -44,10 +44,15 @@ Base.length(sol::AbstractPathSearchSolution) = length(sol.plan)
 get_action(sol::AbstractPathSearchSolution, t::Int) = sol.plan[t]
 
 function get_action(sol::AbstractPathSearchSolution, state::State)
+    if sol.status == :failure # Return no-op if goal is unreachable
+        return convert(Term, PDDL.no_op)
+    end
     idx = findfirst(==(state), sol.trajectory)
-    if isnothing(idx) || idx == length(sol.trajectory)
+    if isnothing(idx) # Return missing if no corresponding state found
         return missing
-    else
+    elseif idx == length(sol.trajectory) # Return no-op if goal is reached
+        return sol.status == :success ? convert(Term, PDDL.no_op) : missing
+    else # Return action corresponding to state
         return sol.plan[idx]
     end
 end

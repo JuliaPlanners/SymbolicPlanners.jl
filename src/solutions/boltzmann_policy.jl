@@ -22,9 +22,7 @@ consistency of the state values ``V`` and Q-values ``Q`` according to the
 Bellman equation, since this would require repeated Bellman updates to ensure
 convergence.
 """
-@auto_hash_equals struct BoltzmannPolicy{
-    P <: PolicySolution, R <: AbstractRNG
-} <: PolicySolution
+@auto_hash_equals struct BoltzmannPolicy{P, R <: AbstractRNG} <: PolicySolution
     policy::P
     temperature::Float64
     rng::R
