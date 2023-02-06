@@ -58,7 +58,7 @@ function get_action(sol::AbstractPathSearchSolution, state::State)
 end
 
 function get_action(sol::AbstractPathSearchSolution, t::Int, state::State)
-    return isnothing(sol.trajectory) ?
+    return isnothing(sol.trajectory) || sol.trajectory[t] == state ?
         get_action(sol, t) : get_action(sol, state)
 end
 
@@ -276,5 +276,5 @@ function prob_peek(queue::PriorityQueue, temperature::Float64)
             best_priority = priority
         end
     end
-    return best_key => best_priority
+    return isnothing(best_key) ? peek(queue) : best_key => best_priority
 end

@@ -328,13 +328,14 @@ function relaxed_pgraph_search(domain::Domain, state::State, spec::Specification
 end
 
 "Returns planning graph indices for initial facts."
-function pgraph_init_idxs(graph::PlanningGraph, domain::Domain, state::State)
+function pgraph_init_idxs(graph::SymbolicPlanners.PlanningGraph, domain::Domain, state::State)
     @unpack conditions, cond_derived, cond_functional = graph
     # Handle non-derived initial conditions
     function check_cond(c, is_derived, is_func)
         is_derived && return false
         is_func && return satisfy(domain, state, c)::Bool
         c.name == :not && return !state[c.args[1]]::Bool
+        c.name isa Bool && return c.name
         return state[c]::Bool
     end
     init_idxs = broadcast(check_cond, conditions, cond_derived, cond_functional)

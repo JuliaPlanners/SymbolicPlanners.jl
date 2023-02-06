@@ -134,7 +134,7 @@ function solve!(sol::TabularVPolicy, planner::RealTimeHeuristicSearch,
             search_sol = solve(planner.planner, domain, next_state, spec)
             update_values!(planner, sol, search_sol, domain, spec)
             r = get_reward(spec, domain, state, act, next_state)
-            q = get_discount(spec) * sol.V[next_id] + r
+            q = get_discount(spec) * get_value(sol, next_state) + r
             if q > best_q
                 best_q = q
                 best_act = act

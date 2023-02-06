@@ -93,6 +93,7 @@ function solve!(sol::TabularPolicy, planner::RealTimeDynamicPlanner,
             if is_goal(spec, domain, state) break end
             update_values!(planner, sol, domain, state, spec)
             act = get_action(ro_policy, state)
+            if ismissing(act) break end # Restart if we hit a dead-end
             state = transition(domain, state, act)
         end
         # Post-rollout update
@@ -116,28 +117,22 @@ function update_values!(planner::RealTimeDynamicPlanner, sol::TabularPolicy,
     @unpack action_noise = planner
     state_id = hash(state)
     qs = get!(Dict{Term,Float64}, sol.Q, state_id)
-    if is_goal(spec, domain, state)
-        # Value of goal / terminal state is zero
-        for act in available(domain, state)
-            qs[act] = 0.0
+    # Back-propagate values from successor states
+    for act in available(domain, state)
+        next_state = transition(domain, state, act)
+        next_v = get!(sol.V, hash(next_state)) do
+            -compute(planner.heuristic, domain, next_state, spec)
         end
+        r = get_reward(spec, domain, state, act, next_state)
+        qs[act] =  get_discount(spec) * next_v + r
+    end
+    if is_goal(spec, domain, state) # Value of goal / terminal state is zero
         sol.V[state_id] = 0.0
+    elseif action_noise == 0
+        sol.V[state_id] = maximum(values(qs))
     else
-        # Back-propogate values from successor states
-        for act in available(domain, state)
-            next_state = transition(domain, state, act)
-            next_v = get!(sol.V, hash(next_state)) do
-                -compute(planner.heuristic, domain, next_state, spec)
-            end
-            r = get_reward(spec, domain, state, act, next_state)
-            qs[act] =  get_discount(spec) * next_v + r
-        end
-        if action_noise == 0
-            sol.V[state_id] = maximum(values(qs))
-        else
-            qvals = collect(values(qs))
-            sol.V[state_id] = sum(softmax(qvals ./ action_noise) .* qvals)
-        end
+        qvals = collect(values(qs))
+        sol.V[state_id] = sum(softmax(qvals ./ action_noise) .* qvals)
     end
     return nothing
 end
