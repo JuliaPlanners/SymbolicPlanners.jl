@@ -1,17 +1,19 @@
 export StateActionRecorder
 
-"Simulator that records the state-action trajectory, including the start state."
+"""
+	StateActionRecorder(max_steps::Union{Int,Nothing} = nothing)
+
+Simulator that records the state-action trajectory, including the start state.
+"""
 @kwdef struct StateActionRecorder <: Simulator
 	max_steps::Union{Int,Nothing} = nothing
 end
 
 function simulate(sim::StateActionRecorder,
 				  domain::Domain, state::State, actions)
-    actions = Term[]
     trajectory = State[state]
 	for (t, act) in enumerate(actions)
         state = transition(domain, state, act)
-		push!(actions, act)
 		push!(trajectory, state)
 		sim.max_steps !== nothing && t >= sim.max_steps && break
     end

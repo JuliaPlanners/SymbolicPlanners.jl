@@ -1,6 +1,10 @@
 export DiscountedReward, discounted
 
-"Discounts reward of underlying specification."
+"""
+    DiscountedReward(spec::Specification, discount::Float64)
+
+Discounts rewards of the underlying `spec` by a `discount` factor.
+"""
 struct DiscountedReward{S <: Specification} <: Specification
     spec::S # Underlying specification
     discount::Float64 # Discount factor
@@ -23,9 +27,18 @@ get_cost(spec::DiscountedReward, domain::Domain, s1::State, a::Term, s2::State) 
     get_cost(spec.spec, domain, s1, a, s2)
 get_reward(spec::DiscountedReward, domain::Domain, s1::State, a::Term, s2::State) =
     get_reward(spec.spec, domain, s1, a, s2)
+get_discount(spec::DiscountedReward) =
+    spec.discount
 get_goal_terms(spec::DiscountedReward) =
     get_goal_terms(spec.spec)
 
-"Discount the rewards or costs associated with `spec`."
+set_goal_terms(spec::DiscountedReward, terms) =
+    DiscountedReward(set_goal_terms(spec.spec, terms), spec.discount)
+
+"""
+$(SIGNATURES)
+
+Discount the rewards or costs associated with `spec` by a `discount` factor.
+"""
 discounted(spec::Specification, discount::Float64) =
     DiscountedReward(spec, discount)

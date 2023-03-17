@@ -1,12 +1,18 @@
 export RewardAccumulator
 
-"Simulator that returns accumulated reward."
+"""
+	RewardAccumulator(max_steps::Union{Int,Nothing} = nothing)
+
+Simulator that returns accumulated reward. A specification should be provided
+when using this simulator.
+"""
 @kwdef struct RewardAccumulator <: Simulator
 	max_steps::Union{Int,Nothing} = nothing
 end
 
 function simulate(sim::RewardAccumulator,
-				  domain::Domain, state::State, actions)
+				  domain::Domain, state::State, actions,
+				  spec::Specification = NullSpecification())
     reward = 0.0
     discount = get_discount(spec)
 	for (t, act) in enumerate(actions)

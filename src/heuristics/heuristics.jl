@@ -1,10 +1,34 @@
 ## Interface for planning heuristics ##
 export Heuristic, precompute!, compute
+export is_precomputed, ensure_precomputed!
 
-"Abstract heuristic type, which defines the interface for planning heuristics."
+"""
+    $(TYPEDEF)
+
+Abstract type for search heuristics, which estimate the distance from a 
+`State` to a goal specified by a [`Specification`](@ref). Once constructed, 
+a `heuristic` can be called on a domain, state, and specification, returning a 
+`Real` number (typically `Float32` for reduced memory usage).
+
+    heuristic(domain, state, spec; precompute=true)
+
+Heuristics may precompute and store information that will be used
+repeatedly during search via the [`precompute!`](@ref) method. Evaluation of
+the heuristic on a state is defined by [`compute`](@ref).
+
+If the `precompute` keyword argument is true when calling `heuristic` as a
+function, then [`precompute!`](@ref) will be called before [`compute`](@ref)
+is called to perform the heuristic evaluation.
+"""
 abstract type Heuristic end
 
-"Precomputes heuristic information given a domain, state, and goal."
+"""
+$(SIGNATURES)
+
+Precomputes heuristic information given a domain, state, and specification.
+This function is typically called once during the initialization phase of
+a [`Planner`](@ref)'s search algorithm.
+"""
 precompute!(h::Heuristic, domain::Domain, state::State, spec::Specification) =
     h # Return the heuristic unmodified by default
 precompute!(h::Heuristic, domain::Domain, state::State, spec) =
@@ -12,22 +36,33 @@ precompute!(h::Heuristic, domain::Domain, state::State, spec) =
 precompute!(h::Heuristic, domain::Domain, state::State) =
     precompute!(h, domain, state, NullGoal())
 precompute!(h::Heuristic, domain::Domain) =
-    precompute!(h, domain, GenericState(Term[]), NullGoal())
+    precompute!(h, domain, GenericState(Term[]))
 
-"Returns whether heuristic has been precomputed."
+"""
+$(SIGNATURES)
+
+Returns whether heuristic has been precomputed.
+"""
 is_precomputed(h::Heuristic) = false
 
-"Precomputes a heuristic if necessary."
+"""
+$(SIGNATURES)
+
+Precomputes a heuristic if necessary.
+"""
 ensure_precomputed!(h::Heuristic, args...) =
     !is_precomputed(h) ? precompute!(h, args...) : h
 
-"Computes the heuristic value of state relative to a goal in a given domain."
+"""
+$(SIGNATURES)
+
+Computes the heuristic value of state relative to a goal in a given domain.
+"""
 compute(h::Heuristic, domain::Domain, state::State, spec::Specification) =
     error("Not implemented.")
 compute(h::Heuristic, domain::Domain, state::State, spec) =
     compute(h, domain, state, Specification(spec))
 
-"Computes the heuristic value of state relative to a goal in a given domain."
 function (h::Heuristic)(domain::Domain, state::State, spec::Specification;
                         precompute::Bool=true)
     # Precompute heuristic if necessary
@@ -42,11 +77,18 @@ function (h::Heuristic)(domain::Domain, state::State, spec;
     return h(domain, state, Specification(spec); precompute=precompute)
 end
 
+function (h::Heuristic)(domain::Domain, problem::Problem; precompute::Bool=true)
+    state = initstate(domain, problem)
+    spec = Specification(problem)
+    return h(domain, state, spec; precompute=precompute)
+end
+
 include("memoized.jl")
 include("precomputed.jl")
 include("basic.jl")
 include("metric.jl")
 include("planner.jl")
+include("policy.jl")
 include("pgraph.jl")
 include("hsp.jl")
 include("ff.jl")

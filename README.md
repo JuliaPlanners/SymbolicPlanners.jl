@@ -1,6 +1,8 @@
 # SymbolicPlanners.jl
 
-![GitHub Workflow Status](https://img.shields.io/github/workflow/status/JuliaPlanners/SymbolicPlanners.jl/CI)
+[![Documentation (Stable)](https://img.shields.io/badge/docs-stable-blue.svg)](https://juliaplanners.github.io/SymbolicPlanners.jl/stable)
+[![Documentation (Latest)](https://img.shields.io/badge/docs-latest-blue.svg)](https://juliaplanners.github.io/SymbolicPlanners.jl/dev)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/JuliaPlanners/SymbolicPlanners.jl/CI.yml?branch=master)
 ![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/JuliaPlanners/SymbolicPlanners.jl)
 ![License](https://img.shields.io/github/license/JuliaPlanners/SymbolicPlanners.jl?color=lightgrey)
 
@@ -22,25 +24,52 @@ add https://github.com/JuliaPlanners/SymbolicPlanners.jl
 
 - Forward state-space planning (A*, BFS, etc.)
 - Backward (i.e. regression) planning
-- Policy-based planning (RTDP, MCTS, etc.)
+- Policy-based planning (RTDP, RTHS, MCTS, etc.)
 - Relaxed-distance heuristics (Manhattan, _h_<sub>add</sub>, _h_<sub>max</sub>, etc.)
 - Policy and plan simulation
 - Modular framework for goal, reward and cost specifications
 - Support for PDDL domains with numeric fluents and custom datatypes
 
+## Usage
+
+A simple usage example is shown below. More information can be found in the [documentation](https://juliaplanners.github.io/SymbolicPlanners.jl/dev).
+
+```julia
+using PDDL, PlanningDomains, SymbolicPlanners
+
+# Load Blocksworld domain and problem
+domain = load_domain(:blocksworld)
+problem = load_problem(:blocksworld, "problem-4")
+
+# Construct initial state from domain and problem
+state = initstate(domain, problem)
+
+# Construct goal specification that requires minimizing plan length
+spec = MinStepsGoal(problem)
+
+# Construct A* planner with h_add heuristic
+planner = AStarPlanner(HAdd())
+
+# Find a solution given the initial state and specification
+sol = planner(domain, state, spec)
+```
+
 ## Planners
 
-- [Forward breadth-first search](src/planners/bfs.jl)
-- [Forward best-first search (A*, Greedy, etc.)](src/planners/forward.jl)
-- [Backward best-first search (A*, Greedy, etc.)](src/planners/backward.jl)
+- [Forward Breadth-First Search](src/planners/bfs.jl)
+- [Forward Heuristic Search (A*, Greedy, etc.)](src/planners/forward.jl)
+- [Backward Heuristic Search (A*, Greedy, etc.)](src/planners/backward.jl)
+- [Bidirectional Heuristic Search](src/planners/bidirectional.jl)
 - [Real Time Dynamic Programming (RTDP)](src/planners/rtdp.jl)
+- [Real Time Heuristic Search (RTHS)](src/planners/rths.jl)
 - [Monte Carlo Tree Search (MCTS)](src/planners/mcts.jl)
-- [FastDownward and Pyperplan wrappers](src/planners/external.jl)
+- [FastDownward, Pyperplan, and ENHSP wrappers](src/planners/external.jl)
 
 ## Heuristics
 
 - [Goal Count](src/heuristics/basic.jl): counts the number of unsatisfied goals
-- [Manhattan](src/heuristics/basic.jl): L<sub>1</sub> distance for arbitrary numeric fluents
+- [Manhattan](src/heuristics/metric.jl): L<sub>1</sub> distance for arbitrary numeric fluents
+- [Euclidean](src/heuristics/metric.jl): L<sub>2</sub> distance for arbitrary numeric fluents
 - [HSP heuristics](src/heuristics/hsp.jl): _h_<sub>add</sub>, _h_<sub>max</sub>, etc.
 - [HSPr heuristics](src/heuristics/hsp.jl): the above, but for backward search
 - [FF heuristic](src/heuristics/ff.jl): length of a relaxed plan, used by the Fast-Forward planner

@@ -6,11 +6,15 @@ on:
       - 'assets/**'
       - 'docs/**'
       - 'README.md'
+      - 'LICENSE.md'
+      - 'CITATION.cff'
   pull_request:
     paths-ignore:
       - 'assets/**'
       - 'docs/**'
       - 'README.md'
+      - 'LICENSE.md'
+      - 'CITATION.cff'
 jobs:
   test:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
@@ -21,7 +25,7 @@ jobs:
         version:
           - '1.3'
           - '1.6'
-          - 'nightly'
+          - '1'
         os:
           - ubuntu-latest
         arch:

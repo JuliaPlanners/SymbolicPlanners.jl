@@ -1,6 +1,10 @@
 export MemoizedHeuristic, memoized
 
-"Heuristic that is already precomputed, and will not be precomputed again."
+"""
+    MemoizedHeuristic(heuristic::Heuristic)
+
+Wraps an existing heuristic and memoizes heuristic evaluations in a hash table.
+"""
 struct MemoizedHeuristic{H <: Heuristic} <: Heuristic
     heuristic::H
     cache::Dict{NTuple{3,UInt}, Float32}
@@ -13,16 +17,23 @@ end
 
 MemoizedHeuristic(h::MemoizedHeuristic) = h
 
-Base.hash(heuristic::MemoizedHeuristic, h::UInt) =
-    hash(MemoizedHeuristic, hash(heuristic.heuristic, h))
-
 Base.empty!(h::MemoizedHeuristic) = empty!(h.cache)
 
 is_precomputed(h::MemoizedHeuristic) =
     is_precomputed(h.heuristic)
 
-precompute!(h::MemoizedHeuristic, domain::Domain, state::State, spec::Specification) =
+# TODO: CACHE PRECOMPUTED INFORMATION AS WELL
+function precompute!(h::MemoizedHeuristic,
+                     domain::Domain, state::State, spec::Specification)
     precompute!(h.heuristic, domain, state, spec)
+    return h
+end
+
+precompute!(h::MemoizedHeuristic, domain::Domain, state::State) =
+    (precompute!(h.heuristic, domain, state); h)
+
+precompute!(h::MemoizedHeuristic, domain::Domain) =
+    (precompute!(h.heuristic, domain); h)
 
 function compute(h::MemoizedHeuristic,
                  domain::Domain, state::State, spec::Specification)
@@ -44,5 +55,10 @@ function (h::MemoizedHeuristic)(domain::Domain, state::State, spec::Specificatio
     return val
 end
 
-"Memoize heuristic values in a cache."
+"""
+    memoized(h::Heuristic)
+
+Constructs a memoized version of `h` which caches outputs in a hash table after
+each evaluation of the heuristic on a new domain, state, or specification.
+"""
 memoized(h::Heuristic) = MemoizedHeuristic(h)

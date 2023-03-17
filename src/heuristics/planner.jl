@@ -1,6 +1,19 @@
 export PlannerHeuristic
 
-"Computes distance to the goal based on planner solution."
+"""
+    PlannerHeuristic(planner, [d_transform, s_transform])
+
+Computes distance to the goal based on the solution returned by `planner`.
+If an [`OrderedSolution`](@ref) is returned, the length of solution is used
+as the heuristic estimate. If a [`PolicySolution`](@ref) is returned, the
+negated value (returned by [`get_value`](@ref)) is used as the heuristic 
+estimate.
+
+If `d_transform` or `s_transform` are provided, this transforms the input
+domain or state it is passed to the `planner`. This can be used to relax the 
+problem (e.g. by simplifying the domain, or adding / deleting predicates in
+the state).
+"""
 @kwdef struct PlannerHeuristic{P <: Planner, DT, ST} <: Heuristic
     planner::P
     d_transform::DT = identity # Optional domain transform
@@ -16,15 +29,6 @@ function PlannerHeuristic(
 )
     return PlannerHeuristic(;planner=planner, d_transform=d_transform,
                             s_transform=s_transform)
-end
-
-function Base.hash(heuristic::PlannerHeuristic{P}, h::UInt) where {P}
-    h = hash(P, hash(PlannerHeuristic, h))
-    for f in fieldnames(P)
-        h = hash(getfield(heuristic.planner, f), h)
-    end
-    h = hash(heuristic.s_transform, hash(heuristic.d_transform, h))
-    return h
 end
 
 function compute(h::PlannerHeuristic,

@@ -1,15 +1,39 @@
 export FastDownward, Pyperplan, ENHSP
 export ExternalPlan
 
-"Solution type for plans produced by external planners."
-struct ExternalPlan <: OrderedSolution
+"""
+    ExternalPlan(plan::AbstractVector{<:Term})
+    ExternalPlan(plan, runtime, expanded, evaluated)
+    ExternalPlan(status, plan, runtime, expanded, evaluated)
+
+Generic solution type for plans produced by external planners.
+
+# Fields
+
+$(FIELDS)
+"""
+@auto_hash_equals struct ExternalPlan <: OrderedSolution
+    "Status of returned solution."
+    status::Symbol
+    "Sequence of actions returned by the external planner."
     plan::Vector{Term}
+    "Runtime of external planner."
     runtime::Float64
+    "Number of nodes expanded during search."
     expanded::Int
+    "Number of nodes evaluated with a heuristic during search."
     evaluated::Int
 end
 
-ExternalPlan(plan::AbstractVector{<:Term}) = ExternalPlan(plan, -1, -1, -1)
+ExternalPlan(plan::AbstractVector{<:Term}) =
+    ExternalPlan(:success, plan, -1, -1, -1)
+
+ExternalPlan(plan::AbstractVector{<:Term}, runtime, expanded, evaluated) =
+    ExternalPlan(:success, plan, runtime, expanded, evaluated)
+
+Base.copy(sol::ExternalPlan) = 
+    ExternalPlan(sol.status, copy(sol.plan),
+                 sol.runtime, sol.expanded, sol.evaluated)
 
 get_action(sol::ExternalPlan, t::Int) = sol.plan[t]
 
@@ -23,19 +47,57 @@ get_metric_expr(spec::Specification) = nothing
 get_metric_expr(spec::MinMetricGoal) = Compound(:minimize, [spec.metric])
 get_metric_expr(spec::MaxMetricGoal) = Compound(:maximize, [spec.metric])
 
-"Wrapper to the FastDownward planning system."
+"""
+    FastDownward(
+        search::String = "astar",
+        heuristic::String = "add",
+        h_params::Dict{String, String} = Dict(),
+        max_time::Float64 = 300,
+        verbose::Bool = false,
+        log_stats::Bool = true,
+        fd_path::String = get(ENV, "FD_PATH", ""),
+        py_cmd::String = get(ENV, "PYTHON", "python")
+    )
+
+Wrapper for the FastDownward planning system [1]. The planner has to be
+installed locally for this wrapper to be used. Consult the FastDownward
+documentation for further explanation of options.
+
+[1] M. Helmert, "The Fast Downward Planning System," Journal of Artificial
+Intelligence Research, vol. 26, pp. 191–246, Jul. 2006,
+<https://doi.org/10.1613/jair.1705>.
+
+# Arguments
+
+$(FIELDS)
+"""
 @kwdef mutable struct FastDownward <: Planner
-    search::String = "astar" # Search algorithm
-    heuristic::String = "add" # Search heuristic
-    h_params::Dict{String, String} = Dict() # Heuristic parameters
-    max_time::Float64 = 300 # Time limit
-    verbose::Bool = false # Whether to print planner outputs
-    log_stats::Bool = true # Whether to log statistics
-    fd_path::String = get(ENV, "FD_PATH", "") # Path to fast_downward.py
-    py_cmd::String = get(ENV, "PYTHON", "python") # Python path
+    "String specifying search algorithm (e.g. \"astar\", \"ehc\")."
+    search::String = "astar"
+    "String specifying search heuristic (e.g. \"add\", \"lmcut\",)."
+    heuristic::String = "add"
+    "Heuristic parameters as a dictionary mapping names to values."
+    h_params::Dict{String, String} = Dict()
+    "Maximum time in seconds before planner times out."
+    max_time::Float64 = 300
+    "Flag to print planner outputs."
+    verbose::Bool = false
+    "Flag to log solution statistics."
+    log_stats::Bool = true
+    "Path to `fast_downward.py`."
+    fd_path::String = get(ENV, "FD_PATH", "")
+    "Path to Python executable."
+    py_cmd::String = get(ENV, "PYTHON", "python")
 end
 
-"Calls the FastDownward planning system to produce a plan."
+@auto_hash FastDownward
+@auto_equals FastDownward
+
+function Base.copy(p::FastDownward)
+    return FastDownward(p.search, p.heuristic, p.h_params, p.max_time,
+                        p.max_time, p.verbose, p.log_stats, p.fd_path, p.py_cmd)
+end
+
 function solve(planner::FastDownward,
                domain::Domain, state::State, spec::Specification)
     if isempty(planner.fd_path)
@@ -93,18 +155,53 @@ function solve(planner::FastDownward,
     return ExternalPlan(plan)
 end
 
-"Wrapper to the Pyperplan light-weight planner."
+"""
+    Pyperplan(
+        search::String = "astar",
+        heuristic::String = "add",
+        log_level::String = "info",
+        log_stats::Bool = true,
+        max_time::Float64 = 300,
+        verbose::Bool = false,
+        py_cmd::String = get(ENV, "PYTHON", "python")
+    )
+
+Wrapper for the Pyperplan lightweight STRIPS planner [1]. The planner has to be
+installed locally for this wrapper to be used. Consult the Pyperplan
+documentation for further explanation of options.
+
+[1] Y. Alkhazraji et al., "Pyperplan." Zenodo, 2020.
+<https://doi.org/10.5281/zenodo.3700819>.
+
+# Arguments
+
+$(FIELDS)
+"""
 @kwdef mutable struct Pyperplan <: Planner
-    search::String = "astar" # Search algorithm
-    heuristic::String = "hadd" # Search heuristic
-    log_level::String = "info" # Log level
-    log_stats::Bool = true # Whether to log statistics
-    max_time::Float64 = 300 # Time limit
-    verbose::Bool = false # Whether to print planner outputs
-    py_cmd::String = get(ENV, "PYTHON", "python") # Python path
+    "String specifying search algorithm (e.g. \"astar\", \"gbf\")."
+    search::String = "astar"
+    "String specifying search heuristic (e.g. \"hadd\", \"hmax\",)."
+    heuristic::String = "hadd"
+    "How much information to log when running the planner."
+    log_level::String = "info"
+    "Flag to log solution statistics."
+    log_stats::Bool = true
+    "Maximum time in seconds before planner times out."
+    max_time::Float64 = 300
+    "Flag to print planner outputs."
+    verbose::Bool = false
+    "Path to Python executable."
+    py_cmd::String = get(ENV, "PYTHON", "python")
 end
 
-"Calls Pyperplan to produce a plan."
+@auto_hash Pyperplan
+@auto_equals Pyperplan
+
+function Base.copy(p::Pyperplan)
+    return Pyperplan(p.search, p.heuristic, p.log_level, p.log_stats,
+                     p.max_time, p.verbose, p.py_cmd)
+end
+
 function solve(planner::Pyperplan,
                domain::Domain, state::State, spec::Specification)
     @unpack search, heuristic, log_level, max_time, verbose, py_cmd = planner
@@ -157,19 +254,55 @@ function solve(planner::Pyperplan,
     return ExternalPlan(plan)
 end
 
-"Wrapper to the ENHSP numeric planner."
+"""
+    ENHSP(
+        search::String = "astar",
+        heuristic::String = "add",
+        h_mult::Float64 = 1.0,
+        log_stats::Bool = true,
+        max_time::Float64 = 300,
+        verbose::Bool = false,
+        enhsp_path::String = get(ENV, "ENHSP_PATH", ""),
+        java_cmd::String = get(ENV, "JAVA", "java")
+    )
+
+Wrapper for the Expressive Numeric Heuristic Search Planner (ENHSP) [1]. The
+planner has to be installed locally for this wrapper to be used. Consult
+the ENHSP documentation for further explanation of options.
+
+[1] E. Scala et al., "ENHSP", <https://sites.google.com/view/enhsp/>.
+
+# Arguments
+
+$(FIELDS)
+"""
 @kwdef mutable struct ENHSP <: Planner
-    search::String = "gbfs" # Search algorithm
-    heuristic::String = "hadd" # Search heuristic
-    h_mult::Float64 = 1.0 # Heuristic multiplier for weighted A*
-    log_stats::Bool = true # Whether to log statistics
-    max_time::Float64 = 300 # Time limit
-    verbose::Bool = false # Whether to print planner outputs
-    enhsp_path::String = get(ENV, "ENHSP_PATH", "") # Path to enhsp.jar
-    java_cmd::String = get(ENV, "JAVA", "java") # Java path
+    "String specifying search algorithm (e.g. \"gbfs\", \"WAStar\")."
+    search::String = "gbfs"
+    "String specifying search heuristic (e.g. \"hadd\", \"aibr\",)."
+    heuristic::String = "hadd"
+    "Heuristic multiplier for weighted A*."
+    h_mult::Float64 = 1.0
+    "Flag to log solution statistics."
+    log_stats::Bool = true
+    "Maximum time in seconds before planner times out."
+    max_time::Float64 = 300
+    "Flag to print planner outputs."
+    verbose::Bool = false
+    "Path to `enhsp.jar`."
+    enhsp_path::String = get(ENV, "ENHSP_PATH", "")
+    "Path to Java executable."
+    java_cmd::String = get(ENV, "JAVA", "java")
 end
 
-"Calls Pyperplan to produce a plan."
+@auto_hash ENHSP
+@auto_equals ENHSP
+
+function Base.copy(p::ENHSP)
+    return ENHSP(p.search, p.heuristic, p.h_mult, p.log_stats,
+                 p.max_time, p.verbose, p.enhsp_path, p.java_cmd)
+end
+
 function solve(planner::ENHSP,
                domain::Domain, state::State, spec::Specification)
     @unpack search, heuristic, h_mult = planner

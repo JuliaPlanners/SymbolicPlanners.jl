@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+title: SymbolicPlanners.jl
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+- given-names: Tan
+  family-names: Zhi-Xuan
+  orcid: "https://orcid.org/0000-0002-1549-8492"
+version: 0.1.10
+date-released: 2023-02-13
+url: "https://github.com/JuliaPlanners/SymbolicPlanners.jl"

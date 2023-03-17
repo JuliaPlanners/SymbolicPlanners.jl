@@ -1,6 +1,11 @@
 export GoalReward, BonusGoalReward, MultiGoalReward
 
-"Specification where reaching the goal delivers reward."
+"""
+    GoalReward(terms, reward=1.0, discount=0.9)
+
+[`Goal`](@ref) specification which returns a `reward` when all goal `terms`
+are achieved, along with a `discount` factor. Each action zero cost.
+"""
 @kwdef struct GoalReward <: Goal
     terms::Vector{Term} # Goal terms to be satisfied
     reward::Float64 = 1.0 # Reward gained from reaching goal
@@ -29,10 +34,19 @@ get_reward(spec::GoalReward, domain::Domain, s1::State, a::Term, s2::State) =
 get_discount(spec::GoalReward) = spec.discount
 get_goal_terms(spec::GoalReward) = spec.terms
 
+set_goal_terms(spec::GoalReward, terms) =
+    GoalReward(terms, spec.reward, spec.discount)
+
 discounted(spec::GoalReward, discount::Float64) =
     GoalReward(spec.terms, spec.reward, discount * spec.discount)
 
-"Wrapper specification that delivers additional reward upon reaching goal."
+
+"""
+    BonusGoalReward(goal::Goal, reward=1.0, discount=0.9)
+
+Wrapper around an existing [`Goal`](@ref) specification, which delivers
+additional `reward` upon reaching a goal.
+"""
 @kwdef struct BonusGoalReward{G <: Goal} <: Goal
     goal::G # Goal specification to be satisfied
     reward::Float64 = 1.0 # Additional reward gained from reaching goal
@@ -53,13 +67,21 @@ get_cost(spec::BonusGoalReward, domain::Domain, s1::State, a::Term, s2::State) =
 get_reward(spec::BonusGoalReward, domain::Domain, s1::State, a::Term, s2::State) =
     get_reward(spec.goal, domain, s1, a, s2) +
     is_goal(spec, domain, s2) ? spec.reward : 0.0
-get_discount(spec::BonusGoalReward) = spec.discount
+get_discount(spec::BonusGoalReward) = spec.discount * get_discount(spec.goal)
 get_goal_terms(spec::BonusGoalReward) = get_goal_terms(spec.goal)
+
+set_goal_terms(spec::BonusGoalReward, terms) =
+    BonusGoalReward(set_goal_terms(spec.goal, terms), spec.reward, spec.discount)
 
 discounted(spec::BonusGoalReward, discount::Float64) =
     BonusGoalReward(spec.goal, spec.reward, discount * spec.discount)
 
-"Specification where reaching one of multiple goals delivers reward."
+"""
+    MultiGoalReward(goals::Vector{Term}, rewards::Vector{Float64}, discount=1.0)
+
+[`Goal`](@ref) specification where multiple `goals` have associated `rewards`.
+Achieving a goal delivers the associated reward. Each action has zero cost.
+"""
 @kwdef struct MultiGoalReward <: Goal
     goals::Vector{Term} # List of possible goals
     rewards::Vector{Float64} # Rewards gained from reaching each goal

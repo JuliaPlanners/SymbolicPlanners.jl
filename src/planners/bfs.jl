@@ -1,61 +1,97 @@
 export BreadthFirstPlanner
 
-"Uninformed breadth-first search planner."
+"""
+    BreadthFirstPlanner(;
+        max_nodes::Int = typemax(Int),
+        max_time::Float64 = Inf,
+        save_search::Bool = false,
+        save_search_order::Bool = false
+    )
+
+Breadth-first search planner. Nodes are expanded in order of increasing distance
+from the initial state (skipping previously visited nodes).
+
+Returns a [`PathSearchSolution`](@ref) or [`NullSolution`](@ref), similar to
+[`ForwardPlanner`](@ref).
+
+# Arguments
+
+$(FIELDS)
+"""
 @kwdef mutable struct BreadthFirstPlanner <: Planner
+    "Maximum number of search nodes before termination."
     max_nodes::Int = typemax(Int)
-    max_time::Float64 = Inf # Max time in seconds before timeout
-    save_search::Bool = false # Flag to save search info
+    "Maximum time in seconds before planner times out."
+    max_time::Float64 = Inf
+    "Flag to save the search tree and frontier in the returned solution."
+    save_search::Bool = false
+    "Flag to save the node expansion order in the returned solution."
+    save_search_order::Bool = false
+end
+
+@auto_hash BreadthFirstPlanner
+@auto_equals BreadthFirstPlanner
+
+function Base.copy(p::BreadthFirstPlanner)
+    return BreadthFirstPlanner(p.max_nodes, p.max_time,
+                               p.save_search, p.save_search_order)
 end
 
 function solve(planner::BreadthFirstPlanner,
                domain::Domain, state::State, spec::Specification)
-    @unpack max_nodes, save_search = planner
+    @unpack save_search = planner
+    # Simplify goal specification
+    spec = simplify_goal(spec, domain, state)
     # Initialize backpointers and queue
     node_id = hash(state)
     search_tree = Dict(node_id => PathNode(node_id, state, 0.0))
     queue = [node_id]
+    search_order = UInt[]
+    sol = PathSearchSolution(:in_progress, Term[], Vector{typeof(state)}(),
+                             0, search_tree, queue, search_order)
     # Run the search
-    status, node_id, count = search!(planner, domain, spec, search_tree, queue)
-    # Reconstruct plan and return solution
-    if status != :failure
-        plan, traj = reconstruct(node_id, search_tree)
-        if save_search
-            return PathSearchSolution(status, plan, traj,
-                                      count, search_tree, queue)
-        else
-            return PathSearchSolution(status, plan, traj)
-        end
-    elseif save_search
-        S = typeof(state)
-        return PathSearchSolution(status, Term[], S[],
-                                  count, search_tree, queue)
+    sol = search!(sol, planner, domain, spec)
+    # Return solution
+    if save_search
+        return sol
+    elseif sol.status == :failure
+        return NullSolution(sol.status)
     else
-        return NullSolution(status)
+        return PathSearchSolution(sol.status, sol.plan, sol.trajectory)
     end
 end
 
-function search!(planner::BreadthFirstPlanner,
-                 domain::Domain, spec::Specification,
-                 search_tree::Dict{UInt,<:PathNode}, queue::Vector{UInt})
-    count = 1
+function search!(sol::PathSearchSolution, planner::BreadthFirstPlanner,
+                 domain::Domain, spec::Specification)
     start_time = time()
+    sol.expanded = 0
+    queue, search_tree = sol.search_frontier, sol.search_tree
     while length(queue) > 0
-        # Pop state off the queue
-        node_id = popfirst!(queue)
+        # Look-up first state on queue
+        node_id = first(queue)
         node = search_tree[node_id]
-        # Return status and current state if search terminates
+        # Check search termination criteria
         if is_goal(spec, domain, node.state)
-            return :success, node_id, count # Goal reached
-        elseif count >= planner.max_nodes
-            return :max_nodes, node_id, count # Node budget reached
+            sol.status = :success # Goal reached
+        elseif sol.expanded >= planner.max_nodes
+            sol.status = :max_nodes # Node budget reached
         elseif time() - start_time >= planner.max_time
-            return :max_time, node_id, count # Time budget reached
+            sol.status = :max_time # Time budget reached
         end
-        count += 1
-        # Expand current node
-        expand!(planner, node, search_tree, queue, domain, spec)
+        if sol.status == :in_progress # Expand current node
+            popfirst!(queue)
+            expand!(planner, node, search_tree, queue, domain, spec)
+            sol.expanded += 1
+            if planner.save_search && planner.save_search_order
+                push!(sol.search_order, node_id)
+            end
+        else # Reconstruct plan and return solution
+            sol.plan, sol.trajectory = reconstruct(node_id, search_tree)
+            return sol
+        end
     end
-    return :failure, nothing, count
+    sol.status = :failure
+    return sol
 end
 
 function expand!(planner::BreadthFirstPlanner, node::PathNode,
@@ -77,4 +113,14 @@ function expand!(planner::BreadthFirstPlanner, node::PathNode,
             PathNode(next_id, next_state, path_cost, node.id, act)
         push!(queue, next_id)
     end
+end
+
+function refine!(
+    sol::PathSearchSolution{S, T}, planner::BreadthFirstPlanner,
+    domain::Domain, state::State, spec::Specification
+) where {S, T <: Vector}
+    sol.status == :success && return sol
+    sol.status = :in_progress
+    spec = simplify_goal(spec, domain, state)
+    return search!(sol, planner, domain, spec)
 end

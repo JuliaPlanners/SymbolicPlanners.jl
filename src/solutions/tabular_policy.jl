@@ -1,22 +1,43 @@
-export TabularPolicy
+export TabularPolicy, TabularVPolicy
 
-"Policy solution where values and Q-values are stored in a lookup table."
-@kwdef struct TabularPolicy{P <: PolicySolution} <: PolicySolution
-    V::Dict{UInt64,Float64} = Dict() # Value table
-    Q::Dict{UInt64,Dict{Term,Float64}} = Dict() # Q-value table
-    default::P = NullPolicy() # Default fallback policy
+"""
+    TabularPolicy(V::Dict, Q::Dict, default)
+    TabularPolicy(default = NullPolicy())
+
+Policy solution where state values and action Q-values are stored in lookup
+tables `V` and `Q`, where `V` maps state hashes to values, and `Q` maps state
+hashes to dictionaries of Q-values for each action in the corresponding state.
+
+A `default` policy can be specified, so that if a state doesn't already exist
+in the lookup tables, the value returned by `default` will be used instead.
+"""
+@auto_hash_equals struct TabularPolicy{P <: PolicySolution} <: PolicySolution
+    V::Dict{UInt64,Float64} # Value table
+    Q::Dict{UInt64,Dict{Term,Float64}} # Q-value table
+    default::P # Default fallback policy
 end
+
+TabularPolicy() =
+    TabularPolicy(Dict(), Dict(), NullPolicy())
+
+TabularPolicy(default::P) where {P <: PolicySolution} =
+    TabularPolicy{P}(Dict(), Dict(), default)
 
 TabularPolicy(V, Q, policy::P) where {P <: PolicySolution} =
     TabularPolicy{P}(V, Q, policy)
+
+function Base.copy(sol::TabularPolicy)
+    V = copy(sol.V)
+    Q = Dict(s => copy(qs) for (s, qs) in sol.Q)
+    return TabularPolicy(V, Q, copy(sol.default))
+end
 
 get_action(sol::TabularPolicy, state::State) =
     best_action(sol, state)
 rand_action(sol::TabularPolicy, state::State) =
     best_action(sol, state)
 best_action(sol::TabularPolicy, state::State) =
-    first(reduce((a, b) -> last(a) > last(b) ? a : b,
-          get_action_values(sol, state)))
+    argmax(get_action_values(sol, state))
 
 function get_value(sol::TabularPolicy, state::State)
     return get(sol.V, hash(state)) do
@@ -40,6 +61,73 @@ function get_action_values(sol::TabularPolicy, state::State)
     if qs === nothing
         return get_action_values(sol.default, state)
     else
-        return pairs(qs)
+        return qs
     end
+end
+
+"""
+    TabularVPolicy(V::Dict, domain, spec, default)
+    TabularVPolicy(domain, spec, default = NullPolicy())
+
+Policy solution where state values are stored in a lookup table `V` that maps
+state hashes to values. The domain and specification also have to be provided,
+so that the policy knows how to derive action Q-values in each state.
+
+A `default` policy can be specified, so that if a state doesn't already exist
+in the lookup table, the value returned by `default` will be used instead.
+"""
+@auto_hash_equals struct TabularVPolicy{
+    D <: Domain,
+    S <: Specification,
+    P <: PolicySolution,
+} <: PolicySolution
+    V::Dict{UInt64,Float64} # Value table
+    domain::D # Domain for determining actions and transitions
+    spec::S # Specification that determines state-action rewards
+    default::P # Default fallback policy
+end
+
+TabularVPolicy(domain::Domain, spec::Specification) =
+    TabularVPolicy(domain, spec, NullPolicy())
+
+TabularVPolicy(domain::Domain, spec::Specification, default::PolicySolution) =
+    TabularVPolicy(Dict{UInt64,Float64}(), domain, spec, default)
+
+function Base.copy(sol::TabularVPolicy)
+    V = copy(sol.V)
+    return TabularVPolicy(V, sol.domain, sol.spec, copy(sol.default))
+end
+
+get_action(sol::TabularVPolicy, state::State) =
+    best_action(sol, state)
+rand_action(sol::TabularVPolicy, state::State) =
+    best_action(sol, state)
+
+function best_action(sol::TabularVPolicy, state::State)
+    best_val = -Inf
+    best_act = missing
+    for act in available(sol.domain, state)
+        val = get_value(sol, state, act)
+        if val > best_val
+            best_val = val
+            best_act = act
+        end 
+    end
+    return best_act
+end
+
+function get_value(sol::TabularVPolicy, state::State)
+    return get(sol.V, hash(state)) do
+        get_value(sol.default, state)
+    end
+end
+
+get_action_values(sol::TabularVPolicy, state::State) =
+    Dict(act => get_value(sol, state, act) for act in available(sol.domain, state))
+
+function get_value(sol::TabularVPolicy, state::State, action::Term)
+    next_state = transition(sol.domain, state, action)
+    next_v = get_value(sol, next_state)
+    r = get_reward(sol.spec, sol.domain, state, action, next_state)
+    return get_discount(sol.spec) * next_v + r
 end

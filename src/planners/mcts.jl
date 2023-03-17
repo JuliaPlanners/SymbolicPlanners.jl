@@ -1,13 +1,23 @@
 export MonteCarloTreeSearch, MCTS, MCTSTreeSolution
 export MCTSNodeSelector, MaxUCBSelector, BoltzmannUCBSelector
+export MCTSLeafEstimator, RandomRolloutEstimator, ConstantEstimator
 
 ## MCTS solution type ##
 
 "MCTS policy solution."
-@kwdef mutable struct MCTSTreeSolution <: PolicySolution
-	Q::Dict{UInt64,Dict{Term,Float64}} = Dict()
-	s_visits::Dict{UInt64,Int} = Dict()
-	a_visits::Dict{UInt64,Dict{Term,Float64}} = Dict()
+@auto_hash_equals struct MCTSTreeSolution <: PolicySolution
+	Q::Dict{UInt64,Dict{Term,Float64}}
+	s_visits::Dict{UInt64,Int}
+	a_visits::Dict{UInt64,Dict{Term,Int}}
+end
+
+MCTSTreeSolution() = MCTSTreeSolution(Dict(), Dict(), Dict())
+
+function Base.copy(sol::MCTSTreeSolution)
+    Q = Dict(s => copy(qs) for (s, qs) in sol.Q)
+    s_visits = copy(s_visits)
+    a_visits = Dict(s => copy(visits) for (s, visits) in sol.a_visits)
+    return MCTSTreeSolution(Q, s_visits, a_visits)
 end
 
 get_action(sol::MCTSTreeSolution, state::State) =
@@ -29,28 +39,28 @@ has_state_node(sol::MCTSTreeSolution, state::State) =
 ## Selection strategies for leaf nodes ##
 
 "Max upper-confidence bound (UCB) action policy."
-struct MaxUCBPolicy <: PolicySolution
+@auto_hash_equals struct MaxUCBPolicy <: PolicySolution
 	tree::MCTSTreeSolution
 	confidence::Float64
 end
 
+Base.copy(sol::MaxUCBPolicy) = MaxUCBPolicy(copy(sol.tree), sol.confidence)
+
 function get_action_values(sol::MaxUCBPolicy, state::State)
 	state_id = hash(state)
 	s_visits = sol.tree.s_visits[state_id]
-	vals = map(collect(sol.tree.Q[state_id])) do (act, val)
+	vals = Base.Generator(sol.tree.Q[state_id]) do (act, val)
 		a_visits = sol.tree.a_visits[state_id][act]
 		if s_visits != 0 && !(s_visits == 1 && a_visits == 0)
 			val += sol.confidence * sqrt(log(s_visits) / a_visits)
 		end
 		return act => val
 	end
-	return vals
+	return Dict(vals)
 end
 
 function best_action(sol::MaxUCBPolicy, state::State)
-    a_vals = get_action_values(sol, state)
-	best_idx = argmax(last.(a_vals))
-	return first(a_vals[best_idx])
+    return argmax(get_action_values(sol, state))
 end
 
 get_action(sol::MaxUCBPolicy, state::State) =
@@ -58,9 +68,9 @@ get_action(sol::MaxUCBPolicy, state::State) =
 rand_action(sol::MaxUCBPolicy, state::State) =
     best_action(sol, state)
 get_value(sol::MaxUCBPolicy, state::State) =
-    maximum(last, get_action_values(sol, state))
+    maximum(values(get_action_values(sol, state)))
 get_value(sol::MaxUCBPolicy, state::State, action::Term) =
-    findfirst(x -> first(x) == action, get_action_values(sol, state))
+    get_action_values(sol, state)[action]
 
 BoltzmannUCBPolicy(tree::MCTSTreeSolution, confidence, temperature) =
 	BoltzmannPolicy(MaxUCBPolicy(tree, confidence), temperature)
@@ -126,22 +136,56 @@ end
 
 ## Main algorithm ##
 
-"Planner that uses Monte Carlo Tree Search (MCTS)."
-@kwdef mutable struct MonteCarloTreeSearch{S,E} <: Planner
+"""
+	MonteCarloTreeSearch(
+		n_rollouts::Int64 = 50,
+		max_depth::Int64 = 50,
+		heuristic::Heuristic = NullHeuristic(),
+		selector::MCTSNodeSelector = BoltzmannUCBSelector(),
+		estimator::MCTSLeafEstimator = RandomRolloutEstimator()
+	end
+
+Planner that uses Monte Carlo Tree Search (`MCTS` for short) [1], with a 
+customizable initial value `heuristic`, node `selector` strategy, and leaf
+node value `estimator`.
+
+# Arguments
+
+$(FIELDS)
+"""
+@kwdef mutable struct MonteCarloTreeSearch{
+	S <: MCTSNodeSelector, E <: MCTSLeafEstimator
+} <: Planner
+	"Number of search rollouts to perform."
 	n_rollouts::Int64 = 50
+	"Maximum depth of rollout (including the selection and estimation phases)."
 	max_depth::Int64 = 50
-	heuristic::Heuristic = NullHeuristic() # Initial value heuristic
-	selector::S = BoltzmannUCBSelector() # Node selection strategy
-	estimator::E = RandomRolloutEstimator() # Leaf node value estimator
+	"Initial value heuristic for newly encountered states / leaf nodes."
+	heuristic::Heuristic = NullHeuristic() 
+	"Node selection strategy for previously visited nodes (e.g. MaxUCB)."
+	selector::S = BoltzmannUCBSelector()
+	"Estimator for leaf node values (e.g. random or policy-based rollouts)."
+	estimator::E = RandomRolloutEstimator()
 end
 
+@auto_hash MonteCarloTreeSearch
+@auto_equals MonteCarloTreeSearch
+
 const MCTS = MonteCarloTreeSearch
+@doc (@doc MonteCarloTreeSearch) MCTS
+
+function Base.copy(p::MonteCarloTreeSearch)
+    return MonteCarloTreeSearch(p.n_rollouts, p.max_depth, p.heuristic,
+								p.selector, p.estimator)
+end
 
 function solve(planner::MonteCarloTreeSearch,
 			   domain::Domain, state::State, spec::Specification)
 	@unpack n_rollouts, max_depth = planner
 	@unpack heuristic, selector, estimator = planner
 	discount = get_discount(spec)
+    # Simplify goal specification
+    spec = simplify_goal(spec, domain, state)
 	# Precompute heuristic information
     precompute!(heuristic, domain, state, spec)
     # Initialize solution
@@ -185,7 +229,7 @@ function solve(planner::MonteCarloTreeSearch,
 			# Take weighted average with existing Q value
 			sol.Q[state_id][act] +=
 				(value-sol.Q[state_id][act]) / sol.a_visits[state_id][act]
-			state = next_state
+			next_state = state
         end
 	end
 	return sol

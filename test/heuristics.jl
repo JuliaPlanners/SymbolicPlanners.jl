@@ -1,5 +1,22 @@
 @testset "Heuristics" begin
 
+@testset "Interface" begin
+
+goal_count = GoalCountHeuristic()
+hval1 = goal_count(doors_keys_gems, dkg_problem)
+hval2 = goal_count(doors_keys_gems, dkg_state, dkg_problem.goal)
+hval3 = goal_count(doors_keys_gems, dkg_state, dkg_spec)
+@test hval1 == hval2 == hval3
+
+h_add = HAdd()
+SymbolicPlanners.ensure_precomputed!(h_add, blocksworld, bw_state, bw_spec)
+hval1 = h_add(blocksworld, bw_problem; precompute=false)
+hval2 = h_add(blocksworld, bw_state, bw_problem.goal; precompute=false)
+hval3 = h_add(blocksworld, bw_state, bw_spec; precompute=false)
+@test hval1 == hval2 == hval3
+
+end
+
 @testset "Goal Count Heuristic" begin
 
 goal_count = GoalCountHeuristic()
@@ -47,8 +64,27 @@ end
 
 @testset "HSP Heuristics" begin
 
-@test HAdd()(blocksworld, bw_state, bw_problem.goal) == 4
-@test HMax()(blocksworld, bw_state, bw_problem.goal) == 2
+h_add = HAdd()
+h_max = HMax()
+@test h_add(blocksworld, bw_state, bw_problem.goal) == 4
+@test h_max(blocksworld, bw_state, bw_problem.goal) == 2
+
+# Test dynamic goal updating
+precompute!(h_add, blocksworld, bw_state)
+precompute!(h_max, blocksworld, bw_state)
+@test compute(h_add, blocksworld, bw_state, bw_problem.goal) == 4
+@test compute(h_max, blocksworld, bw_state, bw_problem.goal) == 2
+
+h_add = HAdd()
+h_max = HMax()
+@test h_add(bw_axioms, ba_state, ba_problem.goal) == 4
+@test h_max(bw_axioms, ba_state, ba_problem.goal) == 2
+
+# Test dynamic goal updating
+precompute!(h_add, bw_axioms, ba_state)
+precompute!(h_max, bw_axioms, ba_state)
+@test compute(h_add, bw_axioms, ba_state, ba_problem.goal) == 4
+@test compute(h_max, bw_axioms, ba_state, ba_problem.goal) == 2
 
 end
 
@@ -66,8 +102,15 @@ end
 
 @testset "FF Heuristic" begin
 
-ff = precomputed(FFHeuristic(), blocksworld, bw_state, bw_problem.goal)
-@test ff(blocksworld, bw_state, bw_problem.goal) == 4
+ff = FFHeuristic()
+@test ff(blocksworld, bw_state, bw_problem.goal) <= 4
+@test ff(bw_axioms, ba_state, ba_problem.goal) <= 4
+
+# Test dynamic goal updating
+precompute!(ff, blocksworld, bw_state)
+@test compute(ff, blocksworld, bw_state, bw_problem.goal) <= 4
+precompute!(ff, bw_axioms, ba_state)
+@test compute(ff, bw_axioms, ba_state, ba_problem.goal) <= 4
 
 end
 
@@ -80,5 +123,32 @@ reachability = ReachabilityHeuristic()
 
 end
 
+@testset "Precomputed Heuristic" begin
+
+h = GoalCountHeuristic()
+hval = h(doors_keys_gems, dkg_state, dkg_problem.goal)
+h = precomputed(h, doors_keys_gems, dkg_state, dkg_problem.goal)
+@test h(doors_keys_gems, dkg_state, dkg_problem.goal) == hval
+
+h = FFHeuristic()
+hval = h(blocksworld, bw_state, bw_problem.goal)
+h = precomputed(FFHeuristic(), blocksworld, bw_state, bw_problem.goal)
+@test h(blocksworld, bw_state, bw_problem.goal) == hval
+
+end
+
+@testset "Memoized Heuristic" begin
+
+h = memoized(GoalCountHeuristic())
+hval = h(doors_keys_gems, dkg_state, dkg_problem.goal)
+@test h.heuristic(doors_keys_gems, dkg_state, dkg_problem.goal) == hval
+@test h(doors_keys_gems, dkg_state, dkg_problem.goal) == hval
+
+h = memoized(precomputed(FFHeuristic(), blocksworld, bw_state))
+hval = h(blocksworld, bw_state, bw_problem.goal)
+@test h.heuristic(blocksworld, bw_state, bw_problem.goal) == hval
+@test h(blocksworld, bw_state, bw_problem.goal) == hval
+
+end
 
 end

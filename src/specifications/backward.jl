@@ -1,4 +1,10 @@
-"Goal specification for backward search."
+"""
+    BackwardSearchGoal(goal::Goal, start::State)
+
+A goal specification used for backward search (e.g. [`BackwardPlanner`](@ref)),
+constructed from the original `goal` specification, and the `start` state to
+be reached via backward search from the goal.
+"""
 struct BackwardSearchGoal{G <: Goal,C} <: Goal
     goal::G # Original goal specification
     start::State # Start state to be reached via backward search
@@ -25,6 +31,10 @@ get_reward(spec::BackwardSearchGoal, domain::Domain, s1::State, a::Term, s2::Sta
     get_reward(spec.goal, domain, s2, a, s1)
 get_goal_terms(spec::BackwardSearchGoal) =
     get_goal_terms(spec.goal)
+
+set_goal_terms(spec::BackwardSearchGoal, terms) =
+    BackwardSearchGoal(set_goal_terms(spec.goal, terms),
+                       spec.start, spec.constraint_diff)
 
 function add_constraints!(
     spec::BackwardSearchGoal{G,C}, domain::Domain, state::State
