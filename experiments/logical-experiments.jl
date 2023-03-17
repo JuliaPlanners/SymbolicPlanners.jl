@@ -38,7 +38,7 @@ df = DataFrame(domain=String[], problem=String[], problem_size=Int[],
                compiled=Bool[], planner=String[], heuristic=String[], run=Int[],
                n_steps=Int[], time=Float64[], bytes=Int[],
                n_eval=Int[], n_expand=Int[])
-heuristics = Dict("GoalCount" => GoalCountHeuristic())
+heuristics = Dict("GoalCount" => GoalCountHeuristic(), "HAdd" => HAdd())
 
 # Load all problems with up to N
 N = 26
@@ -62,7 +62,6 @@ for (problem_id, problem_path) in enumerate(problem_set)
     cdomain, cstate = compiled(domain, state)
     # Repeat for both original and compiled
     for dom in (domain, cdomain), hname in keys(heuristics)
-        if !(dom isa CompiledDomain) continue end
         dom isa CompiledDomain ?
             println("Compiled ($hname):") : println("Interpreted ($hname):")
         state = initstate(dom, problem)
