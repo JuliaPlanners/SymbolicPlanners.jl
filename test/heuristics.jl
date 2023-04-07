@@ -62,6 +62,58 @@ heuristic = PlannerHeuristic(planner, s_transform=remove_doors)
 
 end
 
+@testset "PolicyValueHeuristic" begin
+
+gw_state_2 = copy(gw_state)
+gw_state_2[pddl"(ypos)"] = 3    
+
+manhattan = precompute!(ManhattanHeuristic(@pddl("xpos", "ypos")),
+                        gridworld, gw_state, gw_spec)
+policy = FunctionalVPolicy(manhattan, gridworld, gw_spec)
+heuristic = PolicyValueHeuristic(policy)
+
+@test heuristic(gridworld, gw_state, gw_spec) == 2
+@test heuristic(gridworld, gw_state_2, gw_spec) == 4
+
+end
+
+@testset "GoalDependentPolicyHeuristic" begin
+
+gw_spec_2 = Specification(@pddl("(== xpos 1)", "(== ypos 1)"))
+gw_state_2 = copy(gw_state)
+gw_state_2[pddl"(ypos)"] = 3    
+
+manhattan_1 = precompute!(ManhattanHeuristic(@pddl("xpos", "ypos")),
+                          gridworld, gw_state, gw_spec)
+manhattan_2 = precompute!(ManhattanHeuristic(@pddl("xpos", "ypos")),
+                          gridworld, gw_state, gw_spec_2)
+policies = Dict(
+    gw_spec => FunctionalVPolicy(manhattan_1, gridworld, gw_spec),
+    gw_spec_2 => FunctionalVPolicy(manhattan_2, gridworld, gw_spec_2)
+)
+heuristic = GoalDependentPolicyHeuristic(policies)
+
+@test heuristic(gridworld, gw_state, gw_spec) == 2
+@test heuristic(gridworld, gw_state, gw_spec_2) == 0
+@test heuristic(gridworld, gw_state_2, gw_spec) == 4
+@test heuristic(gridworld, gw_state_2, gw_spec_2) == 2
+
+function default(domain, state, spec)
+    manhattan = precompute!(ManhattanHeuristic(@pddl("xpos", "ypos")),
+                            domain, state, spec)
+    return FunctionalVPolicy(manhattan, domain, spec)
+end
+
+policies = Dict{MinStepsGoal, FunctionalVPolicy}()
+heuristic = GoalDependentPolicyHeuristic(policies, default)
+
+@test heuristic(gridworld, gw_state, gw_spec) == 2
+@test heuristic(gridworld, gw_state, gw_spec_2) == 0
+@test heuristic(gridworld, gw_state_2, gw_spec) == 4
+@test heuristic(gridworld, gw_state_2, gw_spec_2) == 2
+
+end 
+
 @testset "HSP Heuristics" begin
 
 h_add = HAdd()
