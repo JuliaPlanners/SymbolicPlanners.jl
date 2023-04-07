@@ -76,6 +76,7 @@ the following wrapper heuristics are provided.
 ```@docs
 PlannerHeuristic
 PolicyValueHeuristic
+GoalDependentPolicyHeuristic
 ```
 
 ## Precomputation and Memoization
