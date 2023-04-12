@@ -11,7 +11,7 @@ export ProbForwardPlanner, ProbAStarPlanner
         max_nodes::Int = typemax(Int),
         max_time::Float64 = Inf,
         save_search::Bool = false,
-        save_search_order::Bool = false
+        save_search_order::Bool = save_search
     )
 
 Forward best-first search planner, which encompasses uniform-cost search, 
@@ -55,7 +55,7 @@ $(FIELDS)
     "Flag to save the search tree and frontier in the returned solution."
     save_search::Bool = false
     "Flag to save the node expansion order in the returned solution."
-    save_search_order::Bool = false
+    save_search_order::Bool = save_search
 end
 
 @auto_hash ForwardPlanner
