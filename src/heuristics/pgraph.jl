@@ -101,7 +101,9 @@ function build_planning_graph(
     cond_children = collect(values(cond_map))
     conditions = collect(keys(cond_map))
     # Determine parent and child conditions of each action
-    act_parents = [[Int[] for c in act.preconds] for act in actions]
+    act_parents = map(actions) do act 
+        [Int[] for _ in 1:min(Sys.WORD_SIZE, length(act.preconds))]
+    end
     act_children = [Int[] for _ in actions]
     for (i, cond) in enumerate(conditions)
         # Collect parent conditions
@@ -175,7 +177,9 @@ function update_pgraph_goal!(graph::PlanningGraph, domain::Domain, state::State,
     resize!(graph.act_parents, n_nongoals)
     resize!(graph.act_children, n_nongoals)
     graph.n_goals = length(goal_actions)
-    goal_parents = [[Int[] for c in act.preconds] for act in goal_actions]
+    goal_parents = map(goal_actions) do act 
+        [Int[] for _ in 1:min(Sys.WORD_SIZE, length(act.preconds))]
+    end
     goal_children = [Int[] for _ in goal_actions]
     append!(graph.actions, goal_actions)
     append!(graph.act_parents, goal_parents)
