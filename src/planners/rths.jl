@@ -154,18 +154,25 @@ function update_values!(planner::RealTimeHeuristicSearch,
                         policy::TabularVPolicy, search_sol::PathSearchSolution)
     @unpack h_mult, heuristic = planner
     @unpack trajectory, search_tree, search_frontier = search_sol
-    # Get value of terminal node from search frontier
-    node_id, (_, terminal_h_val, _) = dequeue_pair!(search_frontier)
-    # Recompute f-value in case g_mult != 1.0
-    terminal_path_cost = search_tree[node_id].path_cost
-    terminal_f_val = terminal_path_cost + h_mult * terminal_h_val
-    policy.V[node_id] = -terminal_f_val
-    # Update values of all closed nodes in search tree
-    for (node_id, node) in search_tree
-        haskey(search_frontier, node_id) && continue
-        est_cost_to_goal = terminal_f_val - node.path_cost
-        policy.V[node_id] = -est_cost_to_goal
-    end    
+    if search_sol.status == :failure
+        # If search failed, then no nodes in the search tree can reach the goal
+        for (node_id, _) in search_tree
+            policy.V[node_id] = -Inf
+        end
+    else
+        # Get value of terminal node from search frontier
+        node_id, (_, terminal_h_val, _) = dequeue_pair!(search_frontier)
+        # Recompute f-value in case g_mult != 1.0
+        terminal_path_cost = search_tree[node_id].path_cost
+        terminal_f_val = terminal_path_cost + h_mult * terminal_h_val
+        policy.V[node_id] = -terminal_f_val
+        # Update values of all closed nodes in search tree
+        for (node_id, node) in search_tree
+            haskey(search_frontier, node_id) && continue
+            est_cost_to_goal = terminal_f_val - node.path_cost
+            policy.V[node_id] = -est_cost_to_goal
+        end
+    end
     return nothing
 end
 
