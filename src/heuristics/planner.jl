@@ -39,10 +39,14 @@ function compute(h::PlannerHeuristic,
     domain = h.d_transform(domain)
     state = h.s_transform(state)
     sol = h.planner(domain, state, spec)
-    if sol isa OrderedSolution
+    if sol isa NullSolution
+        return Inf
+    elseif hasproperty(sol, :status) && sol.status == :failure
+        return Inf
+    elseif sol isa OrderedSolution
         actions = collect(sol)
         cost = -PDDL.simulate(RewardAccumulator(), domain, state, actions, spec)
-        if h.planner isa ForwardPlanner
+        if h.planner isa ForwardPlanner && sol isa PathSearchSolution
             inner_h = h.planner.heuristic
             cost += inner_h(domain, sol.trajectory[end], spec)
         end
