@@ -38,6 +38,9 @@ end
 MinActionCosts(term::Term, costs) =
     MinActionCosts(PDDL.flatten_conjs(term), costs)
 
+MinActionCosts(terms::AbstractVector{<:Term}, costs) =
+    MinActionCosts(collect(Term, terms), costs)
+
 function MinActionCosts(terms::AbstractVector{<:Term},
                         actions::AbstractVector{<:Symbol},
                         costs::AbstractVector{<:Real})
