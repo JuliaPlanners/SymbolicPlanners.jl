@@ -23,28 +23,28 @@ using the updated value estimates as more informed heuristics. Any `kwargs`
 are passed to the [`ForwardPlanner`](@ref) used internally for search.
 
 Each time heuristic search is performed, state values are updated by
-backpropagating the value estimates of all frontier nodes (including goal nodes)
-to their parents. That is, for each ancestor ``a`` of a frontier node ``n`` in
-the search tree, its updated value estimate is:
+backpropagating the value estimate of the terminal search node ``t``
+(i.e., the node about to be expanded when forward search terminates due to
+reaching the goal or a resource limit) to all non-frontier nodes ``s`` in
+the search tree:
 
 ```math
-V(a) = -[f(n) - g(a)] = -[g(n) + h(n) - g(a)] = -[(g(n) - g(a)) + h(n)]
+V(s) = -[f(t) - g(s)] = -[g(t) + h(t) - g(s)] = -[(g(t) - g(s)) + h(t)]
 ```
 
-where ``g(n)`` is the path cost from the root of the search tree to ``n``, 
-``h(n)`` is the heuristic goal-distance estimate for ``n``, and
-``f(n) = g(n) + h(n)``, the priority value for the frontier node.
+where ``g(t)`` is the path cost from the root of the search tree to ``t``, 
+``h(t)`` is the heuristic goal-distance estimate for ``t``, and
+``f(t) = g(t) + h(t)``, the priority value for the terminal node.
 
-Intuitively, the updated value of ``V(a)`` is the (negative) estimated cost
-from ``a`` to the goal, computed by summing the distance from ``a`` to ``n``
-with the estimated distance of ``n`` to the goal. In cases where frontier nodes
-share the same ancestor, frontier nodes with lower ``f`` values take precedence.
-This update rule is a variant of Learning Real Time A* (LRTA) [1], similar 
-to the update rule used by Real-Time Adaptive A* (RTAA) [2] because it updates 
-both the root node and other nodes in the search tree.
+Intuitively, the updated value of ``V(s)`` is the (negative) estimated cost from
+``s`` to the goal, computed by summing the distance from ``s`` to ``t`` with the
+estimated distance of ``t`` to the goal. This update rule follows a variant of
+Learning Real Time A* (LRTA) [1] called Real-Time Adaptive A* (RTAA) [2]. Note  
+that the RTAA* update rule requires initial heuristic values to be consistent in
+order for the updated heuristic values to remain admissible (and consistent).
 
 Returns a [`TabularVPolicy`](@ref), which stores the value estimates for each
-encountered state. Note that while this planner returns a policy, it expects
+encountered state. Although this planner returns a policy, it expects
 a deterministic domain as input.
 
 [1] R. E. Korf, "Real-Time Heuristic Search," Artificial Intelligence, vol. 42,
@@ -130,9 +130,8 @@ function solve!(sol::TabularVPolicy, planner::RealTimeHeuristicSearch,
         best_q, best_act = -Inf, nothing
         for act in available(domain, state)
             next_state = transition(domain, state, act)
-            next_id = hash(next_state)
             search_sol = solve(planner.planner, domain, next_state, spec)
-            update_values!(planner, sol, search_sol, domain, spec)
+            update_values!(planner, sol, search_sol)
             r = get_reward(spec, domain, state, act, next_state)
             q = get_discount(spec) * get_value(sol, next_state) + r
             if q > best_q
@@ -152,25 +151,21 @@ function solve!(sol::TabularVPolicy, planner::RealTimeHeuristicSearch,
 end
 
 function update_values!(planner::RealTimeHeuristicSearch,
-                        policy::TabularVPolicy, search_sol::PathSearchSolution,
-                        domain::Domain, spec::Specification)
+                        policy::TabularVPolicy, search_sol::PathSearchSolution)
     @unpack h_mult, heuristic = planner
-    @unpack trajectory, search_tree = search_sol
-    # Back-propagate values from frontier nodes in increasing priority order
-    visited = Set{UInt}()
-    queue = copy(search_sol.search_frontier)
-    while !isempty(queue)
-        node_id, (frontier_f_val, _, _) = dequeue_pair!(queue)
-        # Iterate until root or a node that is already visited
-        while !(node_id in visited)
-            push!(visited, node_id)
-            node = search_tree[node_id]
-            est_cost_to_goal = frontier_f_val - node.path_cost
-            policy.V[node_id] = -est_cost_to_goal
-            if node.parent_id === nothing break end
-            node_id = node.parent_id
-        end
-    end
+    @unpack trajectory, search_tree, search_frontier = search_sol
+    # Get value of terminal node from search frontier
+    node_id, (_, terminal_h_val, _) = dequeue_pair!(search_frontier)
+    # Recompute f-value in case g_mult != 1.0
+    terminal_path_cost = search_tree[node_id].path_cost
+    terminal_f_val = terminal_path_cost + h_mult * terminal_h_val
+    policy.V[node_id] = -terminal_f_val
+    # Update values of all closed nodes in search tree
+    for (node_id, node) in search_tree
+        haskey(search_frontier, node_id) && continue
+        est_cost_to_goal = terminal_f_val - node.path_cost
+        policy.V[node_id] = -est_cost_to_goal
+    end    
     return nothing
 end
 
