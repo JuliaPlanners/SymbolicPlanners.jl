@@ -130,6 +130,7 @@ function solve!(sol::TabularVPolicy, planner::RealTimeHeuristicSearch,
         best_q, best_act = -Inf, nothing
         for act in available(domain, state)
             next_state = transition(domain, state, act)
+            get(sol.V, hash(next_state), nothing) == -Inf && continue
             search_sol = solve(planner.planner, domain, next_state, spec)
             update_values!(planner, sol, search_sol)
             r = get_reward(spec, domain, state, act, next_state)
