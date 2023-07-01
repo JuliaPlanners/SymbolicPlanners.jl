@@ -120,7 +120,8 @@ ProbBackwardAStarPlanner(heuristic::Heuristic; search_noise=1.0, kwargs...) =
 function Base.copy(p::BackwardPlanner)
     return BackwardPlanner(p.heuristic, p.search_noise,
                            p.g_mult, p.h_mult, p.max_nodes, p.max_time,
-                           p.save_search, p.save_search_order)
+                           p.save_search, p.save_search_order,
+                           p.verbose, p.callback)
 end
 
 function solve(planner::BackwardPlanner,

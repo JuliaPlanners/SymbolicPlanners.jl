@@ -40,7 +40,8 @@ end
 
 function Base.copy(p::BreadthFirstPlanner)
     return BreadthFirstPlanner(p.max_nodes, p.max_time,
-                               p.save_search, p.save_search_order)
+                               p.save_search, p.save_search_order,
+                               p.verbose, p.callback)
 end
 
 function solve(planner::BreadthFirstPlanner,
