@@ -56,6 +56,21 @@ refine(sol::Solution, planner::Planner, domain::Domain, state::State, spec::Spec
 refine(sol::Solution, planner::Planner, domain::Domain, state::State, goals) =
     refine!(copy(sol), planner, domain, state, Specification(goals))
 
+"""
+    LoggerCallback(loglevel::LogLevel = Info; options...)
+
+A callback function for logging planner progress. The `loglevel` determines
+the verbosity of the logging (default = `Info``), and `options` can be
+specified to configure what is logged and how often.
+"""
+struct LoggerCallback <: Function
+    loglevel::Logging.LogLevel
+    options::Dict{Symbol, Any}
+end
+
+LoggerCallback(loglevel::Logging.LogLevel = Logging.Info; options...) =
+    LoggerCallback(loglevel, Dict{Symbol, Any}(options))
+
 # Path-search planning algorithms
 include("path_search.jl")
 include("bfs.jl")
