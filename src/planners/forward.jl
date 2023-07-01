@@ -11,7 +11,9 @@ export ProbForwardPlanner, ProbAStarPlanner
         max_nodes::Int = typemax(Int),
         max_time::Float64 = Inf,
         save_search::Bool = false,
-        save_search_order::Bool = save_search
+        save_search_order::Bool = save_search,
+        verbose::Bool = false,
+        callback = verbose ? LoggerCallback() : nothing
     )
 
 Forward best-first search planner, which encompasses uniform-cost search, 
@@ -288,7 +290,7 @@ function (cb::LoggerCallback)(
     idx = findfirst(x -> n < x[1], schedule)
     log_period = isnothing(idx) ? 1000 : schedule[idx][2]
     if n == 1
-        @logmsg cb.loglevel "Initializing search..."
+        @logmsg cb.loglevel "Starting forward search..."
         max_nodes, max_time = planner.max_nodes, planner.max_time
         @logmsg cb.loglevel "max_nodes = $max_nodes, max_time = $max_time" 
         search_noise = planner.search_noise
