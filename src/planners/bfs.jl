@@ -101,7 +101,7 @@ function expand!(planner::BreadthFirstPlanner, node::PathNode,
     # Iterate over available actions
     for act in available(domain, state)
         # Execute actions on state
-        next_state = execute(domain, state, act, check=false)
+        next_state = transition(domain, state, act, check=false)
         next_id = hash(next_state)
         # Skip if state has already been encountered
         if haskey(search_tree, next_id) continue end

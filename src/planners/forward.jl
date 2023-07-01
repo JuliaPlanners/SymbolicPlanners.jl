@@ -224,7 +224,7 @@ function expand!(planner::ForwardPlanner, node::PathNode,
     # Iterate over available actions
     for act in available(domain, state)
         # Execute action and trigger all post-action events
-        next_state = execute(domain, state, act; check=false)
+        next_state = transition(domain, state, act; check=false)
         next_id = hash(next_state)
         # Check if next state satisfies trajectory constraints
         if is_violated(spec, domain, state) continue end
