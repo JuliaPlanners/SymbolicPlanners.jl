@@ -261,7 +261,7 @@ function (cb::LoggerCallback)(
                    [(10, 2), (100, 10), (1000, 100), (typemax(Int), 1000)])
     idx = findfirst(x -> n < x[1], schedule)
     log_period = isnothing(idx) ? 1000 : schedule[idx][2]
-    if n == 1
+    if n == 1 && get(cb.options, :log_header, true)
         @logmsg cb.loglevel "Starting backward search..."
         max_nodes, max_time = planner.max_nodes, planner.max_time
         @logmsg cb.loglevel "max_nodes = $max_nodes, max_time = $max_time" 
@@ -273,7 +273,7 @@ function (cb::LoggerCallback)(
     if n % log_period == 0 || sol.status != :in_progress
         @logmsg cb.loglevel "f = $f, g = $g, h = $h, $m evaluated, $n expanded"
     end
-    if sol.status != :in_progress
+    if sol.status != :in_progress && get(cb.options, :log_solution, true)
         k = length(sol.plan)
         @logmsg cb.loglevel "Search terminated with status: $(sol.status)"
         if sol.status != :failure

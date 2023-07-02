@@ -56,6 +56,7 @@ pp. 281–288. <https://doi.org/10.1145/1160633.1160682>.
 mutable struct RealTimeHeuristicSearch <: Planner
     planner::ForwardPlanner
     n_iters::Int
+    callback::Union{Nothing, Function}
 end
 
 @auto_hash RealTimeHeuristicSearch
@@ -70,33 +71,37 @@ function RealTimeHeuristicSearch(planner::ForwardPlanner)
 end
 
 function RealTimeHeuristicSearch(;
-    n_iters::Int = 10, max_nodes::Int = 50, kwargs...
+    n_iters::Int = 10, max_nodes::Int = 50,
+    verbose::Bool = false, callback = verbose ? LoggerCallback() : nothing,
+    kwargs...
 )
     planner = ForwardPlanner(;max_nodes=max_nodes, save_search=true, kwargs...)
-    return RealTimeHeuristicSearch(planner, n_iters)
+    return RealTimeHeuristicSearch(planner, n_iters, callback)
 end
 
 function RealTimeHeuristicSearch(
     heuristic::Heuristic;
-    n_iters::Int = 10, max_nodes::Int = 50, kwargs...
+    n_iters::Int = 10, max_nodes::Int = 50,
+    verbose::Bool = false, callback = verbose ? LoggerCallback() : nothing,
+    kwargs...
 )
     planner = ForwardPlanner(;heuristic=heuristic, max_nodes=max_nodes,
                               save_search=true, kwargs...)
-    return RealTimeHeuristicSearch(planner, n_iters)
+    return RealTimeHeuristicSearch(planner, n_iters, callback)
 end
 
 function Base.getproperty(planner::RealTimeHeuristicSearch, name::Symbol)
-    return name in (:planner, :n_iters) ?
+    return name in (:planner, :n_iters, :callback) ?
         getfield(planner, name) : getproperty(planner.planner, name)
 end
 
 function Base.setproperty!(planner::RealTimeHeuristicSearch, name::Symbol, val)
-    return name in (:planner, :n_iters) ?
+    return name in (:planner, :n_iters, :callback) ?
         setfield!(planner, name, val) : setproperty!(planner.planner, name, val)
 end
 
 function Base.copy(p::RealTimeHeuristicSearch)
-    return RealTimeHeuristicSearch(copy(p.planner), p.n_iters)
+    return RealTimeHeuristicSearch(copy(p.planner), p.n_iters, p.callback)
 end
 
 function solve(planner::RealTimeHeuristicSearch,
@@ -120,9 +125,13 @@ function solve!(sol::TabularVPolicy, planner::RealTimeHeuristicSearch,
     @unpack n_iters, heuristic = planner
     # Use previously computed policy values to guide search 
     planner.heuristic = PolicyValueHeuristic(sol)
+    # Run callback if provided
+    if !isnothing(planner.callback)
+        planner.callback(planner, sol, state, 0, nothing, -Inf, nothing)
+    end
     # Iteratively perform heuristic search followed by simulated execution
     init_state = state
-    for _ in 1:n_iters
+    for i_iter in 1:n_iters
         # Restart if goal is reached
         state = is_goal(spec, domain, state) ? init_state : state
         state_id = hash(state)
@@ -139,9 +148,19 @@ function solve!(sol::TabularVPolicy, planner::RealTimeHeuristicSearch,
                 best_q = q
                 best_act = act
             end
+            # Run callback if provided
+            if !isnothing(planner.callback)
+                planner.callback(planner, sol, init_state,
+                                 i_iter, act, q, best_act)
+            end
         end
         # Set value of current state to best of neighboring values
         sol.V[state_id] = best_q
+        # Run callback if provided
+        if !isnothing(planner.callback)
+            planner.callback(planner, sol, init_state,
+                             i_iter, nothing, best_q, best_act)
+        end
         # Follow policy one step forward if possible
         state = isnothing(best_act) ?
             init_state : transition(domain, state, best_act)
@@ -180,4 +199,30 @@ end
 function refine!(sol::PolicySolution, planner::RealTimeHeuristicSearch,
                  domain::Domain, state::State, spec::Specification)
     return solve!(sol, planner, domain, state, spec)
+end
+
+function (cb::LoggerCallback)(
+    planner::RealTimeHeuristicSearch,
+    sol::TabularVPolicy, init_state::State,
+    n::Int, act, cur_v, best_act
+)
+    if n == 0 && get(cb.options, :log_header, true)
+        @logmsg cb.loglevel "Running RTHS..."
+        n_iters, max_nodes = planner.n_iters, planner.max_nodes
+        @logmsg cb.loglevel "n_iters = $n_iters, max_nodes = $max_nodes"
+        return nothing
+    end
+    log_period = get(cb.options, :log_period, 1)
+    if n > 0 && n % log_period == 0 && !isnothing(act)
+        act = write_pddl(act)
+        @logmsg cb.loglevel "Iteration $n $act: value = $cur_v"
+    end
+    if n > 0 && n % log_period == 0 && isnothing(act)
+        init_v = sol.V[hash(init_state)]
+        best_act = write_pddl(best_act)
+        @logmsg(cb.loglevel,
+                "Iteration $n: best action = $best_act, " * 
+                "value = $cur_v, initial value = $init_v")
+    end
+    return nothing
 end
