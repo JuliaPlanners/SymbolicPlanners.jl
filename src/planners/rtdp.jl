@@ -6,7 +6,9 @@ export RealTimeDynamicPlanner, RTDP
         n_rollouts::Int = 50,
         max_depth::Int = 50,
         rollout_noise::Float64 = 0.0,
-        action_noise::Float64 = 0.0
+        action_noise::Float64 = 0.0,
+        verbose::Bool = false,
+        callback = verbose ? LoggerCallback() : nothing
     )
 
 Planner that uses Real Time Dynamic Programming (`RTDP` for short), a form
@@ -45,6 +47,10 @@ $(FIELDS)
     rollout_noise::Float64 = 0.0
     "Amount of Boltzmann action noise for the returned policy."
     action_noise::Float64 = 0.0
+    "Flag to print debug information during search."
+    verbose::Bool = false
+    "Callback function for logging, etc."
+    callback::Union{Nothing, Function} = verbose ? LoggerCallback() : nothing
 end
 
 @auto_hash RealTimeDynamicPlanner
@@ -54,7 +60,8 @@ const RTDP = RealTimeDynamicPlanner
 
 function Base.copy(p::RealTimeDynamicPlanner)
     return RealTimeDynamicPlanner(p.heuristic, p.n_rollouts, p.max_depth,
-                                  p.rollout_noise, p.action_noise)
+                                  p.rollout_noise, p.action_noise,
+                                  p.verbose, p.callback)
 end
 
 function solve(planner::RealTimeDynamicPlanner,
@@ -87,14 +94,25 @@ function solve!(sol::TabularPolicy, planner::RealTimeDynamicPlanner,
     visited = Vector{typeof(state)}()
     for n in 1:n_rollouts
         state = initial_state
+        stop_reason = :max_depth
         # Rollout until maximum depth
         for t in 1:max_depth
             push!(visited, state)
-            if is_goal(spec, domain, state) break end
+            if is_goal(spec, domain, state) # Stop if goal is reached
+                stop_reason = :goal_reached
+                break
+            end
             update_values!(planner, sol, domain, state, spec)
             act = get_action(ro_policy, state)
-            if ismissing(act) break end # Restart if we hit a dead-end
+            if ismissing(act) # Stop if we hit a dead-end
+                stop_reason = :dead_end
+                break
+            end 
             state = transition(domain, state, act)
+        end
+        # Run callback
+        if !isnothing(planner.callback)
+            planner.callback(planner, sol, n, visited, stop_reason)
         end
         # Post-rollout update
         while length(visited) > 0
@@ -140,4 +158,25 @@ end
 function refine!(sol::PolicySolution, planner::RealTimeDynamicPlanner,
                  domain::Domain, state::State, spec::Specification)
     return solve!(sol, planner, domain, state, spec)
+end
+
+function (cb::LoggerCallback)(
+    planner::RealTimeDynamicPlanner,
+    sol::TabularPolicy, n::Int, visited, stop_reason::Symbol
+)
+    if n == 1
+        @logmsg cb.loglevel "Running RTDP..."
+        n_rollouts, max_depth = planner.n_rollouts, planner.max_depth
+        @logmsg cb.loglevel "n_rollouts = $n_rollouts, max_depth = $max_depth"
+        rollout_noise, action_noise = planner.rollout_noise, planner.action_noise
+        @logmsg cb.loglevel "rollout_noise = $rollout_noise, action_noise = $action_noise"
+    end
+    log_period = get(cb.options, :log_period, 1)
+    if n % log_period == 0
+        depth = length(visited)
+        @logmsg cb.loglevel "Rollout $n: depth = $depth, stop reason = $stop_reason"
+        start_v, stop_v = sol.V[hash(visited[1])], sol.V[hash(visited[end])]
+        @logmsg cb.loglevel "start value = $start_v, stop value = $stop_v"
+    end
+    return nothing
 end
