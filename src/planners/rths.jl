@@ -203,8 +203,7 @@ end
 
 function (cb::LoggerCallback)(
     planner::RealTimeHeuristicSearch,
-    sol::TabularVPolicy, init_state::State,
-    n::Int, act, cur_v, best_act
+    sol::PolicySolution, init_state::State, n::Int, act, cur_v, best_act
 )
     if n == 0 && get(cb.options, :log_header, true)
         @logmsg cb.loglevel "Running RTHS..."
@@ -218,7 +217,7 @@ function (cb::LoggerCallback)(
         @logmsg cb.loglevel "Iteration $n $act: value = $cur_v"
     end
     if n > 0 && n % log_period == 0 && isnothing(act)
-        init_v = sol.V[hash(init_state)]
+        init_v = get_value(sol, init_state)
         best_act = write_pddl(best_act)
         @logmsg(cb.loglevel,
                 "Iteration $n: best action = $best_act, " * 

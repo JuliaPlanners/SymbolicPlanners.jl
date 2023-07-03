@@ -162,7 +162,7 @@ end
 
 function (cb::LoggerCallback)(
     planner::RealTimeDynamicPlanner,
-    sol::TabularPolicy, n::Int, visited, stop_reason::Symbol
+    sol::PolicySolution, n::Int, visited, stop_reason::Symbol
 )
     if n == 1 && get(cb.options, :log_header, true)
         @logmsg cb.loglevel "Running RTDP..."
@@ -174,7 +174,8 @@ function (cb::LoggerCallback)(
     log_period = get(cb.options, :log_period, 1)
     if n % log_period == 0
         depth = length(visited)
-        start_v, stop_v = sol.V[hash(visited[1])], sol.V[hash(visited[end])]
+        start_v = get_value(sol, visited[1])
+        stop_v = get_value(sol, visited[end]) 
         @logmsg(cb.loglevel, 
                 "Rollout $n: depth = $depth, stop reason = $stop_reason, " * 
                 "start value = $start_v, stop value = $stop_v")
