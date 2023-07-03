@@ -127,7 +127,7 @@ function solve!(sol::TabularVPolicy, planner::RealTimeHeuristicSearch,
     planner.heuristic = PolicyValueHeuristic(sol)
     # Run callback if provided
     if !isnothing(planner.callback)
-        planner.callback(planner, sol, state, 0, nothing, -Inf, nothing)
+        planner.callback(planner, sol, state, state, 0, nothing, -Inf, nothing)
     end
     # Iteratively perform heuristic search followed by simulated execution
     init_state = state
@@ -150,7 +150,7 @@ function solve!(sol::TabularVPolicy, planner::RealTimeHeuristicSearch,
             end
             # Run callback if provided
             if !isnothing(planner.callback)
-                planner.callback(planner, sol, init_state,
+                planner.callback(planner, sol, init_state, state,
                                  i_iter, act, q, best_act)
             end
         end
@@ -158,7 +158,7 @@ function solve!(sol::TabularVPolicy, planner::RealTimeHeuristicSearch,
         sol.V[state_id] = best_q
         # Run callback if provided
         if !isnothing(planner.callback)
-            planner.callback(planner, sol, init_state,
+            planner.callback(planner, sol, init_state, state,
                              i_iter, nothing, best_q, best_act)
         end
         # Follow policy one step forward if possible
@@ -203,7 +203,8 @@ end
 
 function (cb::LoggerCallback)(
     planner::RealTimeHeuristicSearch,
-    sol::PolicySolution, init_state::State, n::Int, act, cur_v, best_act
+    sol::PolicySolution, init_state::State, cur_state::State,
+    n::Int, act, cur_v, best_act
 )
     if n == 0 && get(cb.options, :log_header, true)
         @logmsg cb.loglevel "Running RTHS..."
