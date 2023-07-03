@@ -88,6 +88,10 @@ function solve!(sol::TabularPolicy, planner::RealTimeDynamicPlanner,
     spec = simplify_goal(spec, domain, state)
     # Precompute heuristic information
     ensure_precomputed!(heuristic, domain, state, spec)
+    # Run callback
+    if !isnothing(planner.callback)
+        planner.callback(planner, sol, 0, [state], :init)
+    end
     # Perform rollouts from initial state
     initial_state = state
     ro_policy = rollout_noise == 0 ? sol : BoltzmannPolicy(sol, rollout_noise)
@@ -164,7 +168,7 @@ function (cb::LoggerCallback)(
     planner::RealTimeDynamicPlanner,
     sol::PolicySolution, n::Int, visited, stop_reason::Symbol
 )
-    if n == 1 && get(cb.options, :log_header, true)
+    if n == 0 && get(cb.options, :log_header, true)
         @logmsg cb.loglevel "Running RTDP..."
         n_rollouts, max_depth = planner.n_rollouts, planner.max_depth
         @logmsg cb.loglevel "n_rollouts = $n_rollouts, max_depth = $max_depth"
@@ -172,7 +176,7 @@ function (cb::LoggerCallback)(
         @logmsg cb.loglevel "rollout_noise = $rollout_noise, action_noise = $action_noise"
     end
     log_period = get(cb.options, :log_period, 1)
-    if n % log_period == 0
+    if n > 0 && n % log_period == 0
         depth = length(visited)
         start_v = get_value(sol, visited[1])
         stop_v = get_value(sol, visited[end]) 
