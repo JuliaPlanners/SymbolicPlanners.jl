@@ -22,4 +22,5 @@ makedocs(
 
 deploydocs(
     repo = "github.com/JuliaPlanners/SymbolicPlanners.jl.git",
+    forcepush = true
 )
