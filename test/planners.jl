@@ -188,6 +188,7 @@ sol = planner(wgc_domain, wgc_state, wgc_spec)
                           "(ship-cabbage left right)", "(ship-self right left)",
                           "(ship-goat left right)",))
 
+# Test solution refinement
 planner = AStarPlanner(HAdd(), max_nodes=2, save_search=true)
 sol = planner(blocksworld, bw_state, bw_spec)
 @test sol.status == :max_nodes

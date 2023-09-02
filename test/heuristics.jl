@@ -116,27 +116,38 @@ end
 
 @testset "HSP Heuristics" begin
 
+# Test HSP heuristics (without axioms)
 h_add = HAdd()
 h_max = HMax()
 @test h_add(blocksworld, bw_state, bw_problem.goal) == 4
 @test h_max(blocksworld, bw_state, bw_problem.goal) == 2
 
-# Test dynamic goal updating
+# Test dynamic goal updating (without axioms)
 precompute!(h_add, blocksworld, bw_state)
 precompute!(h_max, blocksworld, bw_state)
 @test compute(h_add, blocksworld, bw_state, bw_problem.goal) == 4
 @test compute(h_max, blocksworld, bw_state, bw_problem.goal) == 2
 
+# Test HSP heuristics with axioms
 h_add = HAdd()
 h_max = HMax()
 @test h_add(bw_axioms, ba_state, ba_problem.goal) == 4
 @test h_max(bw_axioms, ba_state, ba_problem.goal) == 2
 
-# Test dynamic goal updating
+# Test dynamic goal updating with axioms
 precompute!(h_add, bw_axioms, ba_state)
 precompute!(h_max, bw_axioms, ba_state)
 @test compute(h_add, bw_axioms, ba_state, ba_problem.goal) == 4
 @test compute(h_max, bw_axioms, ba_state, ba_problem.goal) == 2
+
+# Test HSP heuristics with action costs
+bw_actions = collect(keys(PDDL.get_actions(blocksworld)))
+bw_act_costs = ones(length(bw_actions)) .* 2
+bw_act_spec = MinActionCosts([bw_problem.goal], bw_actions, bw_act_costs)
+h_add = HAdd()
+h_max = HMax()
+@test h_add(blocksworld, bw_state, bw_act_spec) == 8
+@test h_max(blocksworld, bw_state, bw_act_spec) == 4
 
 end
 

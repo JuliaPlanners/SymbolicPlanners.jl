@@ -288,12 +288,16 @@ function relaxed_pgraph_search(domain::Domain, state::State, spec::Specification
             # Compute path cost and distance of achieved action or axiom
             act_parents = graph.act_parents[act_idx]
             is_axiom = act_idx <= graph.n_axioms
-            if is_axiom # Axioms cost is the max of parent consts
+            if is_axiom # Axiom cost is the max of parent costs
                 next_cost = maximum(act_parents) do precond_parents
                     minimum(costs[p] for p in precond_parents)
                 end
                 next_dist = dists[cond_idx]
-            else # Lookup action cost if specified, default to one otherwise
+            elseif is_goal # Goal cost is the accumulation of parent costs
+                next_cost = accum_op(act_parents) do precond_parents
+                    minimum(costs[p] for p in precond_parents)
+                end
+            else # Look up action cost if specified, default to one otherwise
                 path_cost = accum_op(act_parents) do precond_parents
                     minimum(costs[p] for p in precond_parents)
                 end
@@ -303,8 +307,9 @@ function relaxed_pgraph_search(domain::Domain, state::State, spec::Specification
                 next_dist = accum_op === maximum && !has_action_cost(spec) ?
                     next_cost : dists[cond_idx] + 1
             end
-            if is_goal # Return goal index and goal cost
-                goal_idx, goal_cost = act_idx, path_cost
+            # Return goal index and goal cost if goal is reached
+            if is_goal
+                goal_idx, goal_cost = act_idx, next_cost
                 break
             end
             # Place child conditions on queue
