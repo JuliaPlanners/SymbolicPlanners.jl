@@ -15,6 +15,12 @@ Returns the cost for `act` for specifications with fixed action costs.
 """
 get_action_cost(spec::Specification, act::Term) =
     error("Not implemented.")
+get_action_cost(costs::NamedTuple{T, <: NTuple{N, Real} where {N}}, act::Term) where {T} =
+    costs[act.name]
+get_action_cost(costs::Dict{Symbol, <:Real}, act::Term) =
+    costs[act.name]
+get_action_cost(costs::Dict{<:Term, <:Real}, act::Term) =
+    costs[act]
 
 """
     MinActionCosts(terms, costs)
@@ -81,13 +87,8 @@ Base.:(==)(s1::MinActionCosts, s2::MinActionCosts) =
     s1.costs == s2.costs && s1.terms == s2.terms
 
 has_action_cost(spec::MinActionCosts) = true
-
-get_action_cost(spec::MinActionCosts{C}, act::Term) where {C <: NamedTuple} =
-    spec.costs[act.name]
-get_action_cost(spec::MinActionCosts{C}, act::Term) where {C <: Dict{Symbol}} =
-    spec.costs[act.name]
-get_action_cost(spec::MinActionCosts{C}, act::Term) where {C <: Dict{<:Term}} =
-    spec.costs[act]
+get_action_cost(spec::MinActionCosts, act::Term) =
+    get_action_cost(spec.costs, act)
 
 is_goal(spec::MinActionCosts, domain::Domain, state::State) =
     satisfy(domain, state, spec.terms)
@@ -144,20 +145,16 @@ Base.:(==)(s1::ExtraActionCosts, s2::ExtraActionCosts) =
     s1.costs == s2.costs && s1.spec == s2.spec
 
 has_action_cost(spec::ExtraActionCosts) = true
-
-get_action_cost(spec::ExtraActionCosts{C}, act::Term) where {C <: NamedTuple} =
-    spec.costs[act.name]
-get_action_cost(spec::ExtraActionCosts{C}, act::Term) where {C <: Dict{Symbol}} =
-    spec.costs[act.name]
-get_action_cost(spec::ExtraActionCosts{C}, act::Term) where {C <: Dict{<:Term}} =
-    spec.costs[act]
+get_action_cost(spec::ExtraActionCosts, act::Term) =
+    (get_action_cost(spec.costs, act) + 
+     has_action_cost(spec.spec) ? get_action_cost(spec.spec, act) : 0.0)
 
 is_goal(spec::ExtraActionCosts, domain::Domain, state::State) =
     is_goal(spec.spec, domain, state)
 is_violated(spec::ExtraActionCosts, domain::Domain, state::State) =
     is_violated(spec.spec, domain, state)
 get_cost(spec::ExtraActionCosts, domain::Domain, s1::State, a::Term, s2::State) =
-    get_cost(spec.spec, domain, s1, a, s2) + get_action_cost(a)
+    get_cost(spec.spec, domain, s1, a, s2) + get_action_cost(spec, a)
 get_reward(spec::ExtraActionCosts, domain::Domain, s1::State, a::Term, s2::State) =
     -get_cost(spec, domain, s1, a, s2)
 get_goal_terms(spec::ExtraActionCosts) =
@@ -167,6 +164,100 @@ get_discount(spec::ExtraActionCosts) =
 
 set_goal_terms(spec::ExtraActionCosts, terms) =
     ExtraActionCosts(set_goal_terms(spec.spec, terms), spec.costs)
+
+"""
+    MinPerAgentActionCosts(terms, costs, [agent_arg_idx=1])
+
+[`Goal`](@ref) specification where each agent has separate action costs.
+Planners called with this specification will try to minimize the
+total action cost in the returned [`Solution`](@ref).
+
+Costs can be provided as a nested dictionary or named tuple, where the first
+level maps agent names (specified as `Symbol`s or `Const`s) to the second level,
+which maps action names or ground action `Term`s to `Real`s.
+
+The `agent_arg_idx` argument specifies the index of the agent argument in the
+action terms. By default, this is 1.
+"""
+struct MinPerAgentActionCosts{C} <: Goal
+    terms::Vector{Term} # Goal terms to be satisfied
+    costs::C # Named tuple or dictionary of action costs
+    agent_arg_idx::Int # Index of agent argument in action terms
+end
+
+MinPerAgentActionCosts(term::Term, costs, agent_arg_idx=1) =
+    MinPerAgentActionCosts(PDDL.flatten_conjs(term), costs, agent_arg_idx)
+
+MinPerAgentActionCosts(terms::AbstractVector{<:Term}, costs, agent_arg_idx=1) =
+    MinPerAgentActionCosts(collect(Term, terms), costs, agent_arg_idx)
+ 
+has_action_cost(spec::MinPerAgentActionCosts) = true
+
+get_action_cost(spec::MinPerAgentActionCosts{C}, act::Term) where {C <: NamedTuple} =
+    get_action_cost(spec.costs[act.args[spec.agent_arg_idx].name], act)
+get_action_cost(spec::MinPerAgentActionCosts{C}, act::Term) where {C <: Dict{Symbol}} =
+    get_action_cost(spec.costs[act.args[spec.agent_arg_idx].name], act)
+get_action_cost(spec::MinPerAgentActionCosts{C}, act::Term) where {C <: Dict{<:Term}} =
+    get_action_cost(spec.costs[act.args[spec.agent_arg_idx]], act)
+
+is_goal(spec::MinPerAgentActionCosts, domain::Domain, state::State) =
+    satisfy(domain, state, spec.terms)
+is_violated(spec::MinPerAgentActionCosts, domain::Domain, state::State) = false
+get_cost(spec::MinPerAgentActionCosts, domain::Domain, s1::State, a::Term, s2::State) =
+    get_action_cost(spec, a)
+get_reward(spec::MinPerAgentActionCosts, domain::Domain, s1::State, a::Term, s2::State) =
+    -get_action_cost(spec, a)
+get_goal_terms(spec::MinPerAgentActionCosts) = spec.terms
+
+set_goal_terms(spec::MinPerAgentActionCosts, terms) =
+    MinPerAgentActionCosts(terms, spec.costs, spec.agent_arg_idx)
+
+"""
+    ExtraPerAgentActionCosts(spec::Specification, costs, [agent_arg_idx=1])
+
+Wrapper that adds per-agent action costs to an underlying `spec`.
+
+Costs can be provided as a nested dictionary or named tuple, where the first
+level maps agent names (specified as `Symbol`s or `Const`s) to the second level,
+which maps action names or ground action `Term`s to `Real`s.
+"""
+struct ExtraPerAgentActionCosts{S <: Specification, C} <: Specification
+    spec::S # Underlying specification
+    costs::C # Named tuple or dictionary of action costs
+    agent_arg_idx::Int # Index of agent argument in action terms
+end
+
+ExtraPerAgentActionCosts(spec::Specification, costs) =
+    ExtraPerAgentActionCosts(spec, costs, 1)
+
+has_action_cost(spec::ExtraPerAgentActionCosts) = true
+
+get_action_cost(spec::ExtraPerAgentActionCosts{C}, act::Term) where {C <: NamedTuple} =
+    (get_action_cost(spec.costs[act.args[spec.agent_arg_idx].name], act) + 
+     has_action_cost(spec.spec) ? get_action_cost(spec.spec, act) : 0.0)
+get_action_cost(spec::ExtraPerAgentActionCosts{C}, act::Term) where {C <: Dict{Symbol}} =
+    (get_action_cost(spec.costs[act.args[spec.agent_arg_idx].name], act) + 
+     has_action_cost(spec.spec) ? get_action_cost(spec.spec, act) : 0.0)
+get_action_cost(spec::ExtraPerAgentActionCosts{C}, act::Term) where {C <: Dict{<:Term}} =
+    (get_action_cost(spec.costs[act.args[spec.agent_arg_idx]], act) + 
+     has_action_cost(spec.spec) ? get_action_cost(spec.spec, act) : 0.0)
+
+is_goal(spec::ExtraPerAgentActionCosts, domain::Domain, state::State) =
+    is_goal(spec.spec, domain, state)
+is_violated(spec::ExtraPerAgentActionCosts, domain::Domain, state::State) =
+    is_violated(spec.spec, domain, state)
+get_cost(spec::ExtraPerAgentActionCosts, domain::Domain, s1::State, a::Term, s2::State) =
+    get_cost(spec.spec, domain, s1, a, s2) + get_action_cost(spec, a)
+get_reward(spec::ExtraPerAgentActionCosts, domain::Domain, s1::State, a::Term, s2::State) =
+    -get_cost(spec, domain, s1, a, s2)
+get_goal_terms(spec::ExtraPerAgentActionCosts) =
+    get_goal_terms(spec.spec)
+get_discount(spec::ExtraPerAgentActionCosts) =
+    get_discount(spec.spec)
+
+set_goal_terms(spec::ExtraPerAgentActionCosts, terms) =
+    ExtraPerAgentActionCosts(set_goal_terms(spec.spec, terms), spec.costs,
+                             spec.agent_arg_idx)
 
 """
 $(SIGNATURES)
