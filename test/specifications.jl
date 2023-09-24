@@ -171,8 +171,9 @@ spec = BackwardSearchGoal(goal_spec, bw_state)
 @test BackwardSearchGoal(goal_spec, blocksworld, bw_state) == spec
 
 # Test hashing and equality
-@test hash(BackwardSearchGoal(goal_spec, bw_state)) == hash(spec)
-@test BackwardSearchGoal(goal_spec, bw_state) == spec
+new_goal_spec = MinStepsGoal(bw_problem.goal)
+@test hash(BackwardSearchGoal(new_goal_spec, bw_state)) == hash(spec)
+@test BackwardSearchGoal(new_goal_spec, bw_state) == spec
 @test BackwardSearchGoal(MinStepsGoal([]), bw_state) != spec
 
 # Test goal satisfaction
@@ -208,8 +209,9 @@ new_spec = DiscountedReward(goal_spec)
 @test discounted(goal_spec, 1.0) == new_spec
 
 # Test hashing and equality
-@test hash(DiscountedReward(goal_spec, 0.9)) == hash(spec)
-@test DiscountedReward(goal_spec, 0.9) == spec
+new_goal_spec = MinStepsGoal(pddl"(on a b)")
+@test hash(DiscountedReward(new_goal_spec, 0.9)) == hash(spec)
+@test DiscountedReward(new_goal_spec, 0.9) == spec
 @test DiscountedReward(goal_spec, 0.8) != spec
 
 # Test goal satisfaction
@@ -289,9 +291,10 @@ spec = BonusGoalReward(goal_spec, 10.0, 0.9)
 @test BonusGoalReward(goal_spec, 10.0, 0.9) == spec
 
 # Test hashing and equality
-@test hash(BonusGoalReward(goal_spec, 10.0, 0.9)) == hash(spec)
-@test BonusGoalReward(goal_spec, 10.0, 0.9) == spec
-@test BonusGoalReward(goal_spec, 10.0, 0.8) != spec
+new_goal_spec = MinStepsGoal(pddl"(on a b)")
+@test hash(BonusGoalReward(new_goal_spec, 10.0, 0.9)) == hash(spec)
+@test BonusGoalReward(new_goal_spec, 10.0, 0.9) == spec
+@test BonusGoalReward(new_goal_spec, 10.0, 0.8) != spec
 
 # Test goal satisfaction
 @test is_goal(spec, blocksworld, bw_state) == false
@@ -332,8 +335,8 @@ rewards = [1.0, 2.0]
 spec = MultiGoalReward(goals, rewards, 0.9)
 
 # Test hashing and equality
-@test hash(MultiGoalReward(goals, rewards, 0.9)) == hash(spec)
-@test MultiGoalReward(goals, rewards, 0.9) == spec
+@test hash(MultiGoalReward(copy(goals), copy(rewards), 0.9)) == hash(spec)
+@test MultiGoalReward(copy(goals), copy(rewards), 0.9) == spec
 @test MultiGoalReward(goals, rewards, 0.8) != spec
 
 # Test goal satisfaction
@@ -449,9 +452,10 @@ spec_4 = ExtraActionCosts(goal_spec, collect(keys(costs)), collect(costs))
 
 # Test hashing and equality
 spec = spec_1
-@test hash(ExtraActionCosts(goal_spec, costs)) == hash(spec)
-@test ExtraActionCosts(goal_spec, costs) == spec
-@test ExtraActionCosts(goal_spec, Dict{Term, Float64}()) != spec
+new_goal_spec = GoalReward(pddl"(on a b)", 10.0, 0.9)
+@test hash(ExtraActionCosts(new_goal_spec, costs)) == hash(spec)
+@test ExtraActionCosts(new_goal_spec, costs) == spec
+@test ExtraActionCosts(new_goal_spec, Dict{Term, Float64}()) != spec
 
 # Test goal satisfaction
 @test is_goal(spec, blocksworld, bw_state) == false
@@ -558,9 +562,10 @@ spec = ExtraPerAgentActionCosts(goal_spec, costs)
 @test ExtraPerAgentActionCosts(goal_spec, costs, 1) == spec
 
 # Test hashing and equality
-@test hash(ExtraPerAgentActionCosts(goal_spec, costs)) == hash(spec)
-@test ExtraPerAgentActionCosts(goal_spec, costs) == spec
-@test ExtraPerAgentActionCosts(goal_spec, costs, 2) != spec
+new_goal_spec = GoalReward(pddl"(at plane1 city2)", 10.0, 0.9)
+@test hash(ExtraPerAgentActionCosts(new_goal_spec, costs)) == hash(spec)
+@test ExtraPerAgentActionCosts(new_goal_spec, costs) == spec
+@test ExtraPerAgentActionCosts(new_goal_spec, costs, 2) != spec
 
 # Test goal satisfaction
 @test is_goal(spec, zeno_travel, zt_state) == false

@@ -40,7 +40,6 @@ set_goal_terms(spec::GoalReward, terms) =
 discounted(spec::GoalReward, discount::Float64) =
     GoalReward(spec.terms, spec.reward, discount * spec.discount)
 
-
 """
     BonusGoalReward(goal::Goal, reward=1.0, discount=0.9)
 
@@ -57,6 +56,11 @@ BonusGoalReward(spec::Goal) = BonusGoalReward(spec, 1.0, 1.0)
 BonusGoalReward(spec::Goal, reward) = BonusGoalReward(spec, reward, 1.0)
 BonusGoalReward(spec::BonusGoalReward, reward, discount) =
     BonusGoalReward(spec.goal, reward + spec.reward, discount * spec.discount)
+
+Base.hash(spec::BonusGoalReward, h::UInt) =
+    hash(spec.reward, hash(spec.discount, hash(spec.goal, h)))
+Base.:(==)(s1::BonusGoalReward, s2::BonusGoalReward) =
+    s1.reward == s2.reward && s1.discount == s2.discount && s1.goal == s2.goal
 
 is_goal(spec::BonusGoalReward, domain::Domain, state::State) =
     is_goal(spec.goal, domain, state)

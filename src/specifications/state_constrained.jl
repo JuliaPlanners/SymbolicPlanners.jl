@@ -23,7 +23,7 @@ StateConstrainedGoal(goal::Goal, constraints::Term) =
     StateConstrainedGoal(goal, PDDL.flatten_conjs(constraints))
 
 Base.hash(spec::StateConstrainedGoal, h::UInt) =
-    hash(spec.constraints, hash(spec.goal, h))
+    hash(Set(spec.constraints), hash(spec.goal, h))
 Base.:(==)(s1::StateConstrainedGoal, s2::StateConstrainedGoal) =
     Set(s1.constraints) == Set(s2.constraints) && s1.goal == s2.goal
 
