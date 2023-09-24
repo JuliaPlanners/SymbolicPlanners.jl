@@ -132,7 +132,7 @@ function solve(planner::BackwardPlanner,
     # Simplify goal specification
     spec = simplify_goal(spec, domain, state)
     # Convert to backward search goal specification
-    spec = BackwardSearchGoal(spec, state)
+    spec = BackwardSearchGoal(spec, domain, state)
     state = goalstate(domain, PDDL.get_objtypes(state), get_goal_terms(spec))
     # Initialize search tree and priority queue
     node_id = hash(state)
@@ -245,7 +245,7 @@ function refine!(
     sol.status == :success && return sol
     sol.status = :in_progress
     spec = simplify_goal(spec, domain, state)
-    spec = BackwardSearchGoal(spec, state)
+    spec = BackwardSearchGoal(spec, domain, state)
     ensure_precomputed!(planner.heuristic, domain, state, spec)
     return search!(sol, planner, domain, spec)
 end

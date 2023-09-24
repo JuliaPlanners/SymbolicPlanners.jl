@@ -36,6 +36,8 @@ wgc_problem = load_problem(:wolf_goat_cabbage, 1)
 wgc_state = initstate(wgc_domain, wgc_problem)
 wgc_spec = StateConstrainedGoal(wgc_problem)
 
+# Test specifications
+include("specifications.jl")
 # Test solutions
 include("solutions.jl")
 # Test simulators

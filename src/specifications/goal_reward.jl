@@ -4,7 +4,7 @@ export GoalReward, BonusGoalReward, MultiGoalReward
     GoalReward(terms, reward=1.0, discount=0.9)
 
 [`Goal`](@ref) specification which returns a `reward` when all goal `terms`
-are achieved, along with a `discount` factor. Each action zero cost.
+are achieved, along with a `discount` factor. Each action has zero cost.
 """
 @kwdef struct GoalReward <: Goal
     terms::Vector{Term} # Goal terms to be satisfied
@@ -66,7 +66,7 @@ get_cost(spec::BonusGoalReward, domain::Domain, s1::State, a::Term, s2::State) =
     -get_reward(spec, domain, s1, a, s2)
 get_reward(spec::BonusGoalReward, domain::Domain, s1::State, a::Term, s2::State) =
     get_reward(spec.goal, domain, s1, a, s2) +
-    is_goal(spec, domain, s2) ? spec.reward : 0.0
+    (is_goal(spec, domain, s2) ? spec.reward : 0.0)
 get_discount(spec::BonusGoalReward) = spec.discount * get_discount(spec.goal)
 get_goal_terms(spec::BonusGoalReward) = get_goal_terms(spec.goal)
 
@@ -102,8 +102,6 @@ is_violated(spec::MultiGoalReward, domain::Domain, state::State) = false
 get_cost(spec::MultiGoalReward, domain::Domain, s1::State, a::Term, s2::State) =
     -get_reward(spec, domain, s1, a, s2)
 get_discount(spec::MultiGoalReward) = spec.discount
-get_goal_terms(spec::MultiGoalReward) =
-    Term[Compound(:or, spec.goals)]
 
 function get_reward(spec::MultiGoalReward, domain::Domain,
                     s1::State, a::Term, s2::State)
@@ -114,5 +112,16 @@ function get_reward(spec::MultiGoalReward, domain::Domain,
     return reward
 end
 
+get_goal_terms(spec::MultiGoalReward) =
+    Term[Compound(:or, spec.goals)]
+
+function set_goal_terms(spec::MultiGoalReward, terms)
+    goals = PDDL.flatten_disjs(terms)
+    if length(goals) != length(spec.rewards)
+        error("Number of goals must match number of rewards.")
+    end
+    return MultiGoalReward(goals, spec.rewards, spec.discount)
+end
+
 discounted(spec::MultiGoalReward, discount::Float64) =
-    MultiGoalReward(spec.terms, spec.reward, discount * spec.discount)
+    MultiGoalReward(spec.goals, spec.rewards, discount * spec.discount)

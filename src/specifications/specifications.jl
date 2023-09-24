@@ -1,6 +1,6 @@
 export Specification, Goal
 export NullSpecification, NullGoal
-export is_goal, is_violated, get_cost, get_reward
+export is_goal, is_violated, get_cost, get_reward, get_discount
 
 """
     $(TYPEDEF)

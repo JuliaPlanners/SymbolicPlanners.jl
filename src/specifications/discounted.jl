@@ -10,8 +10,10 @@ struct DiscountedReward{S <: Specification} <: Specification
     discount::Float64 # Discount factor
 end
 
-DiscountedReward(spec) = DiscountedReward(spec, 1.0, 1.0)
-DiscountedReward(spec::DiscountedReward, discount) =
+DiscountedReward(spec) = DiscountedReward(spec, 1.0)
+DiscountedReward(spec::DiscountedReward, discount::Real) =
+    DiscountedReward(spec.spec, discount * spec.discount)
+DiscountedReward(spec::DiscountedReward, discount::Float64) =
     DiscountedReward(spec.spec, discount * spec.discount)
 
 Base.hash(spec::DiscountedReward, h::UInt) =
@@ -28,7 +30,7 @@ get_cost(spec::DiscountedReward, domain::Domain, s1::State, a::Term, s2::State) 
 get_reward(spec::DiscountedReward, domain::Domain, s1::State, a::Term, s2::State) =
     get_reward(spec.spec, domain, s1, a, s2)
 get_discount(spec::DiscountedReward) =
-    spec.discount
+    spec.discount * get_discount(spec.spec)
 get_goal_terms(spec::DiscountedReward) =
     get_goal_terms(spec.spec)
 

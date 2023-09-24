@@ -1,3 +1,5 @@
+export BackwardSearchGoal
+
 """
     BackwardSearchGoal(goal::Goal, start::State)
 
@@ -13,13 +15,20 @@ end
 
 BackwardSearchGoal(goal::Goal, start::State) =
     BackwardSearchGoal(goal, start, nothing)
-BackwardSearchGoal(goal::StateConstrainedGoal, start::State) =
-    BackwardSearchGoal(goal, start, precond_diff(constraints))
+BackwardSearchGoal(goal::Goal, domain::Domain, start::State) =
+    BackwardSearchGoal(goal, start, nothing)
+
+function BackwardSearchGoal(goal::StateConstrainedGoal,
+                            domain::Domain, start::State)
+    constraint = Compound(:and, goal.constraints)
+    constraint_diff = PDDL.precond_diff(domain, start, constraint)
+    BackwardSearchGoal(goal, start, constraint_diff)
+end
 
 Base.hash(spec::BackwardSearchGoal, h::UInt) =
     hash(spec.start, hash(spec.goal, h))
 Base.:(==)(s1::BackwardSearchGoal, s2::BackwardSearchGoal) =
-    s1.state == s2.state && s1.goal == s2.goal
+    s1.start == s2.start && s1.goal == s2.goal
 
 is_goal(spec::BackwardSearchGoal, domain::Domain, state::State) =
     issubset(state, spec.start)

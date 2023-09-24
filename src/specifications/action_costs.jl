@@ -1,4 +1,6 @@
 export MinActionCosts, ExtraActionCosts
+export MinPerAgentActionCosts, ExtraPerAgentActionCosts
+export has_action_cost, get_action_cost
 export infer_action_costs
 
 """
@@ -47,14 +49,21 @@ MinActionCosts(term::Term, costs) =
 MinActionCosts(terms::AbstractVector{<:Term}, costs) =
     MinActionCosts(collect(Term, terms), costs)
 
-function MinActionCosts(terms::AbstractVector{<:Term},
+function MinActionCosts(terms::Union{AbstractVector{<:Term}, Term},
                         actions::AbstractVector{<:Symbol},
                         costs::AbstractVector{<:Real})
     costs = NamedTuple{Tuple(actions)}(Tuple(float.(costs)))
     return MinActionCosts(PDDL.flatten_conjs(terms), costs)
 end
 
-function MinActionCosts(terms::AbstractVector{<:Term},
+function MinActionCosts(terms::Union{AbstractVector{<:Term}, Term},
+                        actions::NTuple{N, Symbol},
+                        costs::NTuple{N, Real}) where {N}
+    costs = NamedTuple{actions}(float.(costs))
+    return MinActionCosts(PDDL.flatten_conjs(terms), costs)
+end
+
+function MinActionCosts(terms::Union{AbstractVector{<:Term}, Term},
                         actions::AbstractVector{<:Term},
                         costs::AbstractVector{<:Real})
     costs = Dict(zip(actions, costs)...)
@@ -127,6 +136,13 @@ function ExtraActionCosts(spec::Specification,
 end
 
 function ExtraActionCosts(spec::Specification,
+                          actions::NTuple{N, Symbol},
+                          costs::NTuple{N, Real}) where {N}
+    costs = NamedTuple{actions}(float.(costs))
+    return ExtraActionCosts(spec, costs)
+end
+
+function ExtraActionCosts(spec::Specification,
                           actions::AbstractVector{<:Term},
                           costs::AbstractVector{<:Real})
     costs = Dict(zip(actions, costs)...)
@@ -147,7 +163,7 @@ Base.:(==)(s1::ExtraActionCosts, s2::ExtraActionCosts) =
 has_action_cost(spec::ExtraActionCosts) = true
 get_action_cost(spec::ExtraActionCosts, act::Term) =
     (get_action_cost(spec.costs, act) + 
-     has_action_cost(spec.spec) ? get_action_cost(spec.spec, act) : 0.0)
+    (has_action_cost(spec.spec) ? get_action_cost(spec.spec, act) : 0.0))
 
 is_goal(spec::ExtraActionCosts, domain::Domain, state::State) =
     is_goal(spec.spec, domain, state)
@@ -191,6 +207,12 @@ MinPerAgentActionCosts(term::Term, costs, agent_arg_idx=1) =
 MinPerAgentActionCosts(terms::AbstractVector{<:Term}, costs, agent_arg_idx=1) =
     MinPerAgentActionCosts(collect(Term, terms), costs, agent_arg_idx)
  
+Base.hash(spec::MinPerAgentActionCosts, h::UInt) =
+    hash(spec.agent_arg_idx, hash(spec.costs, hash(Set(spec.terms), h)))
+Base.:(==)(s1::MinPerAgentActionCosts, s2::MinPerAgentActionCosts) =
+    s1.agent_arg_idx == s2.agent_arg_idx &&
+    s1.costs == s2.costs && s1.terms == s2.terms
+
 has_action_cost(spec::MinPerAgentActionCosts) = true
 
 get_action_cost(spec::MinPerAgentActionCosts{C}, act::Term) where {C <: NamedTuple} =
@@ -230,17 +252,23 @@ end
 ExtraPerAgentActionCosts(spec::Specification, costs) =
     ExtraPerAgentActionCosts(spec, costs, 1)
 
+Base.hash(spec::ExtraPerAgentActionCosts, h::UInt) =
+    hash(spec.agent_arg_idx, hash(spec.costs, hash(spec.spec, h)))
+Base.:(==)(s1::ExtraPerAgentActionCosts, s2::ExtraPerAgentActionCosts) =
+    s1.agent_arg_idx == s2.agent_arg_idx &&
+    s1.costs == s2.costs && s1.spec == s2.spec
+
 has_action_cost(spec::ExtraPerAgentActionCosts) = true
 
-get_action_cost(spec::ExtraPerAgentActionCosts{C}, act::Term) where {C <: NamedTuple} =
+get_action_cost(spec::ExtraPerAgentActionCosts{S, C}, act::Term) where {S, C <: NamedTuple} =
     (get_action_cost(spec.costs[act.args[spec.agent_arg_idx].name], act) + 
-     has_action_cost(spec.spec) ? get_action_cost(spec.spec, act) : 0.0)
-get_action_cost(spec::ExtraPerAgentActionCosts{C}, act::Term) where {C <: Dict{Symbol}} =
+     (has_action_cost(spec.spec) ? get_action_cost(spec.spec, act) : 0.0))
+get_action_cost(spec::ExtraPerAgentActionCosts{S, C}, act::Term) where {S, C <: Dict{Symbol}} =
     (get_action_cost(spec.costs[act.args[spec.agent_arg_idx].name], act) + 
-     has_action_cost(spec.spec) ? get_action_cost(spec.spec, act) : 0.0)
-get_action_cost(spec::ExtraPerAgentActionCosts{C}, act::Term) where {C <: Dict{<:Term}} =
+     (has_action_cost(spec.spec) ? get_action_cost(spec.spec, act) : 0.0))
+get_action_cost(spec::ExtraPerAgentActionCosts{S, C}, act::Term) where {S, C <: Dict{<:Term}} =
     (get_action_cost(spec.costs[act.args[spec.agent_arg_idx]], act) + 
-     has_action_cost(spec.spec) ? get_action_cost(spec.spec, act) : 0.0)
+     (has_action_cost(spec.spec) ? get_action_cost(spec.spec, act) : 0.0))
 
 is_goal(spec::ExtraPerAgentActionCosts, domain::Domain, state::State) =
     is_goal(spec.spec, domain, state)
@@ -320,18 +348,21 @@ function infer_lifted_action_costs(
     costs = Float64[]
     for (name, act) in PDDL.get_actions(domain)
         diff = PDDL.effect_diff(domain, state, PDDL.get_effect(act))
-        act_cost = Float64(0)
+        tmp_state = copy(state)
         for f in cost_fluents
             op_expr = get(diff.ops, f, nothing)
             op_expr !== nothing || continue
             val_expr = _get_increase_expr(op_expr) # Get value of increment
-            if (!is_ground(op_expr) || val_expr === nothing ||
+            if (!PDDL.is_ground(op_expr) || val_expr === nothing ||
                 !PDDL.is_static(val_expr, domain, static_fluents))
                 return nothing
             end
             val = evaluate(domain, state, val_expr)
-            act_cost += val
+            tmp_state[f] += val
         end
+        orig_metric_val = evaluate(domain, state, metric)
+        new_metric_val = evaluate(domain, tmp_state, metric)
+        act_cost = Float64(new_metric_val - orig_metric_val)
         push!(actions, name)
         push!(costs, act_cost)
     end
@@ -356,7 +387,7 @@ function infer_ground_action_costs(
     costs = Dict{Term,Float64}()
     for act in groundactions(domain, state)
         diff = PDDL.effect_diff(domain, state, PDDL.get_effect(act))
-        act_cost = Float64(0)
+        tmp_state = copy(state)
         for f in cost_fluents
             op_expr = get(diff.ops, f, nothing)
             op_expr !== nothing || continue
@@ -366,8 +397,11 @@ function infer_ground_action_costs(
                 return nothing
             end
             val = evaluate(domain, state, val_expr)
-            act_cost += val
+            tmp_state[f] += val
         end
+        orig_metric_val = evaluate(domain, state, metric)
+        new_metric_val = evaluate(domain, tmp_state, metric)
+        act_cost = Float64(new_metric_val - orig_metric_val)
         costs[act.term] = act_cost
     end
     return costs
