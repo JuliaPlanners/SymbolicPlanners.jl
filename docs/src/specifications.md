@@ -62,6 +62,8 @@ Problems of this sort can be defined using the following specifications:
 ```@docs
 MinActionCosts
 ExtraActionCosts
+MinPerAgentActionCosts
+ExtraPerAgentActionCosts
 ```
 
 We also introduce interface methods to determine if a specification provides
