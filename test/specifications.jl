@@ -199,6 +199,62 @@ new_spec = set_goal_terms(spec, Term[pddl"(true)"])
 
 end
 
+@testset "ActionGoal" begin
+
+# Test construction
+goal_action = pddl"(stack ?x b)"
+constraints = @pddl("(ontable b)", "(clear ?x)")
+spec = ActionGoal(goal_action, constraints)
+zero_cost_spec = ActionGoal(goal_action, constraints, 0.0)
+@test ActionGoal(goal_action, constraints, 1) == spec
+
+# Test hashing and equality
+@test hash(ActionGoal(goal_action, constraints)) == hash(spec)
+@test ActionGoal(goal_action, constraints) == spec
+@test ActionGoal(goal_action, pddl"(true)") != spec
+@test ActionGoal(goal_action, constraints, 0.0) != spec
+
+# Test goal satisfaction
+@test_throws Exception is_goal(spec, blocksworld, bw_state)
+@test is_goal(spec, blocksworld, bw_state, pddl"(stack a b)") == true
+@test is_goal(spec, blocksworld, bw_state, pddl"(stack c b)") == true
+@test is_goal(spec, blocksworld, bw_state, pddl"(pick-up a)") == false
+@test is_goal(spec, blocksworld, bw_state, pddl"(stack c a)") == false
+non_goal_state = copy(bw_state)
+non_goal_state[pddl"(clear a)"] = false
+@test is_goal(spec, blocksworld, non_goal_state, pddl"(stack a b)") == false
+non_goal_state[pddl"(clear a)"] = true
+non_goal_state[pddl"(ontable b)"] = false
+@test is_goal(spec, blocksworld, non_goal_state, pddl"(stack a b)") == false
+
+# Test constraint violation
+@test is_violated(spec, blocksworld, bw_state) == false
+
+# Test action costs
+@test has_action_cost(spec) == true
+@test get_action_cost(spec, pddl"(pick-up b)") == 1.0
+@test get_action_cost(spec, pddl"(put-down b)") == 1.0
+@test get_action_cost(spec, pddl"(stack a b)") == 1.0
+@test get_action_cost(spec, pddl"(unstack a b)") == 1.0
+
+# Test costs and rewards
+action = pddl"(pick-up a)"
+next_state = PDDL.transition(blocksworld, bw_state, action)
+@test get_cost(spec, blocksworld, bw_state, action, next_state) == 1.0
+@test get_reward(spec, blocksworld, bw_state, action, next_state) == -1.0
+@test get_cost(zero_cost_spec, blocksworld, bw_state, action, next_state) == 0.0
+@test get_reward(zero_cost_spec, blocksworld, bw_state, action, next_state) == 0.0
+@test get_discount(spec) == 1.0
+
+# Test goal term accessors
+@test get_goal_terms(spec) == Term[pddl"(do-action (stack ?x b) (and (ontable b) (clear ?x)))"]
+new_spec = set_goal_terms(spec, Term[pddl"(do-action (stack a b))"])
+@test get_goal_terms(new_spec) == Term[pddl"(do-action (stack a b))"]
+@test new_spec.action == pddl"(stack a b)"
+@test isempty(new_spec.constraints)
+
+end
+
 @testset "DiscountedReward" begin
 
 # Test construction

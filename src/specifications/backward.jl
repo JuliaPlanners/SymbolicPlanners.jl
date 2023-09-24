@@ -52,3 +52,7 @@ function add_constraints!(
 end
 add_constraints!(spec::BackwardSearchGoal, domain::Domain, state::State) =
     nothing
+
+has_action_cost(spec::BackwardSearchGoal) = has_action_cost(spec.goal)
+get_action_cost(spec::BackwardSearchGoal, action::Term) =
+    get_action_cost(spec.goal, action)

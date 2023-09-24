@@ -23,6 +23,8 @@ Base.:(==)(s1::DiscountedReward, s2::DiscountedReward) =
 
 is_goal(spec::DiscountedReward, domain::Domain, state::State) =
     is_goal(spec.spec, domain, state)
+is_goal(spec::DiscountedReward, domain::Domain, state::State, action::Term) =
+    is_goal(spec.spec, domain, state, action)
 is_violated(spec::DiscountedReward, domain::Domain, state::State) =
     is_violated(spec.spec, domain, state)
 get_cost(spec::DiscountedReward, domain::Domain, s1::State, a::Term, s2::State) =
@@ -36,6 +38,11 @@ get_goal_terms(spec::DiscountedReward) =
 
 set_goal_terms(spec::DiscountedReward, terms) =
     DiscountedReward(set_goal_terms(spec.spec, terms), spec.discount)
+
+has_action_goal(spec::DiscountedReward) = has_action_goal(spec.spec)
+has_action_cost(spec::DiscountedReward) = has_action_cost(spec.spec)
+get_action_cost(spec::DiscountedReward, action::Term) =
+    get_action_cost(spec.spec, action)
 
 """
 $(SIGNATURES)

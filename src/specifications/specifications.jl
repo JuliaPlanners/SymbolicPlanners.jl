@@ -14,10 +14,14 @@ abstract type Specification end
 """
 $(SIGNATURES)
 
-Check if `state` is a goal state according to the specification.
+Check if `state` is a goal state according to the specification. If an `action`
+is provided, check if `state` is a goal state after executing `action`. For most
+specifications, `action` is ignored.
 """
 is_goal(spec::Specification, domain::Domain, state::State) =
     error("Not implemented.")
+is_goal(spec::Specification, domain::Domain, state::State, action::Term) =
+    is_goal(spec, domain, state)
 
 """
 $(SIGNATURES)
@@ -114,6 +118,7 @@ include("min_steps.jl")
 include("min_metric.jl")
 include("max_metric.jl")
 include("state_constrained.jl")
+include("action_goal.jl")
 include("action_costs.jl")
 include("discounted.jl")
 include("goal_reward.jl")

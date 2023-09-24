@@ -64,18 +64,25 @@ Base.:(==)(s1::BonusGoalReward, s2::BonusGoalReward) =
 
 is_goal(spec::BonusGoalReward, domain::Domain, state::State) =
     is_goal(spec.goal, domain, state)
+is_goal(spec::BonusGoalReward, domain::Domain, state::State, action::Term) =
+    is_goal(spec.goal, domain, state, action)
 is_violated(spec::BonusGoalReward, domain::Domain, state::State) =
     is_violated(spec.goal, domain, state)
 get_cost(spec::BonusGoalReward, domain::Domain, s1::State, a::Term, s2::State) =
     -get_reward(spec, domain, s1, a, s2)
 get_reward(spec::BonusGoalReward, domain::Domain, s1::State, a::Term, s2::State) =
     get_reward(spec.goal, domain, s1, a, s2) +
-    (is_goal(spec, domain, s2) ? spec.reward : 0.0)
+    (is_goal(spec, domain, s2, a) ? spec.reward : 0.0)
 get_discount(spec::BonusGoalReward) = spec.discount * get_discount(spec.goal)
 get_goal_terms(spec::BonusGoalReward) = get_goal_terms(spec.goal)
 
 set_goal_terms(spec::BonusGoalReward, terms) =
     BonusGoalReward(set_goal_terms(spec.goal, terms), spec.reward, spec.discount)
+
+has_action_goal(spec::BonusGoalReward) = has_action_goal(spec.goal)
+has_action_cost(spec::BonusGoalReward) = has_action_cost(spec.goal)
+get_action_cost(spec::BonusGoalReward, action::Term) =
+    get_action_cost(spec.goal, action)
 
 discounted(spec::BonusGoalReward, discount::Float64) =
     BonusGoalReward(spec.goal, spec.reward, discount * spec.discount)
