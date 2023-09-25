@@ -196,11 +196,12 @@ function solve(planner::MonteCarloTreeSearch,
 	initial_state = state
 	for n in 1:n_rollouts
 		state = initial_state
+		act = PDDL.no_op
 		value = 0.0
         # Rollout until maximum depth
         for t in 1:max_depth
 			# Terminate if rollout reaches goal
-            if is_goal(spec, domain, state) break end
+            if is_goal(spec, domain, state, act) break end
 			# Select action
 			act = selector(sol, domain, state)
 			push!(s_visited, state)

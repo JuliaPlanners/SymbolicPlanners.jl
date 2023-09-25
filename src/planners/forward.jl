@@ -198,7 +198,7 @@ function search!(sol::PathSearchSolution, planner::ForwardPlanner,
             peek(queue) : prob_peek(queue, search_noise)
         node = search_tree[node_id]
         # Check search termination criteria
-        if is_goal(spec, domain, node.state)
+        if is_goal(spec, domain, node.state, node.parent_action)
             sol.status = :success # Goal reached
         elseif sol.expanded >= planner.max_nodes
             sol.status = :max_nodes # Node budget reached
@@ -244,6 +244,12 @@ function expand!(planner::ForwardPlanner, node::PathNode,
         # Compute path cost
         act_cost = get_cost(spec, domain, state, act, next_state)
         path_cost = node.path_cost + act_cost
+        # Check if action goal is reached
+        is_action_goal = false
+        if has_action_goal(spec) && is_goal(spec, domain, next_state, act)
+            is_action_goal = true
+            next_id = hash((next_state, act))
+        end
         # Update path costs if new path is shorter
         next_node = get!(search_tree, next_id,
                          PathNode(next_id, next_state, Inf32))
@@ -254,7 +260,8 @@ function expand!(planner::ForwardPlanner, node::PathNode,
             next_node.path_cost = path_cost
             # Update estimated cost from next state to goal
             if !(next_id in keys(queue))
-                h_val::Float32 = compute(heuristic, domain, next_state, spec)
+                h_val::Float32 = is_action_goal ? 
+                    0.0f0 : compute(heuristic, domain, next_state, spec)
                 f_val::Float32 = g_mult * path_cost + h_mult * h_val
                 priority = (f_val, h_val, length(search_tree))
                 enqueue!(queue, next_id, priority)

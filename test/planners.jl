@@ -60,6 +60,30 @@ sol = planner(wgc_domain, wgc_state, wgc_spec)
                           "(ship-cabbage left right)", "(ship-self right left)",
                           "(ship-goat left right)",))
 
+# Test action goals
+planner = BreadthFirstPlanner()
+gw_act_spec = ActionGoal(pddl"(up)")
+sol = planner(gridworld, gw_state, gw_act_spec)
+@test is_goal(gw_act_spec, gridworld, sol.trajectory[end], sol.plan[end])
+@test collect(sol) == @pddl("down", "up")
+
+dkg_act_spec = ActionGoal(pddl"(unlock ?k ?d)")
+sol = planner(doors_keys_gems, dkg_state, dkg_act_spec)
+@test is_goal(dkg_act_spec, doors_keys_gems, sol.trajectory[end], sol.plan[end])
+@test collect(sol) == @pddl("(down)", "(pickup key1)", "(down)",
+                            "(unlock key1 door1)")
+sol = planner(doors_keys_gems, sol.trajectory[end], dkg_act_spec)
+@test sol isa NullSolution
+
+bw_act_spec = ActionGoal(pddl"(stack a ?x)", pddl"(on ?x c)")
+sol = planner(blocksworld, bw_state, bw_act_spec)
+@test is_goal(bw_act_spec, blocksworld, sol.trajectory[end], sol.plan[end])
+@test collect(sol) == @pddl("(pick-up b)", "(stack b c)",
+                            "(pick-up a)", "(stack a b)")
+sol = planner(blocksworld, sol.trajectory[end], bw_act_spec)
+@test is_goal(bw_act_spec, blocksworld, sol.trajectory[end], sol.plan[end])
+@test collect(sol) == @pddl("(unstack a b)", "(stack a b)")
+
 # Test solution refinement
 planner = BreadthFirstPlanner(max_nodes=2, save_search=true)
 sol = planner(blocksworld, bw_state, bw_spec)
@@ -80,19 +104,16 @@ sol = planner(gridworld, gw_state, gw_spec)
 @test is_goal(gw_spec, gridworld, sol.trajectory[end])
 @test collect(sol) == @pddl("down", "down", "right", "right", "up", "up")
 
-planner = UniformCostPlanner()
 sol = planner(doors_keys_gems, dkg_state, dkg_spec)
 @test is_goal(dkg_spec, doors_keys_gems, sol.trajectory[end])
 @test collect(sol) == @pddl("(down)", "(pickup key1)", "(down)",
                             "(unlock key1 door1)", "(right)", "(right)",
                             "(up)", "(up)", "(pickup gem1)")
 
-planner = UniformCostPlanner()
 sol = planner(blocksworld, bw_state, bw_spec)
 @test is_goal(bw_spec, blocksworld, sol.trajectory[end])
 @test collect(sol) == @pddl("(pick-up a)", "(stack a b)",
                             "(pick-up c)", "(stack c a)")
-planner = UniformCostPlanner()
 
 sol = planner(wgc_domain, wgc_state, wgc_spec)
 @test is_goal(wgc_spec, wgc_domain, sol.trajectory[end])
@@ -187,6 +208,30 @@ sol = planner(wgc_domain, wgc_state, wgc_spec)
                           "(ship-wolf left right)", "(ship-goat right left)",
                           "(ship-cabbage left right)", "(ship-self right left)",
                           "(ship-goat left right)",))
+
+# Test action goals
+planner = AStarPlanner(NullHeuristic())
+gw_act_spec = ActionGoal(pddl"(up)")
+sol = planner(gridworld, gw_state, gw_act_spec)
+@test is_goal(gw_act_spec, gridworld, sol.trajectory[end], sol.plan[end])
+@test collect(sol) == @pddl("down", "up")
+
+planner = AStarPlanner(NullHeuristic())
+dkg_act_spec = ActionGoal(pddl"(unlock ?k ?d)")
+sol = planner(doors_keys_gems, dkg_state, dkg_act_spec)
+@test is_goal(dkg_act_spec, doors_keys_gems, sol.trajectory[end], sol.plan[end])
+@test collect(sol) == @pddl("(down)", "(pickup key1)", "(down)",
+                            "(unlock key1 door1)")
+
+planner = AStarPlanner(NullHeuristic())
+bw_act_spec = ActionGoal(pddl"(stack a ?x)", pddl"(on ?x c)")
+sol = planner(blocksworld, bw_state, bw_act_spec)
+@test is_goal(bw_act_spec, blocksworld, sol.trajectory[end], sol.plan[end])
+@test collect(sol) == @pddl("(pick-up b)", "(stack b c)",
+                            "(pick-up a)", "(stack a b)")
+sol = planner(blocksworld, sol.trajectory[end], bw_act_spec)
+@test is_goal(bw_act_spec, blocksworld, sol.trajectory[end], sol.plan[end])
+@test collect(sol) == @pddl("(unstack a b)", "(stack a b)")
 
 # Test solution refinement
 planner = AStarPlanner(HAdd(), max_nodes=2, save_search=true)

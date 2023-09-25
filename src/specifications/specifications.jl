@@ -20,7 +20,7 @@ specifications, `action` is ignored.
 """
 is_goal(spec::Specification, domain::Domain, state::State) =
     error("Not implemented.")
-is_goal(spec::Specification, domain::Domain, state::State, action::Term) =
+is_goal(spec::Specification, domain::Domain, state::State, action) =
     is_goal(spec, domain, state)
 
 """

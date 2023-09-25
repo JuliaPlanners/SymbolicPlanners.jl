@@ -78,7 +78,7 @@ function search!(sol::PathSearchSolution, planner::BreadthFirstPlanner,
         node_id = first(queue)
         node = search_tree[node_id]
         # Check search termination criteria
-        if is_goal(spec, domain, node.state)
+        if is_goal(spec, domain, node.state, node.parent_action)
             sol.status = :success # Goal reached
         elseif sol.expanded >= planner.max_nodes
             sol.status = :max_nodes # Node budget reached
@@ -116,6 +116,10 @@ function expand!(planner::BreadthFirstPlanner, node::PathNode,
         # Execute actions on state
         next_state = transition(domain, state, act, check=false)
         next_id = hash(next_state)
+        # Check if action goal is reached
+        if has_action_goal(spec) && is_goal(spec, domain, next_state, act)
+            next_id = hash((next_state, act))
+        end
         # Skip if state has already been encountered
         if haskey(search_tree, next_id) continue end
         # Check if next state satisfies trajectory constraints

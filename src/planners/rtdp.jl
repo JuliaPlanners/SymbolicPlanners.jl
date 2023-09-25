@@ -95,18 +95,19 @@ function solve!(sol::TabularPolicy, planner::RealTimeDynamicPlanner,
     # Perform rollouts from initial state
     initial_state = state
     ro_policy = rollout_noise == 0 ? sol : BoltzmannPolicy(sol, rollout_noise)
-    visited = Vector{typeof(state)}()
+    state_history = Vector{typeof(state)}()
     for n in 1:n_rollouts
         state = initial_state
+        act = PDDL.no_op
         stop_reason = :max_depth
         # Rollout until maximum depth
         for t in 1:max_depth
-            push!(visited, state)
-            if is_goal(spec, domain, state) # Stop if goal is reached
+            push!(state_history, state)
+            if is_goal(spec, domain, state, act) # Stop if goal is reached
                 stop_reason = :goal_reached
                 break
             end
-            update_values!(planner, sol, domain, state, spec)
+            update_values!(planner, sol, domain, state, stop_reason, spec)
             act = get_action(ro_policy, state)
             if ismissing(act) # Stop if we hit a dead-end
                 stop_reason = :dead_end
@@ -119,9 +120,10 @@ function solve!(sol::TabularPolicy, planner::RealTimeDynamicPlanner,
             planner.callback(planner, sol, n, visited, stop_reason)
         end
         # Post-rollout update
-        while length(visited) > 0
-            state = pop!(visited)
-            update_values!(planner, sol, domain, state, spec)
+        while length(state_history) > 0
+            state = pop!(state_history)
+            update_values!(planner, sol, domain, state, stop_reason, spec)
+            stop_reason = :none
         end
     end
     return sol
@@ -135,7 +137,8 @@ function solve!(sol::BoltzmannPolicy{TabularPolicy},
 end
 
 function update_values!(planner::RealTimeDynamicPlanner, sol::TabularPolicy,
-                        domain::Domain, state::State, spec::Specification)
+                        domain::Domain, state::State,
+                        stop_reason::Symbol, spec::Specification)
     @unpack action_noise = planner
     state_id = hash(state)
     qs = get!(Dict{Term,Float64}, sol.Q, state_id)
@@ -145,11 +148,16 @@ function update_values!(planner::RealTimeDynamicPlanner, sol::TabularPolicy,
         next_v = get!(sol.V, hash(next_state)) do
             -compute(planner.heuristic, domain, next_state, spec)
         end
+        if has_action_goal(spec) && is_goal(spec, domain, next_state, act)
+            next_v = 0.0
+        end
         r = get_reward(spec, domain, state, act, next_state)
         qs[act] =  get_discount(spec) * next_v + r
     end
-    if is_goal(spec, domain, state) # Value of goal / terminal state is zero
+    if stop_reason == :goal_reached && !has_action_goal(spec)
         sol.V[state_id] = 0.0
+    elseif stop_reason == :dead_end
+        sol.V[state_id] = -Inf
     elseif action_noise == 0
         sol.V[state_id] = maximum(values(qs))
     else

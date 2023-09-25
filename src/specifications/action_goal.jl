@@ -38,6 +38,7 @@ has_action_goal(spec::ActionGoal) = true
 
 function is_goal(spec::ActionGoal, domain::Domain, state::State, action::Term)
     # Check if action that led to state unifies with goal action
+    spec.action.name != action.name && return false
     unifiers = PDDL.unify(spec.action, action)
     isnothing(unifiers) && return false
     # Check if constraints are satisfied
@@ -46,6 +47,7 @@ function is_goal(spec::ActionGoal, domain::Domain, state::State, action::Term)
         spec.constraints : [PDDL.substitute(c, unifiers) for c in spec.constraints]
     return satisfy(domain, state, constraints)
 end
+is_goal(spec::ActionGoal, ::Domain, ::State, ::Nothing) = false
 
 is_violated(spec::ActionGoal, domain::Domain, state::State) = false
 get_cost(spec::ActionGoal, ::Domain, ::State, ::Term, ::State) = spec.step_cost
