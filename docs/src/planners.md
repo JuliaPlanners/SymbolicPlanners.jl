@@ -28,6 +28,10 @@ As a baseline uninformed planning algorithm, one can use
 BreadthFirstPlanner
 ```
 
+Note that [`BreadthFirstPlanner`] will ignore plan metrics or action costs,
+returning a plan that has the shortest number of steps, but not necessarily 
+the lowest cost.
+
 ## Forward Heuristic Search
 
 The modern day workhorse for automated planning is forward heuristic search,
