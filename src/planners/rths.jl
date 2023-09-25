@@ -204,7 +204,7 @@ function update_values!(planner::RealTimeHeuristicSearch,
         terminal_path_cost = search_tree[node_id].path_cost
         terminal_h_val = h_mult * terminal_h_val
         if search_sol.status == :success
-            if !has_action_goal(spec) 
+            if !has_action_goal(policy.spec) 
                 policy.V[node_id] = 0.0
             end
             terminal_f_val = terminal_path_cost
