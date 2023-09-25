@@ -20,10 +20,21 @@ end
 Construct planning graph for a `domain` grounded in a `state`, with an
 optional `goal` specification that will be converted to action nodes.
 """
-function build_planning_graph(domain::Domain, state::State, goal::Specification;
-                              kwargs...)
+function build_planning_graph(
+    domain::Domain, state::State, goal::Specification;
+    kwargs...
+)
     goal = Compound(:and, get_goal_terms(goal))
     return build_planning_graph(domain, state, goal; kwargs...)
+end
+
+function build_planning_graph(
+    domain::Domain, state::State, goal::ActionGoal;
+    kwargs...
+)
+    graph = build_planning_graph(domain, state; kwargs...)
+    update_pgraph_goal!(graph, domain, state, goal)
+    return graph
 end
 
 function build_planning_graph(
@@ -137,8 +148,18 @@ function build_planning_graph(
 end
 
 "Add a goal formula as one or more ground actions in a planning graph."
-function pgraph_goal_to_actions(domain::Domain, state::State, goal::Term;
-                                statics=infer_static_fluents(domain))
+function pgraph_goal_to_actions(
+    graph::PlanningGraph, domain::Domain, state::State, spec::Specification;
+    statics=infer_static_fluents(domain)
+)
+    goal = Compound(:and, get_goal_terms(spec))
+    return pgraph_goal_to_actions(domain, state, goal, statics=statics)
+end
+
+function pgraph_goal_to_actions(
+    domain::Domain, state::State, goal::Term;
+    statics=infer_static_fluents(domain)
+)
     # Dequantify and simplify goal condition
     goal = PDDL.to_nnf(PDDL.dequantify(goal, domain, state, statics))
     goal = PDDL.simplify_statics(goal, domain, state, statics)
@@ -160,17 +181,40 @@ function pgraph_goal_to_actions(domain::Domain, state::State, goal::Term;
     return goal_actions
 end
 
-"Add or replace goal actions in a planning graph."
-function update_pgraph_goal!(graph::PlanningGraph, domain::Domain, state::State,
-                             goal::Specification; kwargs...)
-    goal = Compound(:and, get_goal_terms(goal))
-    return update_pgraph_goal!(graph, domain, state, goal; kwargs...)
+function pgraph_goal_to_actions(
+    graph::PlanningGraph, domain::Domain, state::State, spec::ActionGoal;
+    statics=nothing
+)
+    # Convert contstraints to CNF form
+    constraints = PDDL.is_cnf(spec.constraints) ?
+        spec.constraints : PDDL.to_cnf_clauses(spec.constraints)
+    # Create goal action for each action that matches the specification
+    goal_actions = GroundAction[]
+    for orig_act in graph.actions
+        # Check if action unifies with goal action
+        unifiers = PDDL.unify(spec.action, orig_act.term)
+        isnothing(unifiers) && continue
+        conds = copy(orig_act.preconds)
+        # Add constraints to preconditions
+        for c in constraints
+            c = isempty(unifiers) ? c : PDDL.substitute(c, unifiers)
+            PDDL.is_ground(c) || continue # Skip non-ground constraints
+            push!(conds, c)
+        end
+        act = GroundAction(:goal, orig_act.term, conds, PDDL.GenericDiff())
+        push!(goal_actions, act)
+    end
+    return goal_actions
 end
 
-function update_pgraph_goal!(graph::PlanningGraph, domain::Domain, state::State,
-                             goal::Term; statics=infer_static_fluents(domain))
-    # Convert goal to ground actions
-    goal_actions = pgraph_goal_to_actions(domain, state, goal, statics=statics)
+"Add or replace goal actions in a planning graph."
+function update_pgraph_goal!(
+    graph::PlanningGraph, domain::Domain, state::State, spec::Specification;
+    statics=infer_static_fluents(domain)
+)
+    # Convert goal specification to ground actions
+    goal_actions =
+        pgraph_goal_to_actions(graph, domain, state, spec, statics=statics)
     # Replace old goal actions with new ones
     n_nongoals = length(graph.actions) - graph.n_goals
     resize!(graph.actions, n_nongoals)
