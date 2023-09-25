@@ -223,7 +223,7 @@ sol = planner(doors_keys_gems, dkg_state, dkg_act_spec)
 @test collect(sol) == @pddl("(down)", "(pickup key1)", "(down)",
                             "(unlock key1 door1)")
 
-planner = AStarPlanner(GoalCountHeuristic(), verbose=true)
+planner = AStarPlanner(HAdd())
 bw_act_spec = ActionGoal(pddl"(stack a ?x)", pddl"(on ?x c)")
 sol = planner(blocksworld, bw_state, bw_act_spec)
 @test is_goal(bw_act_spec, blocksworld, sol.trajectory[end], sol.plan[end])
@@ -411,6 +411,34 @@ actions, trajectory = simulator(sol, blocksworld, bw_state, bw_spec)
 @test actions == @pddl("(pick-up a)", "(stack a b)",
                        "(pick-up c)", "(stack c a)")
 
+# Test action goals
+planner = RTDP(heuristic=NullHeuristic(), rollout_noise=1.0, n_rollouts=10)
+gw_act_spec = ActionGoal(pddl"(up)")
+sol = planner(gridworld, gw_state, gw_act_spec)
+actions, trajectory = simulator(sol, gridworld, gw_state, gw_act_spec)
+@test is_goal(gw_act_spec, gridworld, trajectory[end], actions[end])
+@test actions == @pddl("down", "up")
+
+planner = RTDP(heuristic=GoalCountHeuristic(), rollout_noise=1.0, n_rollouts=10)
+dkg_act_spec = ActionGoal(pddl"(unlock ?k ?d)")
+sol = planner(doors_keys_gems, dkg_state, dkg_act_spec)
+actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_act_spec)
+@test is_goal(dkg_act_spec, doors_keys_gems, trajectory[end], actions[end])
+@test actions == @pddl("(down)", "(pickup key1)", "(down)",
+                       "(unlock key1 door1)")
+
+planner = RTDP(heuristic=HAdd(), rollout_noise=1.0, n_rollouts=10)
+bw_act_spec = ActionGoal(pddl"(stack a ?x)", pddl"(on ?x c)")
+sol = planner(blocksworld, bw_state, bw_act_spec)
+actions, trajectory = simulator(sol, blocksworld, bw_state, bw_act_spec)
+@test is_goal(bw_act_spec, blocksworld, trajectory[end], actions[end])
+@test actions == @pddl("(pick-up b)", "(stack b c)",
+                       "(pick-up a)", "(stack a b)")
+sol = planner(blocksworld, trajectory[end], bw_act_spec)
+actions, trajectory = simulator(sol, blocksworld, trajectory[end], bw_act_spec)
+@test is_goal(bw_act_spec, blocksworld, trajectory[end], actions[end])
+@test actions == @pddl("(unstack a b)", "(stack a b)")
+
 # Test solution refinement
 planner = RTDP(heuristic=GoalCountHeuristic(), rollout_noise=1.0, n_rollouts=1)
 sol = planner(doors_keys_gems, dkg_state, dkg_spec)
@@ -454,6 +482,28 @@ actions, trajectory = simulator(sol, blocksworld, bw_state, bw_spec)
 @test is_goal(bw_spec, blocksworld, trajectory[end])
 @test actions == @pddl("(pick-up a)", "(stack a b)",
                        "(pick-up c)", "(stack c a)")
+
+# Test action goals
+planner = RTHS(NullHeuristic(), n_iters=1, max_nodes=20)
+gw_act_spec = ActionGoal(pddl"(up)")
+sol = planner(gridworld, gw_state, gw_act_spec)
+actions, trajectory = simulator(sol, gridworld, gw_state, gw_act_spec)
+@test is_goal(gw_act_spec, gridworld, trajectory[end], actions[end])
+@test actions == @pddl("down", "up")
+
+planner = RTHS(GoalCountHeuristic(), n_iters=5, max_nodes=20)
+dkg_act_spec = ActionGoal(pddl"(unlock ?k ?d)")
+sol = planner(doors_keys_gems, dkg_state, dkg_act_spec)
+actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_act_spec)
+@test is_goal(dkg_act_spec, doors_keys_gems, trajectory[end], actions[end])
+
+planner = RTHS(HMax(), n_iters=5, max_nodes=20)
+bw_act_spec = ActionGoal(pddl"(stack a ?x)", pddl"(on ?x c)")
+sol = planner(blocksworld, bw_state, bw_act_spec)
+actions, trajectory = simulator(sol, blocksworld, bw_state, bw_act_spec)
+@test is_goal(bw_act_spec, blocksworld, trajectory[end], actions[end])
+@test actions == @pddl("(pick-up b)", "(stack b c)",
+                       "(pick-up a)", "(stack a b)")
 
 # Test solution refinement
 planner = RTHS(heuristic=GoalCountHeuristic(), n_iters=1, max_nodes=20)
