@@ -29,9 +29,10 @@ function simulate(sim::RewardAccumulator, sol::Solution,
 				  domain::Domain, state::State, spec::Specification)
 	reward = 0.0
 	discount = get_discount(spec)
+	act = PDDL.no_op
 	steps = sim.max_steps === nothing ? countfrom(1) : (1:sim.max_steps)
     for t in steps
-		if is_goal(spec, domain, state) break end
+		if is_goal(spec, domain, state, act) break end
         act = get_action(sol, t, state)
         next_state = transition(domain, state, act)
 		reward += discount * get_reward(spec, domain, state, act, next_state)
