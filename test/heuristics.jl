@@ -24,6 +24,13 @@ goal_count = GoalCountHeuristic()
 @test goal_count(doors_keys_gems, dkg_state, dkg_problem.goal) == 1
 @test goal_count(blocksworld, bw_state, bw_problem.goal) == 2
 
+gw_act_spec = ActionGoal(pddl"(up)")
+@test goal_count(gridworld, gw_state, gw_act_spec) == 2
+dkg_act_spec = ActionGoal(pddl"(unlock ?k ?d)")
+@test goal_count(doors_keys_gems, dkg_state, dkg_act_spec) == 3
+bw_act_spec = ActionGoal(pddl"(stack a ?x)", pddl"(on ?x c)")
+@test goal_count(blocksworld, bw_state, bw_act_spec) == 2
+
 end
 
 @testset "Metric Heuristic" begin

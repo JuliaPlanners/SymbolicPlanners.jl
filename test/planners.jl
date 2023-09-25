@@ -216,14 +216,14 @@ sol = planner(gridworld, gw_state, gw_act_spec)
 @test is_goal(gw_act_spec, gridworld, sol.trajectory[end], sol.plan[end])
 @test collect(sol) == @pddl("down", "up")
 
-planner = AStarPlanner(NullHeuristic())
+planner = AStarPlanner(GoalCountHeuristic())
 dkg_act_spec = ActionGoal(pddl"(unlock ?k ?d)")
 sol = planner(doors_keys_gems, dkg_state, dkg_act_spec)
 @test is_goal(dkg_act_spec, doors_keys_gems, sol.trajectory[end], sol.plan[end])
 @test collect(sol) == @pddl("(down)", "(pickup key1)", "(down)",
                             "(unlock key1 door1)")
 
-planner = AStarPlanner(NullHeuristic())
+planner = AStarPlanner(GoalCountHeuristic(), verbose=true)
 bw_act_spec = ActionGoal(pddl"(stack a ?x)", pddl"(on ?x c)")
 sol = planner(blocksworld, bw_state, bw_act_spec)
 @test is_goal(bw_act_spec, blocksworld, sol.trajectory[end], sol.plan[end])
