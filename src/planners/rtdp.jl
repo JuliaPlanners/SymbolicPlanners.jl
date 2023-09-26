@@ -117,7 +117,7 @@ function solve!(sol::TabularPolicy, planner::RealTimeDynamicPlanner,
         end
         # Run callback
         if !isnothing(planner.callback)
-            planner.callback(planner, sol, n, visited, stop_reason)
+            planner.callback(planner, sol, n, state_history, stop_reason)
         end
         # Post-rollout update
         while length(state_history) > 0
