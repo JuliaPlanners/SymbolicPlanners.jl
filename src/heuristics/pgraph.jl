@@ -83,8 +83,10 @@ function build_planning_graph(
         if length(act.preconds) > Sys.WORD_SIZE
             resize!(act.preconds, Sys.WORD_SIZE)
         end
-        preconds = isempty(act.preconds) ? Term[Const(true)] : act.preconds
-        for (j, cond) in enumerate(preconds) # Preconditions
+        if isempty(act.preconds)
+            push!(act.preconds, Const(true))
+        end
+        for (j, cond) in enumerate(act.preconds) # Preconditions
             if cond.name == :or # Handle disjunctions
                 for c in cond.args
                     idxs = get!(Vector{Tuple{Int,Int}}, cond_map, c)
@@ -113,7 +115,7 @@ function build_planning_graph(
     conditions = collect(keys(cond_map))
     # Determine parent and child conditions of each action
     act_parents = map(actions) do act 
-        [Int[] for _ in 1:min(Sys.WORD_SIZE, length(act.preconds))]
+        [Int[] for _ in 1:length(act.preconds)]
     end
     act_children = [Int[] for _ in actions]
     for (i, cond) in enumerate(conditions)
@@ -381,7 +383,8 @@ function relaxed_pgraph_search(domain::Domain, state::State, spec::Specification
 end
 
 "Returns planning graph indices for initial facts."
-function pgraph_init_idxs(graph::SymbolicPlanners.PlanningGraph, domain::Domain, state::State)
+function pgraph_init_idxs(graph::PlanningGraph,
+                          domain::Domain, state::State)
     @unpack conditions, cond_derived, cond_functional = graph
     # Handle non-derived initial conditions
     function check_cond(c, is_derived, is_func)
@@ -407,6 +410,7 @@ function pgraph_init_idxs(graph::PlanningGraph,
         is_derived && return false
         is_func && return satisfy(domain, state, c)::Bool
         c.name == :not && return !(c.args[1] in PDDL.get_facts(state))
+        c.name isa Bool && return c.name
         return c in PDDL.get_facts(state)
     end
     init_idxs = broadcast(check_cond, conditions, cond_derived, cond_functional)
