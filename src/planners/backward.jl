@@ -9,6 +9,7 @@ export ProbBackwardPlanner, ProbBackwardAStarPlanner
         h_mult::Float32 = 1.0f0,
         max_nodes::Int = typemax(Int),
         max_time::Float64 = Inf,
+        fail_fast::Bool = false,
         save_search::Bool = false,
         save_search_order::Bool = save_search,
         verbose::Bool = false,
@@ -60,6 +61,8 @@ $(FIELDS)
     max_nodes::Int = typemax(Int)
     "Maximum time in seconds before planner times out."
     max_time::Float64 = Inf
+    "Flag to terminate search if the heuristic estimates an infinite cost."
+    fail_fast::Bool = false
     "Flag to save the search tree and frontier in the returned solution."
     save_search::Bool = false
     "Flag to save the node expansion order in the returned solution."
@@ -120,7 +123,7 @@ ProbBackwardAStarPlanner(heuristic::Heuristic; search_noise=1.0, kwargs...) =
 function Base.copy(p::BackwardPlanner)
     return BackwardPlanner(p.heuristic, p.search_noise,
                            p.g_mult, p.h_mult, p.max_nodes, p.max_time,
-                           p.save_search, p.save_search_order,
+                           p.fail_fast, p.save_search, p.save_search_order,
                            p.verbose, p.callback)
 end
 
@@ -173,6 +176,9 @@ function search!(sol::PathSearchSolution, planner::BackwardPlanner,
             sol.status = :max_nodes # Node budget reached
         elseif time() - start_time >= planner.max_time
             sol.status = :max_time # Time budget reached
+        elseif planner.fail_fast && priority[1] == Inf
+            sol.status = :failure # Search space exhausted
+            break
         end
         if sol.status == :in_progress
             # Dequeue current node
