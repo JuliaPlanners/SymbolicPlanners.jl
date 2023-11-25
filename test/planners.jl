@@ -552,4 +552,41 @@ actions, trajectory = simulator(sol, blocksworld, bw_state, bw_spec)
 
 end
 
+@testset "Ordered Landmarks Planner" begin
+
+planner = OrderedLandmarksPlanner()
+sol = planner(gridworld, gw_state, gw_spec)
+@test is_goal(gw_spec, gridworld, sol.trajectory[end])
+@test collect(sol) == @pddl("down", "down", "right", "right", "up", "up")
+
+sol = planner(doors_keys_gems, dkg_state, dkg_spec)
+@test is_goal(dkg_spec, doors_keys_gems, sol.trajectory[end])
+@test collect(sol) == @pddl("(down)", "(pickup key1)", "(down)",
+                            "(unlock key1 door1)", "(right)", "(right)",
+                            "(up)", "(up)", "(pickup gem1)")
+
+sol = planner(blocksworld, bw_state, bw_spec)
+@test is_goal(bw_spec, blocksworld, sol.trajectory[end])
+@test collect(sol) == @pddl("(pick-up a)", "(stack a b)",
+                            "(pick-up c)", "(stack c a)")
+
+sol = planner(zeno_travel, zt_state, zt_spec)
+@test is_goal(zt_spec, zeno_travel, sol.trajectory[end])
+
+sol = planner(wgc_domain, wgc_state, wgc_spec)
+@test is_goal(wgc_spec, wgc_domain, sol.trajectory[end])
+@test |(
+    collect(sol) == @pddl("(ship-goat left right)", "(ship-self right left)",
+                          "(ship-cabbage left right)", "(ship-goat right left)",
+                          "(ship-wolf left right)", "(ship-self right left)",
+                          "(ship-goat left right)",),
+    collect(sol) == @pddl("(ship-goat left right)", "(ship-self right left)",
+                          "(ship-wolf left right)", "(ship-goat right left)",
+                          "(ship-cabbage left right)", "(ship-self right left)",
+                          "(ship-goat left right)",))
+
+@test copy(planner) == planner
+
+end
+
 end
