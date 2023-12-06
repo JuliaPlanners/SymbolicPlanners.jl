@@ -22,5 +22,6 @@ include("solutions/solutions.jl")
 include("simulators/simulators.jl")
 include("heuristics/heuristics.jl")
 include("planners/planners.jl")
+include("landmarks/landmarks.jl")
 
 end # module

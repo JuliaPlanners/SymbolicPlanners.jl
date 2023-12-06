@@ -19,8 +19,9 @@ function Base.copy(p::OrderedLandmarksPlanner)
 end
 
 function solve(planner::OrderedLandmarksPlanner, domain::Domain, state::State, spec::Specification)
+    f = no_fact()
     # Placeholder
-    f_planner = ForwardPlanner()
+    f_planner = AStarPlanner(HAdd(), save_search=true)
     return solve(f_planner, domain, state, spec)
 end
 
