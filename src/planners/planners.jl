@@ -85,3 +85,6 @@ include("mcts.jl")
 
 # External planners
 include("external.jl")
+
+#Landmark local planner
+include("lm_local.jl")
