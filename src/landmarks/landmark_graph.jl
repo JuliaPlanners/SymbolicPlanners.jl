@@ -1,5 +1,6 @@
 import Base.==
 import Base.<
+import Base.hash
 import DataStructures.Queue
 import SymbolicPlanners.build_planning_graph
 
@@ -19,6 +20,9 @@ function (<)(l::FactPair, r::FactPair)
 end
 function (==)(l::FactPair, r::FactPair)
     return l.var == r.var && l.value == r.value
+end
+function hash(f::FactPair, h::UInt)
+    return hash(f.var, hash(f.value, hash(FactPair, h)))
 end
 
 
@@ -139,7 +143,7 @@ function landmark_graph_add_landmark(landmark_graph::LandmarkGraph, landmark::La
     return new_node
 end
 
-function landmark_graph_remove_occurences(landmark_graph::LandmarkGraph, node::LandmarkNode) :: Nothing
+function landmark_graph_remove_occurences(landmark_graph::LandmarkGraph, node::LandmarkNode)
     for parent::LandmarkNode in keys(node.parents)
         delete!(parent.children, node)
     end
@@ -160,21 +164,21 @@ function landmark_graph_remove_occurences(landmark_graph::LandmarkGraph, node::L
     end
 end
 
-function landmark_graph_remove_node(landmark_graph::LandmarkGraph, node::LandmarkNode) :: Nothing
+function landmark_graph_remove_node(landmark_graph::LandmarkGraph, node::LandmarkNode)
     filter!(n -> n != node, landmark_graph.nodes)
 end
 
-function landmark_graph_remove_node_if(landmark_graph::LandmarkGraph, condition::Function) :: Nothing
+function landmark_graph_remove_node_if(landmark_graph::LandmarkGraph, condition::Function)
     filter!(node -> begin
         if condition(node)
+            landmark_graph_remove_occurences(landmark_graph, node)
             return false
         end
-        landmark_graph_remove_occurences(landmark_graph, node)
         return true
     end, landmark_graph.nodes)
 end
 
-function landmark_graph_set_landmark_ids(landmark_graph::LandmarkGraph) :: Nothing
+function landmark_graph_set_landmark_ids(landmark_graph::LandmarkGraph)
     id = 0
     for node::LandmarkNode in landmark_graph.nodes
         node.id = id
@@ -212,23 +216,23 @@ mutable struct LandmarkGenerationData
     propositions::Dict{FactPair, Proposition}
 end
 
-function setup_exploration_queue(generation_data::LandmarkGenerationData, state::Vector{FactPair}, excluded_props::Vector{FactPair}, 
-                                excluded_op_ids::Vector{Int})
-    generation_data.propositions = Dict(map(f -> (f, Proposition(f, false, false)), [FactPair(x, y) for x in values(generation_data.planning_graph.conditions), y in [0, 1]]))
+function setup_exploration_queue(generation_data::LandmarkGenerationData, state::Vector{FactPair}, excluded_props::Vector{FactPair}, excluded_op_ids::Vector{Int})
+    empty!(generation_data.prop_queue)
+    generation_data.propositions = Dict(map(f -> (f, Proposition(f, false, false)), [FactPair(generation_data.term_index[x], y) for x in values(generation_data.planning_graph.conditions), y in [0, 1]]))
 
     for fact::FactPair in excluded_props
-        propositions[fact].excluded = true
+        generation_data.propositions[fact].excluded = true
     end
 
     for fact::FactPair in state
-        enqueue_if_necessary(generation_data.prop_queue, propositions[fact])
+        enqueue_if_necessary(generation_data.prop_queue, generation_data.propositions[fact])
     end
 
-    operation_index::Dict{GroundAction, Int} = map(reverse, enumerate(generation_data.planning_graph.actions))
+    operation_index::Dict{GroundAction, Int} = Dict(map(reverse, enumerate(generation_data.planning_graph.actions)))
     op_ids_to_mark::Set{Int} = Set(excluded_op_ids)
     for action::GroundAction in generation_data.planning_graph.actions
         for effect::Term in action.effect.add
-            if isempty(action.preconds) && propositions[FactPair(generation_data.term_index[effect], 1)]
+            if isempty(action.preconds) && generation_data.propositions[FactPair(generation_data.term_index[effect], 1)]
                 push!(op_ids_to_mark, operation_index[action])
                 break
             end
@@ -237,22 +241,22 @@ function setup_exploration_queue(generation_data::LandmarkGenerationData, state:
 
     generation_data.unsatisfied_preconditions = Dict()
     generation_data.excluded_operators = Set()
-    for unary::GroundAction in filter(a -> length(a.term.args) == 1, generation_data.planning_graph.actions)
+    for unary::GroundAction in generation_data.planning_graph.actions
         generation_data.unsatisfied_preconditions[unary] = length(unary.preconds)
 
-        if all(map(propositions[e -> FactPair(term_index[e], 1)].excluded, unary.effect.add)) || operation_index[unary] in op_ids_to_mark
-            push!{generation_data.excluded_operators, unary}
+        if all(map(e -> generation_data.propositions[FactPair(generation_data.term_index[e], 1)].excluded, unary.effect.add)) || operation_index[unary] in op_ids_to_mark
+            push!(generation_data.excluded_operators, unary)
         else
             delete!(generation_data.excluded_operators, unary)
 
             if generation_data.unsatisfied_preconditions[unary] == 0
-                enqueue_if_necessary(generation_data.prop_queue, propositions[fact])
+                enqueue_if_necessary(generation_data.prop_queue, generation_data.propositions[fact])
             end
         end
     end
 
     for fact::FactPair in excluded_props
-        propositions[fact].excluded = false
+        generation_data.propositions[fact].excluded = false
     end
 end
 
@@ -260,14 +264,14 @@ function relaxed_exploration(generation_data::LandmarkGenerationData)
     while !isempty(generation_data.prop_queue)
         prop::Proposition = dequeue!(generation_data.prop_queue)
 
-        triggered_operators::Vector{GroundAction} = map(i -> generation_data.planning_graph.actions[i], generation_data.planning_graph.effect_map[term_index[prop.fact]])
+        triggered_operators::Vector{GroundAction} = map(i -> generation_data.planning_graph.actions[i], generation_data.planning_graph.effect_map[generation_data.planning_graph.conditions[prop.fact.var]])
         for operator::GroundAction in triggered_operators
             if !(operator in generation_data.excluded_operators)
                 generation_data.unsatisfied_preconditions[operator] -= 1
                 
                 if generation_data.unsatisfied_preconditions[operator] == 0
                     for effect::Term in operator.effect.add
-                        enqueue_if_necessary(generation_data.prop_queue, effect)
+                        enqueue_if_necessary(generation_data.prop_queue, generation_data.propositions[FactPair(generation_data.term_index[effect], 1)])
                     end
                 end
             end
@@ -275,25 +279,23 @@ function relaxed_exploration(generation_data::LandmarkGenerationData)
     end
 end
 
-function compute_relaxed_reachability(state::State, excluded_props::Vector{FactPair}, excluded_op_ids::Vector{Int}) :: Dict{Pair{Int, Int}, Bool}
+function compute_relaxed_reachability(generation_data::LandmarkGenerationData, state::Vector{FactPair}, excluded_props::Vector{FactPair}, excluded_op_ids::Vector{Int}) :: Dict{Pair{Int, Int}, Bool}
     setup_exploration_queue(generation_data, state, excluded_props, excluded_op_ids)
     relaxed_exploration(generation_data)
 
     reached::Dict{Pair{Int, Int}, Bool} = Dict()
-    for prop::Term in generation_data.propositions
-        if prop.reached
-            reached[Pair(prop.var, prop.value)] = true
-        end
+    for prop::Proposition in values(generation_data.propositions)
+        reached[Pair(prop.fact.var, prop.fact.value)] = prop.reached
     end
     return reached
 end
 
-function relaxed_task_solvable(landmark::Landmark, state::State, generation_data::LandmarkGenerationData) :: Bool
+function relaxed_task_solvable(landmark::Landmark, state::Vector{FactPair}, generation_data::LandmarkGenerationData, spec::Specification) :: Bool
     excluded_op_ids::Vector{Int} = []
     excluded_props::Vector{FactPair} = landmark.facts
 
-    reached::Dict{Pair{Int, Int}, Bool} = compute_relaxed_reachability(state, excluded_props, excluded_op_ids)
-    for fact::Term in spec.facts
+    reached::Dict{Pair{Int, Int}, Bool} = compute_relaxed_reachability(generation_data, state, excluded_props, excluded_op_ids)
+    for fact::Term in spec.terms
         if !reached[Pair(generation_data.term_index[fact], 1)]
             return false
         end
@@ -302,33 +304,74 @@ function relaxed_task_solvable(landmark::Landmark, state::State, generation_data
     return true
 end
 
-function compute_landmark_graph(domain::Domain, state::State, spec::Specification)# :: LandmarkGraph
-    landmark_graph = LandmarkGraph(0, 0, Dict(), Dict(), [])
+function is_landmark_precondition(operator::GroundAction, landmark::Landmark, generation_data::LandmarkGenerationData) :: Bool
+    for pre::Term in operator.preconds
+        for fact::FactPair in landmark.facts
+            if FactPair(generation_data.term_index[pre], 1) == fact
+                return true
+            end
+        end
+    end
+    return false
+end
 
-    planning_graph = build_planning_graph(domain, state, spec)
+function is_causal_landmark(landmark::Landmark, generation_data::LandmarkGenerationData, state::Vector{FactPair}, spec::Specification) :: Bool
+    if landmark.is_true_in_goal
+        return true
+    end
+
+    excluded_op_ids::Vector{Int} = []
+    excluded_props::Vector{FactPair} = []
+    action_to_index::Dict{GroundAction, Int} = Dict(map(reverse, enumerate(generation_data.planning_graph.actions)))
+    for operator::GroundAction in generation_data.planning_graph.actions
+        if is_landmark_precondition(operator, landmark, generation_data)
+            push!(excluded_op_ids, action_to_index[operator])
+        end
+    end
+
+    reached::Dict{Pair{Int, Int}, Bool} = compute_relaxed_reachability(generation_data, state, excluded_props, excluded_op_ids)
+
+    for fact::Term in spec.terms
+        if !reached[Pair(generation_data.term_index[fact], 1)]
+            return false
+        end
+    end
+    return false
+end
+
+function discard_noncausal_landmarks(landmark_graph::LandmarkGraph, generation_data::LandmarkGenerationData, state::Vector{FactPair}, spec::Specification)
+    landmark_graph_remove_node_if(landmark_graph, node::LandmarkNode -> !is_causal_landmark(node.landmark, generation_data, state, spec))
+end
+
+function compute_landmark_graph(domain::Domain, state::State, spec::Specification)# :: LandmarkGraph
+    landmark_graph::LandmarkGraph = LandmarkGraph(0, 0, Dict(), Dict(), [])
+    planning_graph::PlanningGraph = build_planning_graph(domain, state, spec)
 
     term_index = Dict(map(reverse, enumerate(planning_graph.conditions)))
 
+    # Add goal landmarks
     for fact::Term in spec.terms
         fact_pair::Vector{FactPair} = [FactPair(term_index[fact], 1)]
         landmark_graph_add_landmark(landmark_graph, Landmark(fact_pair, false, false, true, false, Set(), Set()))
     end
 
     initial_state::Vector{FactPair} = map(s -> FactPair(term_index[s], 1), keys(state))
-    initial_index = Dict(map(reverse, enumerate(initial_state)))
+    initial_index = Dict(map(f -> Pair(f.var, f), initial_state))
 
     generation_data::LandmarkGenerationData = LandmarkGenerationData(planning_graph, term_index, Queue{Proposition}(), Set(), Dict(), Dict())
     for var in planning_graph.conditions
         for value in [0,1]
             fact_pair = FactPair(term_index[var], value)
-            if haskey(landmark_graph.simple_landmarks_to_nodes, fact_pair)
+            if !haskey(landmark_graph.simple_landmarks_to_nodes, fact_pair)
                 landmark = Landmark([fact_pair], false, false, false, false, Set(), Set())
-                if get(initial_index, fact_pair, FactPair(-1, 0)).value == fact_pair.value || !relaxed_task_solvable(landmark, state, generation_data)
+                if (haskey(initial_index, fact_pair.var) && initial_index[fact_pair.var].value == fact_pair.value) || !relaxed_task_solvable(landmark, initial_state, generation_data, spec)
                     landmark_graph_add_landmark(landmark_graph, landmark)
                 end
             end
         end
     end
+
+    discard_noncausal_landmarks(landmark_graph, generation_data, initial_state, spec)
 
     return landmark_graph
 end
