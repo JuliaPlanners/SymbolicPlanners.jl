@@ -373,5 +373,5 @@ function compute_landmark_graph(domain::Domain, state::State, spec::Specificatio
 
     discard_noncausal_landmarks(landmark_graph, generation_data, initial_state, spec)
 
-    return landmark_graph
+    return Pair(landmark_graph, planning_graph)
 end
