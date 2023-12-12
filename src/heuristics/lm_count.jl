@@ -21,7 +21,8 @@ function compute(h::LMCount,
     clean_past = ([])
     for i in past
         if i ∉ future_past
-        push!(clean_past, i)
+            push!(clean_past, i)
+        end
     end
     m = length(clean_past)
 
