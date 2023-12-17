@@ -6,7 +6,6 @@ mutable struct LandmarkStatusManager
     lm_graph::LandmarkGraph
     past::Set{LandmarkNode} = nothing
     future::Set{LandmarkNode} = nothing
-    source::Set{LandmarkNode} = nothing
 end
 
 function get_past_landmarks(lm_status_manager::LandmarkStatusManager) :: Set{LandmarkNode} 
@@ -17,14 +16,10 @@ function get_future_landmarks(lm_status_manager::LandmarkStatusManager) :: Set{L
     return lm_status_manager.future
 end
 
-function get_source_landmarks(lm_status_manager::LandmarkStatusManager) :: Set{LandmarkNode}
-    return lm_status_manager.source
-end
-
 function progress(lm_status_manager::LandmarkStatusManager, prev::State, curr::State)
     #= If previous state is nothing then we are progessing the inital state.
      Landmarks in that are part of the initial state should be added to past
-     and all their children should be added to Source and Future.
+     and all their children should be added to Future.
      If landmarks that are true in the initial state have parents also add that landmark to future=#
     if (isnothing(prev))
         for lm in lm_status_manager.lm_graph.nodes
@@ -33,7 +28,6 @@ function progress(lm_status_manager::LandmarkStatusManager, prev::State, curr::S
 
                 for (child,edge) in lm.children
                     if (edge > 1)
-                        push!(source, child)
                         push!(future, child)
                     end
                 end
@@ -53,15 +47,14 @@ function progress(lm_status_manager::LandmarkStatusManager, prev::State, curr::S
         
         for lm in lm_status_manager.lm_graph.nodes
             if landmark_is_true_in_state(lm.landmark, curr)
-                # Remove landmark from source and add it to past, since it has now happened
-                if lm ∉ past push!(past, lm) end
-                delete!(source, lm)
+                # Add landmark to past if it is true in the previous state
+                if lm ∉ past && landmark_is_true_in_state(lm.landmark, prev) push!(past, lm) end
+                
 
                 # Add each child with edge that is NECESSARY or GREEDY_NECESSARY to future and source
                 for (child, edge) in lm.children
                     if edge > 1
                         push!(future, child)
-                        push!(source, child)
                     end
                 end
 

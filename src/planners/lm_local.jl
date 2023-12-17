@@ -6,8 +6,6 @@
 @kwdef mutable struct LMLocalPlanner{T <: Union{Nothing, Float64}}  <: Planner
     # Landmark Graph that is used to generate intermediary goals
     lm_graph::LandmarkGraph
-    # Landmark Status manager to get Sources for next "goal"
-    lm_status_manager::LandmarkStatusManager
     # Search heuristic that estimates cost of a state to the goal.
     heuristic::Heuristic = HAdd()
     # Amount of Boltzmann search noise (`nothing` for deterministic search).
@@ -34,30 +32,55 @@ end
 
 function solve(planner::LMLocalPlanner,
                 domain::Domain, state::State, spec::Specification)
-    @unpack lm_graph, lm_status_manager, heuristic, kwargs... = planner
+    @unpack lm_graph, heuristic, kwargs... = planner
     # Set up the planner that will take us from goal to goal, TODO make this dynamic??
     a_star_planner = AStarPlanner(heuristic, kwargs...)
-    # Set up landmark status manager and initialize the first state
-    lm_status_manager = LandmarkStatusManager(lm_graph)
-    progress(lm_status_manager, nothing, state)
 
-    sources::Set{LandmarkNode} = get_source_landmarks(lm_status_manager)
+    # Extract Next up Landmarks from Starting state
+    next_lms::Set{LandmarkNode} = get_starting_landmarks(planner, state)
     sol = nothing
-    while (length(sources) > 0)
-        # For each Source compute plan to get there, take shortest and add to final solution
+    while (length(next_lms) > 0)
+        # For each next up LM compute plan to get there, take shortest and add to final solution
         shortest_sol = nothing
+        used_lm = nothing
         # TODO figure out conversion from LandmarkNode to GoalTerm
-        # TODO figure out how to update the LM Status manager on each action
-        for source in sources
-            inter_spec = Specification(source)
+        for lm in next_lms
+            inter_spec = Specification(lm)
             sub_sol = solve(a_star_planner, domain, state, inter_spec)
-            if isnothing(shortest_sol) shortest_sol = sub_sol end
-            if length(sub_sol.plan) < length(shortest_sol.plan) shortest_sol = sub_sol end
+            if isnothing(shortest_sol) 
+                shortest_sol = sub_sol 
+                used_lm = lm
+            end
+            if length(sub_sol.plan) < length(shortest_sol.plan)
+                shortest_sol = sub_sol
+                used_lm = lm
+            end
+        end
+        # Check if main goal was reached, if so return solution
+        
+        # Remove used LM from set and add its children to the next round
+        delete!(next_lms, used_lm)
+        for (child, edge) in used_lm.children
+            if edge > 1 push!(next_lms, child) end
         end
         # Merge new shortest path to next subgoal with main solution
 
-        # Check if main goal was reached, if so return solution
         
     end
 
+    return sol
+end
+
+function get_starting_landmarks(planner::LMLocalPlanner, state::State) :: Set{LandmarkNode}
+    res::Set{LandmarkNode}
+    for lm in planner.lm_graph.nodes
+        if landmark_is_true_in_state(lm.landmark, state)
+            for (child,edge) in lm.children
+                if (edge > 1)
+                    push!(res, child)
+                end
+            end
+        end
+    end
+    return res
 end
