@@ -71,7 +71,7 @@ function compute(h::ReachabilityHeuristic,
     # Extract cost fluents (#TODO: use fixed has_subterm)
     cost_fluents = [f for f in PDDL.get_fluent_names(state)
                     if PDDL.has_name(spec.metric, (f.name,))]
-    init_metric = absdom[state => spec.metric].interval.lo
+    init_metric = absdom[state => spec.metric].lo
     cost = 0.0
     # Iterate until we reach the goal or a fixpoint
     steps = 0
@@ -87,8 +87,7 @@ function compute(h::ReachabilityHeuristic,
             next_state = execute(absdom, state, act, check=false)
             # Compute cost fluent values
             for (i, fluent) in enumerate(cost_fluents)
-                interval = next_state[fluent].interval
-                cost_vals[i] = min(cost_vals[i], interval.lo)
+                cost_vals[i] = min(cost_vals[i], next_state[fluent].lo)
             end
             # Widen state variables
             accum_state = PDDL.widen!(absdom, accum_state, next_state)
@@ -102,7 +101,7 @@ function compute(h::ReachabilityHeuristic,
         if accum_state == state return Inf end
         state = accum_state
         # Compute new cost
-        cur_metric = absdom[state => spec.metric].interval.lo
+        cur_metric = absdom[state => spec.metric].lo
         cost = cur_metric - init_metric
     end
     return cost
