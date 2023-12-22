@@ -52,13 +52,15 @@ function get_action_probs(sol::EpsilonGreedyPolicy, state::State)
 end
 
 function get_action_prob(sol::EpsilonGreedyPolicy, state::State, action::Term)
-    n_actions = length(lazy_collect(available(sol.domain, state)))
+    actions = lazy_collect(available(sol.domain, state))
+    n_actions = length(actions)
     if n_actions == 0 return 0.0 end
     prob = sol.epsilon / n_actions
     best_act = best_action(sol.policy, state)
     if action == best_act
         return prob + (1 - sol.epsilon)
-    else
+    elseif action in actions
         return prob
     end
+    return 0.0
 end
