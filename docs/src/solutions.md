@@ -112,4 +112,6 @@ intended for use as wrappers around deterministic policies:
 RandomPolicy
 EpsilonGreedyPolicy
 BoltzmannPolicy
+BoltzmannMixturePolicy
+MixturePolicy
 ```
