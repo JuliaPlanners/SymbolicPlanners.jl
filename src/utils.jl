@@ -75,3 +75,7 @@ end
 function randgumbel(rng::AbstractRNG=Random.GLOBAL_RNG)
     return -log(-log(rand(rng)))
 end
+
+unzip_pairs(ps) = unzip_pairs(collect(ps))
+unzip_pairs(ps::AbstractDict) = collect(keys(ps)), collect(values(ps))
+unzip_pairs(ps::AbstractArray{<:Pair}) = first.(ps), last.(ps)

@@ -1,8 +1,7 @@
 export EpsilonGreedyPolicy
 
 """
-    EpsilonGreedyPolicy(domain, policy, epsilon)
-    EpsilonGreedyPolicy(domain, policy, epsilon, rng::AbstractRNG)
+    EpsilonGreedyPolicy(domain, policy, epsilon, [rng::AbstractRNG])
 
 Policy that acts uniformly at random with `epsilon` chance, but otherwise 
 selects the best action according the underlying `policy`. The `domain` has

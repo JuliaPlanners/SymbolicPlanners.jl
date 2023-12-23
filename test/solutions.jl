@@ -170,6 +170,34 @@ act_prob = probs[pddl"(pick-up a)"]
 
 end
 
+@testset "Boltzmann Mixture Policy" begin
+
+planner = AStarPlanner(HMax())
+heuristic = PlannerHeuristic(planner)
+sol = FunctionalVPolicy(heuristic, blocksworld, bw_spec)
+sol = BoltzmannMixturePolicy(sol, [1.0, 2.0], [0.4, 0.6])
+
+@test get_action(sol, bw_state) in bw_init_actions
+@test rand_action(sol, bw_state) in bw_init_actions
+@test best_action(sol, bw_state) == pddl"(pick-up a)"
+
+@test get_value(sol, bw_state) == -4.0
+@test get_value(sol, bw_state, pddl"(pick-up b)") == -6.0
+@test Dict(get_action_values(sol, bw_state)) == bw_init_q
+
+probs_1 = SymbolicPlanners.softmax(collect(values(bw_init_q)))
+probs_2 = SymbolicPlanners.softmax(collect(values(bw_init_q)) ./ 2.0)
+probs = probs_1 * 0.4 + probs_2 * 0.6
+probs = Dict(zip(keys(bw_init_q), probs))
+@test get_action_probs(sol, bw_state) == probs
+act_prob = probs[pddl"(pick-up a)"]
+@test get_action_prob(sol, bw_state, pddl"(pick-up a)") ≈ act_prob
+@test get_action_prob(sol, bw_state, pddl"(pick-up z)") == 0.0
+
+@test copy(sol) == sol
+
+end
+
 @testset "Epsilon-Greedy Policy" begin
 
 planner = AStarPlanner(HMax())
