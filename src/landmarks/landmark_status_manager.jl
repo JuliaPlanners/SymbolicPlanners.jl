@@ -1,6 +1,6 @@
 
 
-
+export LandmarkStatusManager
 
 mutable struct LandmarkStatusManager
     lm_graph::LandmarkGraph

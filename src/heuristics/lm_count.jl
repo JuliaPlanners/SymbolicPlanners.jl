@@ -1,4 +1,4 @@
-
+export LMCount
 
 mutable struct LMCount <: Heuristic
     lm_graph::landmark_graph

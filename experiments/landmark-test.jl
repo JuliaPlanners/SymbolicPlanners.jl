@@ -11,8 +11,11 @@ problem = load_problem(:blocksworld, "problem-2")
 state = initstate(domain, problem)
 spec = Specification(problem)
 
+#Create LM graph
+lm_graph = compute_landmark_graph(domain, state, spec)
+
 # Add our planner here
-planner = AStarPlanner(HAdd(), save_search=true)
+planner = AStarPlanner(LMCount(lm_graph), save_search=true)
 
 ## Run Planner ##
 
