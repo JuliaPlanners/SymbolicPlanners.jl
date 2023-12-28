@@ -2,11 +2,15 @@
 
 export LandmarkStatusManager
 
-mutable struct LandmarkStatusManager
+@kwdef mutable struct LandmarkStatusManager
     lm_graph::LandmarkGraph
-    past::Set{LandmarkNode} = nothing
-    future::Set{LandmarkNode} = nothing
-    curr_true::Set{LandmarkNode} = nothing
+    past::Set{LandmarkNode} = Set()
+    future::Set{LandmarkNode} = Set()
+    curr_true::Set{LandmarkNode} = Set()
+end
+
+function LandmarkStatusManager(lm_graph::LandmarkGraph)
+    return LandmarkStatusManager(lm_graph, Set(), Set(), Set())
 end
 
 function get_past_landmarks(lm_status_manager::LandmarkStatusManager) :: Set{LandmarkNode} 
@@ -21,7 +25,7 @@ function get_curr_true_landmarks(lm_status_manager::LandmarkStatusManager) :: Se
     return lm_status_manager.curr_true
 end
 
-function progress(lm_status_manager::LandmarkStatusManager, prev::State, curr::State)
+function progress(lm_status_manager::LandmarkStatusManager, prev, curr::State)
     #= If previous state is nothing then we are progessing the inital state.
      Landmarks in that are part of the initial state should be added to past
      and all their children should be added to Future.
@@ -46,7 +50,7 @@ function progress(lm_status_manager::LandmarkStatusManager, prev::State, curr::S
                 end
             end
         end
-    else
+    elseif (!isnothing(prev))
         # If the state hasn't changed because there is some do nothing action there is no need to update LM statuses
         if (prev == curr) return end
         

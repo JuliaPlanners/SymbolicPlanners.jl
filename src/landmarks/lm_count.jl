@@ -1,15 +1,19 @@
 export LMCount
 
-mutable struct LMCount <: Heuristic
-    lm_graph::landmark_graph
-    lm_status_manager::LandmarkGraph
-    prev_state::State = nothing
+@kwdef mutable struct LMCount <: Heuristic
+    lm_graph::LandmarkGraph
+    lm_status_manager::LandmarkStatusManager
+    prev_state = nothing
+end
+
+function LMCount(lm_graph::LandmarkGraph)
+    return LMCount(lm_graph, LandmarkStatusManager(lm_graph), nothing)
 end
 
 function compute(h::LMCount,
                 domain::Domain, state::State, spec::Specification)
     # Progress the Status Manager to update past and Future
-    progress(lm_status_manager, prev_state, state)
+    progress(h.lm_status_manager, h.prev_state, state)
     future = get_future_landmarks(lm_status_manager)
     past = get_past_landmarks(lm_status_manager)
     curr_true = get_curr_true_landmarks(lm_status_manager)

@@ -3,7 +3,6 @@
 using PDDL, SymbolicPlanners, Test, PlanningDomains
 
 println("Started")
-
 # Load Blocksworld domain and single problem
 domain = load_domain(:blocksworld)
 problem = load_problem(:blocksworld, "problem-2")
@@ -12,7 +11,7 @@ state = initstate(domain, problem)
 spec = Specification(problem)
 
 #Create LM graph
-lm_graph = compute_landmark_graph(domain, state, spec)
+lm_graph::LandmarkGraph= compute_landmark_graph(domain, state, spec).first
 
 # Add our planner here
 planner = AStarPlanner(LMCount(lm_graph), save_search=true)

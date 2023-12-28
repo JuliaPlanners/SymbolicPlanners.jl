@@ -4,7 +4,7 @@ import Base.hash
 import DataStructures.Queue
 import SymbolicPlanners.build_planning_graph
 
-export compute_landmark_graph
+export compute_landmark_graph, LandmarkGraph, LandmarkNode, Landmark, FactPair
 
 mutable struct FactPair
     var::Int
