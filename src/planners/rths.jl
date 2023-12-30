@@ -79,6 +79,7 @@ AAMAS (2011), pp. 123–130. <https://dl.acm.org/doi/abs/10.5555/2030470.2030488
 end
 
 const RTHS = RealTimeHeuristicSearch
+@doc (@doc RealTimeHeuristicSearch) RTHS
 
 function RealTimeHeuristicSearch(
     planner::ForwardPlanner;

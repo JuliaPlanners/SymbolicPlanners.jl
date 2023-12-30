@@ -115,4 +115,5 @@ More general reward functions can also be defined using the
 is corresponds to the total reward.
 
 Reward-based specifications should generally be used with policy-based
-planning algorithms such as [`RTDP`](@ref), [`RTHS`](@ref) and [`MCTS`](@ref).
+planning algorithms such as [`RTDP`](@ref RealTimeDynamicPlanner),
+[`RTHS`](@ref RealTimeHeuristicSearch) and [`MCTS`](@ref MonteCarloTreeSearch).
