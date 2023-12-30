@@ -6,16 +6,18 @@
 @kwdef mutable struct LMLocalPlanner{T <: Union{Nothing, Float64}}  <: Planner
     # Landmark Graph that is used to generate intermediary goals
     lm_graph::LandmarkGraph
+    # Planning graph to match the LM graph
+    p_graph::PlanningGraph
     # Planner used to solve the problem
     internal_planner::Planner
 end
 
 function solve(planner::LMLocalPlanner,
                 domain::Domain, state::State, spec::Specification)
-    @unpack lm_graph, internal_planner = planner
+    @unpack lm_graph, p_graph, internal_planner = planner
 
     # Extract Next up Landmarks from Starting state
-    next_lms::Set{LandmarkNode} = get_starting_landmarks(planner, state)
+    next_lms::Set{LandmarkNode} = get_starting_landmarks(planner, p_graph, state)
     sol = nothing
     while (sol.status != :success)
         # For each next up LM compute plan to get there, take shortest and add to final solution
@@ -49,10 +51,10 @@ function solve(planner::LMLocalPlanner,
     return sol 
 end
 
-function get_starting_landmarks(planner::LMLocalPlanner, state::State) :: Set{LandmarkNode}
+function get_starting_landmarks(planner::LMLocalPlanner, p_graph::PlanningGraph, state::State) :: Set{LandmarkNode}
     res::Set{LandmarkNode}
     for lm in planner.lm_graph.nodes
-        if landmark_is_true_in_state(lm.landmark, state)
+        if landmark_is_true_in_state(lm.landmark, p_graph, state)
             for (child,edge) in lm.children
                 if (edge > 1)
                     push!(res, child)

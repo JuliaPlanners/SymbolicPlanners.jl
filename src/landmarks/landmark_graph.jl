@@ -37,17 +37,17 @@ mutable struct Landmark
     possible_achievers::Set{Int}
 end
 
-function landmark_is_true_in_state(landmark::Landmark, state::State) :: Bool
+function landmark_is_true_in_state(landmark::Landmark, p_graph::PlanningGraph, state::State) :: Bool
     if landmark.disjunctive
         for fact::FactPair in landmark.facts
-            if state[fact.var].Val == fact.value
+            if state[p_graph.conditions[fact.var]] == fact.value
                 return true
             end
         end
         return false
     else
         for fact::FactPair in landmark.facts
-            if state[fact.var].Val != fact.value
+            if state[p_graph.conditions[fact.var]] != fact.value
                 return false
             end
         end

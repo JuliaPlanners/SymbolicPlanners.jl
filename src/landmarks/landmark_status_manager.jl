@@ -4,13 +4,14 @@ export LandmarkStatusManager
 
 @kwdef mutable struct LandmarkStatusManager
     lm_graph::LandmarkGraph
+    p_graph::PlanningGraph
     past::Set{LandmarkNode} = Set()
     future::Set{LandmarkNode} = Set()
     curr_true::Set{LandmarkNode} = Set()
 end
 
-function LandmarkStatusManager(lm_graph::LandmarkGraph)
-    return LandmarkStatusManager(lm_graph, Set(), Set(), Set())
+function LandmarkStatusManager(lm_graph::LandmarkGraph, p_graph::PlanningGraph)
+    return LandmarkStatusManager(lm_graph, p_graph, Set(), Set(), Set())
 end
 
 function get_past_landmarks(lm_status_manager::LandmarkStatusManager) :: Set{LandmarkNode} 
@@ -26,13 +27,14 @@ function get_curr_true_landmarks(lm_status_manager::LandmarkStatusManager) :: Se
 end
 
 function progress(lm_status_manager::LandmarkStatusManager, prev, curr::State)
+    @unpack lm_graph, p_graph, past, future, curr_true = lm_status_manager
     #= If previous state is nothing then we are progessing the inital state.
      Landmarks in that are part of the initial state should be added to past
      and all their children should be added to Future.
      If landmarks that are true in the initial state have parents also add that landmark to future=#
     if (isnothing(prev))
-        for lm in lm_status_manager.lm_graph.nodes
-            if landmark_is_true_in_state(lm.landmark, curr)
+        for lm in lm_graph.nodes
+            if landmark_is_true_in_state(lm.landmark, p_graph, curr)
                 push!(past, lm)
 
                 for (child,edge) in lm.children
@@ -54,8 +56,8 @@ function progress(lm_status_manager::LandmarkStatusManager, prev, curr::State)
         # If the state hasn't changed because there is some do nothing action there is no need to update LM statuses
         if (prev == curr) return end
         
-        for lm in lm_status_manager.lm_graph.nodes
-            if landmark_is_true_in_state(lm.landmark, curr)
+        for lm in lm_graph.nodes
+            if landmark_is_true_in_state(lm.landmark, p_graph, curr)
                 # Add landmark to past if it is true in the previous state
                 if lm ∉ past push!(past, lm) end
                 
