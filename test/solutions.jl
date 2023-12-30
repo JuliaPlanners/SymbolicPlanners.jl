@@ -1,7 +1,7 @@
 @testset "Solutions" begin
 
 using SymbolicPlanners:
-    get_value, get_action_values, get_action_probs, get_action_prob
+    get_value, get_action_values, get_action_probs, get_action_prob, PathNode
 
 # Available actions in initial Blocksworld state
 bw_init_actions = collect(available(blocksworld, bw_state))
@@ -33,7 +33,22 @@ end
 
 plan = @pddl("(pick-up a)", "(stack a b)", "(pick-up c)", "(stack c a)")
 trajectory = PDDL.simulate(blocksworld, bw_state, plan)
-sol = PathSearchSolution(:success, plan, trajectory)
+
+path_nodes = map(enumerate(trajectory)) do (i, state)
+    id = hash(state)
+    path_cost = Float32(i - 1)
+    parent_id = i > 1 ? hash(trajectory[i - 1]) : nothing
+    parent_action = i > 1 ? plan[i - 1] : nothing
+    return PathNode(id, state, path_cost, parent_id, parent_action)
+end
+search_tree = Dict(node.id => node for node in path_nodes)
+queue = [trajectory[end]]
+
+sol = PathSearchSolution(:success, collect(Term, plan), trajectory, -1,
+                         search_tree, queue, UInt[])
+
+node_id = hash(trajectory[end])
+@test SymbolicPlanners.reconstruct(node_id, search_tree) == (plan, trajectory)
 
 @test collect(sol) == plan
 @test sol[1] == pddl"(pick-up a)"
@@ -139,6 +154,53 @@ probs = Dict(a => a == pddl"(pick-up a)" ? 1.0 : 0.0 for a in bw_init_actions)
 @test get_action_probs(sol, bw_state) == probs
 @test get_action_prob(sol, bw_state, pddl"(pick-up a)") == 1.0
 @test get_action_prob(sol, bw_state, pddl"(pick-up b)") == 0.0 
+
+@test copy(sol) == sol
+
+end
+
+@testset "Reusable Tree Policy" begin
+
+sol = TabularVPolicy(blocksworld, bw_spec)
+sol.V[hash(bw_state)] = bw_init_v
+for (act, val) in bw_init_q
+    next_state = transition(blocksworld, bw_state, act)
+    sol.V[hash(next_state)] = val + 1
+end
+
+plan = @pddl("(pick-up a)", "(stack a b)", "(pick-up c)", "(stack c a)")
+trajectory = PDDL.simulate(blocksworld, bw_state, plan)
+
+path_nodes = map(enumerate(trajectory)) do (i, state)
+    id = hash(state)
+    path_cost = Float32(i - 1)
+    parent_id = i > 1 ? hash(trajectory[i - 1]) : nothing
+    parent_action = i > 1 ? plan[i - 1] : nothing
+    return PathNode(id, state, path_cost, parent_id, parent_action)
+end
+search_tree = Dict(node.id => node for node in path_nodes)
+
+sol = ReusableTreePolicy{GenericState}(sol)
+SymbolicPlanners.insert_path!(sol, search_tree, hash(trajectory[end]), 4.0f0)
+
+@test get_action(sol, bw_state) == pddl"(pick-up a)"
+@test rand_action(sol, bw_state) == pddl"(pick-up a)"
+@test best_action(sol, bw_state) == pddl"(pick-up a)"
+
+@test get_action(sol, trajectory[1]) == plan[1]
+@test get_action(sol, trajectory[2]) == plan[2]
+@test get_action(sol, trajectory[3]) == plan[3]
+@test get_action(sol, trajectory[4]) == plan[4]
+
+@test get_value(sol, bw_state) == -4.0
+@test get_value(sol, bw_state, pddl"(pick-up b)") == -6.0
+@test get_action_values(sol, bw_state) == bw_init_q
+
+probs = Dict(a => a == pddl"(pick-up a)" ? 1.0 : 0.0 for a in bw_init_actions)
+@test get_action_probs(sol, bw_state) == probs
+@test get_action_prob(sol, bw_state, pddl"(pick-up a)") == 1.0
+@test get_action_prob(sol, bw_state, pddl"(pick-up b)") == 0.0
+@test get_action_prob(sol, bw_state, pddl"(pick-up z)") == 0.0
 
 @test copy(sol) == sol
 

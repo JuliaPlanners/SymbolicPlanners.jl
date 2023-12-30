@@ -231,6 +231,9 @@ function search!(sol::PathSearchSolution, planner::ForwardPlanner,
             return sol
         end
     end
+    if !isnothing(planner.callback)
+        planner.callback(planner, sol, node_id, priority)
+    end
     sol.status = :failure
     return sol
 end
@@ -302,7 +305,7 @@ function (cb::LoggerCallback)(
                    [(10, 2), (100, 10), (1000, 100), (typemax(Int), 1000)])
     idx = findfirst(x -> n < x[1], schedule)
     log_period = isnothing(idx) ? 1000 : schedule[idx][2]
-    if n == 1 && get(cb.options, :log_header, true)
+    if n <= 1 && get(cb.options, :log_header, true)
         @logmsg cb.loglevel "Starting forward search..."
         max_nodes, max_time = planner.max_nodes, planner.max_time
         @logmsg cb.loglevel "max_nodes = $max_nodes, max_time = $max_time" 

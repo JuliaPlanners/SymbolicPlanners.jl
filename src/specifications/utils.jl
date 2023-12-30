@@ -9,8 +9,14 @@ disjunctions, and predicates with statically known truth values are pruned.
 """
 function simplify_goal(spec::Specification, domain::Domain, state::State;
                        statics=PDDL.infer_static_fluents(domain))
-    goals = simplify_goal(get_goal_terms(spec), domain, state, statics=statics)
-    return set_goal_terms(spec, goals)
+    goals = get_goal_terms(spec)
+    if length(goals) == 1 && goals[1].name == Symbol("do-action")
+        # Avoid simplifying action goals
+        return spec
+    else
+        goals = simplify_goal(goals, domain, state, statics=statics)
+        return set_goal_terms(spec, goals)
+    end
 end
 
 function simplify_goal(goal::Term, domain::Domain, state::State;
@@ -34,5 +40,3 @@ function simplify_goal(spec::MultiGoalReward, domain::Domain, state::State;
     end
     return MultiGoalReward(goals, spec.rewards, spec.discount)
 end
-
-simplify_goal(spec::ActionGoal, ::Domain, ::State) = spec
