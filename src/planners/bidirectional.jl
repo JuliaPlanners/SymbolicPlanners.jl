@@ -101,19 +101,23 @@ function solve(planner::BidirectionalPlanner,
     # Simplify goal specification
     f_spec = simplify_goal(spec, domain, state)
     b_spec = BackwardSearchGoal(spec, state)
+    # Extract heuristics
+    f_heuristic = planner.forward.heuristic
+    b_heuristic = planner.backward.heuristic
     # Precompute heuristic information
-    precompute!(planner.forward.heuristic, domain, state, f_spec)
-    precompute!(planner.backward.heuristic, domain, state, b_spec)
+    precompute!(f_heuristic, domain, state, f_spec)
+    precompute!(b_heuristic, domain, state, b_spec)
     # Initialize search queues and search solution
     f_search_tree, f_queue =
-        init_forward(planner.forward, domain, state, f_spec)
+        init_forward(planner.forward, f_heuristic, domain, state, f_spec)
     b_search_tree, b_queue =
-        init_backward(planner.backward, domain, state, b_spec)
+        init_backward(planner.backward, b_heuristic, domain, state, b_spec)
     sol = BiPathSearchSolution(:in_progress, Term[], nothing, 0,
                                f_search_tree, f_queue, 0, nothing,
                                b_search_tree, b_queue, 0, nothing)
     # Run the search
-    sol = search!(sol, planner, domain, state, f_spec, b_spec)
+    sol = search!(sol, planner, f_heuristic, b_heuristic,
+                  domain, state, f_spec, b_spec)
     # Return solution
     if planner.save_search
         return sol
@@ -124,9 +128,9 @@ function solve(planner::BidirectionalPlanner,
     end
 end
 
-function init_forward(planner::ForwardPlanner,
+function init_forward(planner::ForwardPlanner, heuristic::Heuristic,
                       domain::Domain, state::State, spec::Specification)
-    @unpack h_mult, heuristic, save_search = planner
+    @unpack h_mult, save_search = planner
     node_id = hash(state)
     search_tree = Dict(node_id => PathNode(node_id, state, 0.0))
     est_cost::Float32 = h_mult * compute(heuristic, domain, state, spec)
@@ -135,9 +139,9 @@ function init_forward(planner::ForwardPlanner,
     return(search_tree, queue)
 end
 
-function init_backward(planner::BackwardPlanner,
+function init_backward(planner::BackwardPlanner, heuristic::Heuristic,
                        domain::Domain, state::State, spec::Specification)
-    @unpack h_mult, heuristic, save_search = planner
+    @unpack h_mult, save_search = planner
     spec = BackwardSearchGoal(spec, state)
     state = goalstate(domain, PDDL.get_objtypes(state), get_goal_terms(spec))
     # Initialize search tree and priority queue
@@ -149,7 +153,8 @@ function init_backward(planner::BackwardPlanner,
     return(search_tree, queue)
 end
 
-function search!(sol::BiPathSearchSolution,  planner::BidirectionalPlanner,
+function search!(sol::BiPathSearchSolution, planner::BidirectionalPlanner,
+                 f_heuristic::Heuristic, b_heuristic::Heuristic,
                  domain::Domain, state::State, 
                  f_spec::Specification, b_spec::Specification)
     @unpack max_nodes, max_time = planner
@@ -193,7 +198,7 @@ function search!(sol::BiPathSearchSolution,  planner::BidirectionalPlanner,
             isnothing(f_search_noise) ?
                 dequeue!(f_queue) : dequeue!(f_queue, f_node_id)
             # Expand node
-            expand!(planner.forward, f_node,
+            expand!(planner.forward, f_heuristic, f_node,
                     f_search_tree, f_queue, domain, f_spec)
             sol.f_expanded += 1
             sol.expanded += 1
@@ -216,7 +221,7 @@ function search!(sol::BiPathSearchSolution,  planner::BidirectionalPlanner,
             isnothing(b_search_noise) ?
                 dequeue!(b_queue) : dequeue!(b_queue, b_node_id)
             # Expand node
-            expand!(planner.backward, b_node,
+            expand!(planner.backward, b_heuristic, b_node,
                     b_search_tree, b_queue, domain, b_spec)
             sol.b_expanded += 1
             sol.expanded += 1
@@ -256,7 +261,10 @@ function refine!(
     sol.status = :in_progress
     f_spec = simplify_goal(spec, domain, state)
     b_spec = BackwardSearchGoal(spec, state)
-    ensure_precomputed!(planner.forward.heuristic, domain, state, f_spec)
-    ensure_precomputed!(planner.backward.heuristic, domain, state, b_spec)
-    return search!(sol, planner, domain, state, f_spec, b_spec)
+    f_heuristic = planner.forward.heuristic
+    b_heuristic = planner.backward.heuristic
+    ensure_precomputed!(f_heuristic, domain, state, f_spec)
+    ensure_precomputed!(b_heuristic, domain, state, b_spec)
+    return search!(sol, planner, f_heuristic, b_heuristic,
+                   domain, state, f_spec, b_spec)
 end

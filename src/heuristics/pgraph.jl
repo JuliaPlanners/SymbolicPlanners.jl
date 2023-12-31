@@ -399,7 +399,7 @@ function pgraph_init_idxs(graph::PlanningGraph,
     if length(PDDL.get_axioms(domain)) > 0
         init_idxs = pgraph_derived_idxs!(init_idxs, graph, domain, state)
     end
-    return init_idxs
+    return init_idxs::BitVector
 end
 
 function pgraph_init_idxs(graph::PlanningGraph,
@@ -418,7 +418,7 @@ function pgraph_init_idxs(graph::PlanningGraph,
     if !isempty(PDDL.get_axioms(domain))
         init_idxs = pgraph_derived_idxs!(init_idxs, graph, domain, state)
     end
-    return init_idxs
+    return init_idxs::BitVector
 end
 
 "Determine indices for initial facts derived from axioms."
@@ -454,5 +454,5 @@ function pgraph_derived_idxs!(init_idxs::BitVector, graph::PlanningGraph,
         end
     end
     # Return updated initial indices
-    return init_idxs
+    return init_idxs::BitVector
 end

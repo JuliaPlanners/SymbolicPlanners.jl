@@ -27,6 +27,12 @@ precompute!(h::PrecomputedHeuristic, ::Domain, ::State, ::Specification) = h
 compute(h::PrecomputedHeuristic, domain::Domain, state::State, spec::Specification) =
     compute(h.heuristic, domain, state, spec)
 
+filter_available(h::PrecomputedHeuristic, domain::Domain, state::State, spec) =
+    filter_available(h.heuristic, domain, state, spec)
+
+filter_relevant(h::PrecomputedHeuristic, domain::Domain, state::State, spec) =
+    filter_relevant(h.heuristic, domain, state, spec)
+
 """
     precomputed(h::Heuristic, domain::Domain, args...)
 

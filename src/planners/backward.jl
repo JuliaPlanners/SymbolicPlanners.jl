@@ -147,7 +147,7 @@ function solve(planner::BackwardPlanner,
     sol = PathSearchSolution(:in_progress, Term[], Vector{typeof(state)}(),
                              0, search_tree, queue, search_order)
     # Run the search
-    sol = search!(sol, planner, domain, spec)
+    sol = search!(sol, planner, planner.heuristic, domain, spec)
     # Return solution
     if save_search
         return sol
@@ -158,7 +158,8 @@ function solve(planner::BackwardPlanner,
     end
 end
 
-function search!(sol::PathSearchSolution, planner::BackwardPlanner,
+function search!(sol::PathSearchSolution,
+                 planner::BackwardPlanner, heuristic::Heuristic,
                  domain::Domain, spec::BackwardSearchGoal)
     @unpack search_noise = planner
     start_time = time()
@@ -184,7 +185,7 @@ function search!(sol::PathSearchSolution, planner::BackwardPlanner,
             # Dequeue current node
             isnothing(search_noise) ? dequeue!(queue) : dequeue!(queue, node_id) 
             # Expand current node
-            expand!(planner, node, search_tree, queue, domain, spec)
+            expand!(planner, heuristic, node, search_tree, queue, domain, spec)
             sol.expanded += 1
             if planner.save_search && planner.save_search_order
                 push!(sol.search_order, node_id)
@@ -206,13 +207,13 @@ function search!(sol::PathSearchSolution, planner::BackwardPlanner,
     return sol
 end
 
-function expand!(planner::BackwardPlanner, node::PathNode,
+function expand!(planner::BackwardPlanner, heuristic::Heuristic, node::PathNode,
                  search_tree::Dict{UInt,<:PathNode}, queue::PriorityQueue,
                  domain::Domain, spec::BackwardSearchGoal)
-    @unpack g_mult, h_mult, heuristic = planner
+    @unpack g_mult, h_mult = planner
     state = node.state
-    # Iterate over relevant actions
-    for act in relevant(domain, state)
+    # Iterate over relevant actions, filtered by heuristic
+    for act in filter_relevant(heuristic, domain, state, spec)
         # Regress (reverse-execute) the action
         next_state = regress(domain, state, act; check=false)
         # Add constraints to regression state
@@ -253,7 +254,7 @@ function refine!(
     spec = simplify_goal(spec, domain, state)
     spec = BackwardSearchGoal(spec, domain, state)
     ensure_precomputed!(planner.heuristic, domain, state, spec)
-    return search!(sol, planner, domain, spec)
+    return search!(sol, planner, planner.heuristic, domain, spec)
 end
 
 function (cb::LoggerCallback)(

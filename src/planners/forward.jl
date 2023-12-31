@@ -178,7 +178,7 @@ function solve(planner::ForwardPlanner,
     sol = PathSearchSolution(:in_progress, Term[], Vector{typeof(state)}(),
                              0, search_tree, queue, search_order)
     # Run the search
-    sol = search!(sol, planner, domain, spec)
+    sol = search!(sol, planner, planner.heuristic, domain, spec)
     # Return solution
     if save_search
         return sol
@@ -189,7 +189,8 @@ function solve(planner::ForwardPlanner,
     end
 end
 
-function search!(sol::PathSearchSolution, planner::ForwardPlanner,
+function search!(sol::PathSearchSolution,
+                 planner::ForwardPlanner, heuristic::Heuristic,
                  domain::Domain, spec::Specification)
     @unpack search_noise = planner
     start_time = time()
@@ -215,7 +216,7 @@ function search!(sol::PathSearchSolution, planner::ForwardPlanner,
             # Dequeue current node
             isnothing(search_noise) ? dequeue!(queue) : delete!(queue, node_id) 
             # Expand current node
-            expand!(planner, node, search_tree, queue, domain, spec)
+            expand!(planner, heuristic, node, search_tree, queue, domain, spec)
             sol.expanded += 1
             if planner.save_search && planner.save_search_order
                 push!(sol.search_order, node_id)
@@ -238,13 +239,13 @@ function search!(sol::PathSearchSolution, planner::ForwardPlanner,
     return sol
 end
 
-function expand!(planner::ForwardPlanner, node::PathNode,
+function expand!(planner::ForwardPlanner, heuristic::Heuristic, node::PathNode,
                  search_tree::Dict{UInt,<:PathNode}, queue::PriorityQueue,
                  domain::Domain, spec::Specification)
-    @unpack g_mult, h_mult, heuristic = planner
+    @unpack g_mult, h_mult = planner
     state = node.state
-    # Iterate over available actions
-    for act in available(domain, state)
+    # Iterate over available actions, filtered by heuristic
+    for act in filter_available(heuristic, domain, state, spec)
         # Execute action and trigger all post-action events
         next_state = transition(domain, state, act; check=false)
         next_id = hash(next_state)
@@ -291,7 +292,7 @@ function refine!(
     sol.status = :in_progress
     spec = simplify_goal(spec, domain, state)
     ensure_precomputed!(planner.heuristic, domain, state, spec)
-    return search!(sol, planner, domain, spec)
+    return search!(sol, planner, planner.heuristic, domain, spec)
 end
 
 function (cb::LoggerCallback)(
