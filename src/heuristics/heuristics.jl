@@ -103,6 +103,7 @@ end
 
 include("memoized.jl")
 include("precomputed.jl")
+include("pruning.jl")
 include("basic.jl")
 include("metric.jl")
 include("planner.jl")
