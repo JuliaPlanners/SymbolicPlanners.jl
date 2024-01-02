@@ -161,7 +161,8 @@ function solve!(sol::Union{<:TabularVPolicy, <:ReusableTreePolicy},
                 domain::Domain, state::State, spec::Specification)
     @unpack n_iters, heuristic = planner
     # Use previously computed policy values to guide search
-    planner.heuristic = PolicyValueHeuristic(sol)
+    h = PruningHeuristic(PolicyValueHeuristic(sol), heuristic)
+    planner.heuristic = h
     # Run callback if provided
     if !isnothing(planner.callback)
         planner.callback(planner, sol, state, state, 0, nothing, -Inf, nothing)
@@ -190,8 +191,9 @@ function solve!(sol::Union{<:TabularVPolicy, <:ReusableTreePolicy},
                     set_value!(sol, next_state, 0.0)
                 end
             else # Run heuristic search
-                search_sol = solve(planner.planner, domain, next_state, tree_spec)
-                update_values!(planner, sol, search_sol, tree_spec)
+                search_sol = solve(planner.planner, domain,
+                                   next_state, tree_spec)
+                update_values!(planner, sol, search_sol, spec)
                 next_v = get_value(sol, next_state)
             end
             r = get_reward(spec, domain, state, act, next_state)
@@ -245,10 +247,9 @@ function update_values!(
         terminal_id, (_, terminal_h_val, _) = dequeue_pair!(search_frontier)
         # Recompute f-value in case g_mult != 1.0
         terminal_path_cost = search_tree[terminal_id].path_cost
-        terminal_h_val = h_mult * terminal_h_val
         terminal_f_val = terminal_path_cost + terminal_h_val
         # Set value of terminal node
-        if search_sol.status != :success || !has_action_goal(spec)
+        if !has_action_goal(spec) || search_sol.status != :success 
             set_value!(policy, terminal_id, -terminal_h_val)
         end
         # Update values of all closed nodes in search tree
@@ -283,11 +284,11 @@ function (cb::LoggerCallback)(
         return nothing
     end
     log_period = get(cb.options, :log_period, 1)
-    if n > 0 && n % log_period == 0 && !isnothing(act)
+    if n > 0 && n % log_period == 0 && !isnothing(act) && !ismissing(act)
         act = write_pddl(act)
         @logmsg cb.loglevel "Iteration $n $act: value = $cur_v"
     end
-    if n > 0 && n % log_period == 0 && isnothing(act)
+    if n > 0 && n % log_period == 0 && isnothing(best_act) && !ismissing(best_act)
         init_v = get_value(sol, init_state)
         best_act = write_pddl(best_act)
         @logmsg(cb.loglevel,

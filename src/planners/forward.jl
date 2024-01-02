@@ -233,7 +233,7 @@ function search!(sol::PathSearchSolution,
         end
     end
     if !isnothing(planner.callback)
-        planner.callback(planner, sol, node_id, priority)
+        planner.callback(planner, sol, nothing, (Inf32, Inf32, 0))
     end
     sol.status = :failure
     return sol
@@ -297,10 +297,11 @@ end
 
 function (cb::LoggerCallback)(
     planner::ForwardPlanner,
-    sol::PathSearchSolution, node_id::UInt, priority
+    sol::PathSearchSolution, node_id::Union{UInt, Nothing}, priority
 )
+    node = isnothing(node_id) ? nothing : sol.search_tree[node_id]
     f, h, _ = priority
-    g = sol.search_tree[node_id].path_cost
+    g = isnothing(node) ? Inf32 : node.path_cost
     m, n = length(sol.search_tree), sol.expanded
     schedule = get(cb.options, :log_period_schedule,
                    [(10, 2), (100, 10), (1000, 100), (typemax(Int), 1000)])
