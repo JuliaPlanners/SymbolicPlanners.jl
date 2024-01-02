@@ -6,15 +6,16 @@ println("Started")
 # Load Blocksworld domain and single problem
 domain = load_domain(:blocksworld)
 problem = load_problem(:blocksworld, "problem-2")
+
 # Initialize state
 state = initstate(domain, problem)
 spec = Specification(problem)
 
 #Create LM graph
-lm_graph::LandmarkGraph= compute_landmark_graph(domain, state, spec).first
+lm_graph::LandmarkGraph, p_graph::SymbolicPlanners.PlanningGraph = compute_landmark_graph(domain, state, spec)
 
 # Add our planner here
-planner = AStarPlanner(LMCount(lm_graph), save_search=true)
+planner = LMLocalPlanner(lm_graph, p_graph, AStarPlanner(HAdd(), save_search=true))
 
 ## Run Planner ##
 
