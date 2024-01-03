@@ -25,7 +25,29 @@ planner = OrderedLandmarksPlanner()
 
 ## Experimental code ##
 
-g = compute_landmark_graph(domain, state, spec)
+# g = compute_landmark_graph(domain, state, spec)
+
+rg = compute_relaxed_landmark_graph(domain, state, spec)
+approximate_reasonable_orders(rg.first, rg.second)
+
+import SymbolicPlanners.LandmarkNode, SymbolicPlanners.EdgeType, SymbolicPlanners.FactPair
+
+function factpair_to_term(factpair::FactPair) :: Term
+    effect::Term = rg.second.planning_graph.conditions[factpair.var]
+    if factpair.value == 0
+        effect = Compound(:not, [effect])
+    end
+    return effect
+end
+
+node_lookup::Dict{LandmarkNode, Int} = Dict(map(reverse, enumerate(rg.first.nodes)))
+for node::Tuple{Int, LandmarkNode} in enumerate(rg.first.nodes)
+    println("Landmark $(node[1]) ($(factpair_to_term(first(node[2].landmark.facts))))")
+    for child::Pair{LandmarkNode, EdgeType} in node[2].children
+        println("    Edge to $(node_lookup[child.first]) - $(child.second)")
+    end
+end
+println()
 
 ## Verification ##
 
