@@ -3,7 +3,7 @@ using PDDL, SymbolicPlanners, Test, PlanningDomains
 using DataFrames, CSV, Dates, Statistics
 
 
-planners = ["GoalCount", "HAdd", "LM_Count", "LM_Local-HAdd", "LM_Local-LM_Count"]
+planners = ["GoalCount", "HAdd", "LM_Count", "LM_Local-HAdd"]
 
 TIMEOUT = 180.0
 NRUNS = 3
@@ -50,9 +50,7 @@ for d_name in list_domains(JuliaPlannersRepo)
             elseif planner_name == "LM_Count"
                 planner = AStarPlanner(LMCount(lm_graph, p_graph), max_time=TIMEOUT, save_search=true)
             elseif planner_name == "LM_Local-HAdd"
-                planner = AStarPlanner(HAdd(), max_time=TIMEOUT, save_search=true) #TODO Placeholder
-            elseif planner_name == "LM_Local-LM_Count"
-                planner = AStarPlanner(HAdd(), max_time=TIMEOUT, save_search=true) #TODO Placeholder
+                planner = LMLocalPlanner(lm_graph, gen_data.planning_graph, AStarPlanner(HAdd(), save_search=true))
             end
 
             nruns = dom isa CompiledDomain ? NRUNS + 1 : NRUNS
@@ -125,9 +123,7 @@ for d_name in list_domains(IPCInstancesRepo, "ipc-2014")
             elseif planner_name == "LM_Count"
                 planner = AStarPlanner(LMCount(lm_graph, p_graph), max_time=TIMEOUT, save_search=true)
             elseif planner_name == "LM_Local-HAdd"
-                planner = AStarPlanner(HAdd(), max_time=TIMEOUT, save_search=true) #TODO Placeholder
-            elseif planner_name == "LM_Local-LM_Count"
-                planner = AStarPlanner(HAdd(), max_time=TIMEOUT, save_search=true) #TODO Placeholder
+                planner = LMLocalPlanner(lm_graph, gen_data.planning_graph, AStarPlanner(HAdd(), save_search=true), max_time=TIMEOUT)
             end
 
             nruns = dom isa CompiledDomain ? NRUNS + 1 : NRUNS
