@@ -18,7 +18,7 @@ approximate_reasonable_orders(lm_graph, gen_data)
 
 # Add our planner here
 planner = LMLocalPlanner(lm_graph, gen_data.planning_graph, AStarPlanner(HAdd(), save_search=true))
-other_planner = AStarPlanner(LMCount(lm_graph), save_search=true)
+other_planner = AStarPlanner(LMCount(lm_graph, gen_data.planning_graph), save_search=true)
 ## Run Planner ##
 
 println("Verifying interpreted")

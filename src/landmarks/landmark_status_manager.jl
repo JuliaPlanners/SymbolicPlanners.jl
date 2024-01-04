@@ -38,14 +38,14 @@ function progress(lm_status_manager::LandmarkStatusManager, prev, curr::State)
                 push!(past, lm)
 
                 for (child,edge) in lm.children
-                    if (edge > 1)
+                    if (edge == NECESSARY || edge == GREEDY_NECESSARY)
                         push!(future, child)
                     end
                 end
                 
                 # Find one parent with edge that is eith NECESSARY or GREEDY_NECESSARY
                 for (parent, edge) in lm.parents
-                    if edge > 1
+                    if (edge == NECESSARY || edge == GREEDY_NECESSARY)
                         push!(future, lm)
                         break
                     end
@@ -64,7 +64,7 @@ function progress(lm_status_manager::LandmarkStatusManager, prev, curr::State)
 
                 # Add each child with edge that is NECESSARY or GREEDY_NECESSARY to future
                 for (child, edge) in lm.children
-                    if edge > 1
+                    if (edge == NECESSARY || edge == GREEDY_NECESSARY)
                         push!(future, child)
                     end
                 end
@@ -80,7 +80,7 @@ function progress(lm_status_manager::LandmarkStatusManager, prev, curr::State)
                         return
                     end
                     if parent ∉ past 
-                        if edge > 1 
+                        if (edge == NECESSARY || edge == GREEDY_NECESSARY)
                             push!(curr_true, lm)
                             return
                         end

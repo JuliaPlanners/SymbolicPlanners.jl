@@ -166,7 +166,6 @@ function landmark_graph_remove_occurences(landmark_graph::LandmarkGraph, node::L
     for child::LandmarkNode in keys(node.children)
         delete!(child.parents, node)
     end
-    
     landmark::Landmark = node.landmark
     if landmark.disjunctive
         landmark_graph.num_disjunctive_landmarks -= 1
@@ -178,6 +177,7 @@ function landmark_graph_remove_occurences(landmark_graph::LandmarkGraph, node::L
     else
         delete!(landmark_graph.simple_landmarks_to_nodes, first(landmark.facts))
     end
+    setdiff!(landmark_graph.nodes, [node])
 end
 
 function landmark_graph_remove_node(landmark_graph::LandmarkGraph, node::LandmarkNode)
