@@ -14,6 +14,10 @@ export LMLocalPlanner
     max_time::Float64 = Inf
 end
 
+function LMLocalPlanner(lm_graph::LandmarkGraph, p_graph::PlanningGraph, internal_planner::Planner, max_time::Float32)
+    return LMLocalPlanner(lm_graph, p_graph, internal_planner, max_time)
+end
+
 function solve(planner::LMLocalPlanner,
                 domain::Domain, state::State, spec::Specification)
     @unpack lm_graph, p_graph, internal_planner = planner

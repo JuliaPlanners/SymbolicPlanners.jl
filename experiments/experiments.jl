@@ -32,7 +32,8 @@ for d_name in list_domains(JuliaPlannersRepo)
         # Compile domain
         cdomain, cstate = compiled(domain, state)
         #Create LM graph
-        lm_graph::LandmarkGraph, p_graph::SymbolicPlanners.PlanningGraph = compute_landmark_graph(domain, state, spec)
+        lm_graph::LandmarkGraph, gen_data::SymbolicPlanners.LandmarkGenerationData = compute_relaxed_landmark_graph(domain, state, spec)
+        approximate_reasonable_orders(lm_graph, gen_data)
         size_landmarks = length(lm_graph.nodes)
 
         # Repeat for both original and compiled
@@ -48,9 +49,9 @@ for d_name in list_domains(JuliaPlannersRepo)
             elseif planner_name == "HAdd"
                 planner = AStarPlanner(HAdd(), max_time=TIMEOUT, save_search=true)
             elseif planner_name == "LM_Count"
-                planner = AStarPlanner(LMCount(lm_graph, p_graph), max_time=TIMEOUT, save_search=true)
+                planner = AStarPlanner(LMCount(lm_graph, gen_data.planning_graph), max_time=TIMEOUT, save_search=true)
             elseif planner_name == "LM_Local-HAdd"
-                planner = LMLocalPlanner(lm_graph, gen_data.planning_graph, AStarPlanner(HAdd(), save_search=true))
+                planner = LMLocalPlanner(lm_graph, gen_data.planning_graph, AStarPlanner(HAdd(), save_search=true), TIMEOUT)
             end
 
             nruns = dom isa CompiledDomain ? NRUNS + 1 : NRUNS
@@ -104,9 +105,10 @@ for d_name in list_domains(IPCInstancesRepo, "ipc-2014")
         spec = Specification(problem)
         # Compile domain
         cdomain, cstate = compiled(domain, state)
-        #Create LM graph
-        lm_graph::LandmarkGraph, p_graph::SymbolicPlanners.PlanningGraph = compute_landmark_graph(domain, state, spec)
-        size_landmarks = length(lm_graph.nodes)
+         #Create LM graph
+         lm_graph::LandmarkGraph, gen_data::SymbolicPlanners.LandmarkGenerationData = compute_relaxed_landmark_graph(domain, state, spec)
+         approximate_reasonable_orders(lm_graph, gen_data)
+         size_landmarks = length(lm_graph.nodes)
 
         # Repeat for both original and compiled
         for dom in (domain, cdomain), planner_name in planners
@@ -121,9 +123,9 @@ for d_name in list_domains(IPCInstancesRepo, "ipc-2014")
             elseif planner_name == "HAdd"
                 planner = AStarPlanner(HAdd(), max_time=TIMEOUT, save_search=true)
             elseif planner_name == "LM_Count"
-                planner = AStarPlanner(LMCount(lm_graph, p_graph), max_time=TIMEOUT, save_search=true)
+                planner = AStarPlanner(LMCount(lm_graph, gen_data.planning_graph), max_time=TIMEOUT, save_search=true)
             elseif planner_name == "LM_Local-HAdd"
-                planner = LMLocalPlanner(lm_graph, gen_data.planning_graph, AStarPlanner(HAdd(), save_search=true), max_time=TIMEOUT)
+                planner = LMLocalPlanner(lm_graph, gen_data.planning_graph, AStarPlanner(HAdd(), save_search=true), TIMEOUT)
             end
 
             nruns = dom isa CompiledDomain ? NRUNS + 1 : NRUNS
