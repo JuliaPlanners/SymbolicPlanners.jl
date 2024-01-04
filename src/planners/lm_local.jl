@@ -35,6 +35,7 @@ function solve(planner::LMLocalPlanner,
 
 
     while (length(lm_graph.nodes) > 0)
+        if (length(next_lms) == 0) break end
         # For each next up LM compute plan to get there, take shortest and add to final solution
         shortest_sol = nothing
         used_lm = nothing
