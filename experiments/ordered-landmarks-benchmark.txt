@@ -1,0 +1,37 @@
+Blocksworld
+ - bw-large-a = progidy-bw/bw-large-a.pddl
+ - bw-large-b = progidy-bw/bw-large-b.pddl
+ - bw-large-c = progidy-bw/bw-large-c.pddl
+ - bw-large-d = progidy-bw/bw-large-d.pddl
+Grid
+ - prob01 = grid/instance-1.pddl
+ - prob02 = grid/instance-2.pddl
+ - prob03 = grid/instance-3.pddl
+ - prob04 = grid/instance-4.pddl
+ - prob05 = grid/instance-5.pddl
+Logistics
+ - prob-38-0 = logistics/instance-77.pddl
+ - prob-39-0 = logistics/instance-79.pddl
+ - prob-40-0 = logistics/instance-81.pddl
+ - prob-41-0 = logistics/instance-83.pddl
+Tyreworld
+ - fixit-1 = tireworld/pfile1.pddl
+ - fixit-10 = tireworld/pfile10.pddl
+ - fixit-20 = tireworld/pfile20.pddl
+ - fixit-30 = tireworld/pfile30.pddl
+Freecell
+ - prob-7-1 = freecell/instance-26.pddl
+ - prob-7-2 = freecell/instance-27.pddl
+ - prob-7-3 = freecell/instance-28.pddl
+ - prob-8-1 = freecell/instance-31.pddl
+ - prob-8-2 = freecell/instance-32.pddl
+ - prob-8-3 = freecell/instance-33.pddl
+ - prob-9-1 = freecell/instance-36.pddl
+ - prob-9-2 = freecell/instance-37.pddl
+ - prob-9-3 = freecell/instance-38.pddl
+ - prob-10-1 = freecell/instance-41.pddl
+ - prob-10-2 = freecell/instance-42.pddl
+ - prob-10-3 = freecell/instance-43.pddl
+ - prob-11-1 = freecell/instance-46.pddl
+ - prob-11-2 = freecell/instance-47.pddl
+ - prob-11-3 = freecell/instance-48.pddl
