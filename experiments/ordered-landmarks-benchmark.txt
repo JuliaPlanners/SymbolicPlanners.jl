@@ -1,8 +1,8 @@
 Blocksworld
- - bw-large-a = progidy-bw/bw-large-a.pddl
- - bw-large-b = progidy-bw/bw-large-b.pddl
- - bw-large-c = progidy-bw/bw-large-c.pddl
- - bw-large-d = progidy-bw/bw-large-d.pddl
+ - bw-large-a = prodigy-bw/bw-large-a.pddl
+ - bw-large-b = prodigy-bw/bw-large-b.pddl
+ - bw-large-c = prodigy-bw/bw-large-c.pddl
+ - bw-large-d = prodigy-bw/bw-large-d.pddl
 Grid
  - prob01 = grid/instance-1.pddl
  - prob02 = grid/instance-2.pddl

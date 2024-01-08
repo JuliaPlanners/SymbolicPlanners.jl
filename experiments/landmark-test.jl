@@ -18,6 +18,10 @@ end
 domain_dir = joinpath(@__DIR__, "logical", DOMAIN_NAME)
 domain = load_domain(joinpath(domain_dir, "domain.pddl"))
 problem = load_problem(joinpath(domain_dir, "instance-$INSTANCE.pddl"))
+# domain = load_domain(joinpath(@__DIR__, "logical", "freecell", "domain.pddl"))
+# problem = load_problem(joinpath(@__DIR__, "logical", "freecell", "instance-26.pddl"))
+# domain = load_domain(joinpath(@__DIR__, "logical", "grid", "domain.pddl"))
+# problem = load_problem(joinpath(@__DIR__, "logical", "grid", "instance-1.pddl"))
 
 state = initstate(domain, problem)
 spec = Specification(problem)
@@ -54,6 +58,34 @@ println()
 println("Verifying interpreted")
 @elapsed sol = planner(domain, state, spec)
 @test is_goal(spec, domain, sol.trajectory[end])
+
+println()
+println("Solution steps")
+not_reached::Set{Int} = Set(range(1, length = length(rg.first.nodes)))
+active::Set{Int} = Set()
+for (i::Int, s::GenericState) in enumerate(sol.trajectory)
+    println("step $i")
+    for (j::Int, lm::LandmarkNode) in enumerate(rg.first.nodes)
+        for f::FactPair in lm.landmark.facts
+            if (rg.second.planning_graph.conditions[f.var] in s.facts) == (f.value == 1)
+                if !(j in active)
+                    delete!(not_reached, j)
+                    push!(active, j)
+                    println("    + $j")
+                end
+            else
+                if j in active
+                    delete!(active, j)
+                    println("    - $j")
+                end
+            end
+        end
+    end
+end
+if !isempty(not_reached)
+    println("Solution did not reach all landmarks!")
+end
+println()
 
 cdomain, cstate = compiled(domain, state)
 
