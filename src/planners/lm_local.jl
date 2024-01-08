@@ -23,8 +23,7 @@ function solve(planner::LMLocalPlanner,
     @unpack lm_graph, p_graph, internal_planner = planner
     @unpack h_mult, heuristic, save_search = internal_planner
     saved_lm_graph = deepcopy(lm_graph)
-    # Since REASONABLE and NATURAL edges often cause cycles we remove them to prevent issues.
-    remove_reasonable_and_natural_edges(lm_graph)
+    
     # Simplify goal specification
     spec = simplify_goal(spec, domain, state)
     # Precompute heuristic information
@@ -69,7 +68,8 @@ function solve(planner::LMLocalPlanner,
                 used_planner = copy_planner
             end
         end
-        landmark_graph_remove_occurences(lm_graph, used_lm)    
+        landmark_graph_remove_occurences(lm_graph, used_lm)
+        landmark_graph_remove_node(lm_graph, used_lm)    
         # Update internal_planner and sol
         internal_planner = used_planner
         sol = shortest_sol
