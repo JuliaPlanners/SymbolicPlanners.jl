@@ -5,7 +5,7 @@ using PDDL, SymbolicPlanners, Test, PlanningDomains
 println("Started")
 # Load Blocksworld domain and single problem
 domain = load_domain(:blocksworld)
-problem = load_problem(:blocksworld, "problem-2")
+problem = load_problem(:blocksworld, "problem-3")
 
 # Initialize state
 state = initstate(domain, problem)
@@ -14,6 +14,11 @@ spec = Specification(problem)
 #Create LM graph
 lm_graph::LandmarkGraph, gen_data::SymbolicPlanners.LandmarkGenerationData = compute_relaxed_landmark_graph(domain, state, spec)
 approximate_reasonable_orders(lm_graph, gen_data)
+# (lms, landmarks, zhu_lms, gen_data) = full_landmark_extraction(domain, problem)
+# lm_graph::LandmarkGraph = LandmarkGraph(0, 0, Dict(), Dict(), [])
+# for lm in lms
+#     landmark_graph_add_landmark(lm_graph, lm)
+# end
 
 # Add our planner here
 # planner = LMLocalPlanner(lm_graph, gen_data.planning_graph, AStarPlanner(HAdd(), save_search=true), 180.0)
