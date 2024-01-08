@@ -24,20 +24,16 @@ println("Verifying interpreted")
 stats = @timed begin
     sol = planner(domain, state, spec)
 end
+
 @test is_goal(spec, domain, sol.trajectory[end])
 println("Interpreted Finished in ", stats.time, " seconds")
 
 cdomain, cstate = compiled(domain, state)
-#Create LM graph
-lm_graph::LandmarkGraph, gen_data::SymbolicPlanners.LandmarkGenerationData = compute_relaxed_landmark_graph(cdomain, cstate, spec)
-approximate_reasonable_orders(lm_graph, gen_data)
-# Add our planner here
-# planner = LMLocalPlanner(lm_graph, gen_data.planning_graph, AStarPlanner(HAdd(), save_search=true), 180.0)
-planner = AStarPlanner(LMCount(lm_graph, gen_data.planning_graph), max_time=180.0, save_search=true)
 
 println("Verifying compiled")
 stats = @timed begin
     sol = planner(cdomain, cstate, spec)
 end
+
 @test is_goal(spec, cdomain, sol.trajectory[end])
 println("Compiled Finished ", stats.time, " seconds")
