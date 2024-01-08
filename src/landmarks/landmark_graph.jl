@@ -8,6 +8,7 @@ import SymbolicPlanners.build_planning_graph
 export compute_landmark_graph
 export compute_relaxed_landmark_graph
 export approximate_reasonable_orders
+export landmark_graph_add_landmark
 export LandmarkGraph, LandmarkNode, Landmark
 
 mutable struct FactPair
@@ -44,9 +45,22 @@ mutable struct Landmark
     possible_achievers::Set{Int}
 end
 
-function landmark_is_true_in_state(landmark::Landmark, planning_graph::PlanningGraph, state::State) :: Bool
-    term_index = Dict(map(reverse, enumerate(planning_graph.conditions)))    
-    landmark_is_true_in_state(landmark, map(s -> FactPair(term_index[s], 1), keys(state)))
+function landmark_is_true_in_state(landmark::Landmark, p_graph::PlanningGraph, state::State) :: Bool
+    if landmark.disjunctive
+        for fact::FactPair in landmark.facts
+            if state[p_graph.conditions[fact.var]] == fact.value
+                return true
+            end
+        end
+        return false
+    else
+        for fact::FactPair in landmark.facts
+            if state[p_graph.conditions[fact.var]] != fact.value
+                return false
+            end
+        end
+        return true
+    end
 end
 
 function landmark_is_true_in_state(landmark::Landmark, state::Vector{FactPair}) :: Bool

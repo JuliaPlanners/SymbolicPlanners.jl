@@ -58,9 +58,10 @@ function progress(lm_status_manager::LandmarkStatusManager, prev, curr::State)
         
         for lm in lm_graph.nodes
             if landmark_is_true_in_state(lm.landmark, p_graph, curr)
-                # Add landmark to past if it is true in the previous state
-                if lm ∉ past push!(past, lm) end
-                
+                # Add landmark to past if it is true in the current state
+                if lm ∉ past 
+                    push!(past, lm) 
+                end
 
                 # Add each child with edge that is NECESSARY or GREEDY_NECESSARY to future
                 for (child, edge) in lm.children
@@ -68,7 +69,6 @@ function progress(lm_status_manager::LandmarkStatusManager, prev, curr::State)
                         push!(future, child)
                     end
                 end
-
                 
                 # Find parent that has edge NECESSARY or GREEDY_NECESSARY that is not in the past
                 # Add landmark to currently true set, if it does need to remain in the future (This extra set is needed based on the definition
