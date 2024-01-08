@@ -8,6 +8,7 @@ import SymbolicPlanners.build_planning_graph
 export compute_landmark_graph
 export compute_relaxed_landmark_graph
 export approximate_reasonable_orders
+export landmark_graph_remove_cycles
 
 mutable struct FactPair
     var::Int
@@ -407,13 +408,12 @@ function compute_landmark_graph(domain::Domain, state::State, spec::Specificatio
     landmark_graph::LandmarkGraph = LandmarkGraph(0, 0, Dict(), Dict(), [])
     planning_graph::PlanningGraph = build_planning_graph(domain, state, spec)
 
-    term_index = Dict(map(reverse, enumerate(planning_graph.conditions)))
-
-    # Add goal landmarks
-    for fact::Term in spec.terms
-        fact_pair::Vector{FactPair} = [FactPair(term_index[fact], 1)]
-        landmark_graph_add_landmark(landmark_graph, Landmark(fact_pair, false, false, true, false, Set(), Set()))
+    for term::Term in keys(state)
+        if !(term in planning_graph.conditions)
+            push!(planning_graph.conditions, term)
+        end
     end
+    term_index = Dict(map(reverse, enumerate(planning_graph.conditions)))
 
     initial_state::Vector{FactPair} = map(s -> FactPair(term_index[s], 1), keys(state))
     initial_index::Dict{Int, FactPair} = Dict(map(f -> Pair(f.var, f), initial_state))
@@ -445,11 +445,6 @@ function compute_relaxed_landmark_graph(domain::Domain, state::State, spec::Spec
             push!(planning_graph.conditions, term)
         end
     end
-    # state_len::Int = length(state.facts)
-    # filter!(f -> f in planning_graph.conditions, state.facts)
-    # if length(state.facts) != state_len
-    #     print("Reduced state")
-    # end
     term_index = Dict(map(reverse, enumerate(planning_graph.conditions)))
 
     initial_state::Vector{FactPair} = map(s -> FactPair(term_index[s], 1), keys(state))
@@ -492,14 +487,12 @@ function compute_relaxed_landmark_graph(domain::Domain, state::State, spec::Spec
     end
 
     add_lm_forward_orders(landmark_graph, forward_orders)
-
     landmark_graph_remove_node_if(landmark_graph, n -> landmark_is_true_in_state(n.landmark, initial_state))
-    remove_cycles(landmark_graph)
 
     return Pair(landmark_graph, generation_data)
 end
 
-function remove_cycles(landmark_graph::LandmarkGraph)
+function landmark_graph_remove_cycles(landmark_graph::LandmarkGraph)
     nodes_to_check::Set{LandmarkNode} = Set(landmark_graph.nodes)
     while !isempty(nodes_to_check)
         node::LandmarkNode = first(nodes_to_check)
@@ -774,14 +767,12 @@ function find_forward_orders(generation_data::LandmarkGenerationData, reached::D
                         effect = Compound(:not, [effect])
                     end
                     reach_fact::Vector{Int} = get(generation_data.planning_graph.effect_map, effect, [])
-                    # reach_fact::Vector{Int} = generation_data.planning_graph.effect_map[effect]
         
                     effect_lm::Term = generation_data.planning_graph.conditions[lm_fact.var]
                     if lm_fact.value == 0
                         effect_lm = Compound(:not, [effect_lm])
                     end
                     reach_lm::Vector{Int} = get(generation_data.planning_graph.effect_map, effect_lm, [])
-                    # reach_lm::Vector{Int} = generation_data.planning_graph.effect_map[effect_lm]
 
                     for j::Int in range(1, length=length(reach_fact))
                         if !intersection_empty
@@ -1123,19 +1114,6 @@ function interferes(landmark_a::Landmark, landmark_b::Landmark, generation_data:
                 effect = Compound(:not, [effect])
             end
             op_ids::Vector{Int} = get(generation_data.planning_graph.effect_map, effect, [])
-            # if !haskey(generation_data.planning_graph.effect_map, effect)
-            #     effects2::Vector{Int} = []
-            #     term2::Term = generation_data.planning_graph.conditions[lm_fact_a.var]
-            #     for (i::Int, action::GroundAction) in pairs(generation_data.planning_graph.actions)
-            #         if term2 in action.effect.add && term2 == effect
-            #             push!(effects2, i)
-            #         elseif term2 in action.effect.del && term2 != effect
-            #             push!(effects2, i)
-            #         end
-            #     end
-            #     generation_data.planning_graph.effect_map[effect] = effects2
-            # end
-            # op_ids::Vector{Int} = generation_data.planning_graph.effect_map[effect]
             for op_id::Int in op_ids
                 if !init && isempty(shared_eff)
                     break

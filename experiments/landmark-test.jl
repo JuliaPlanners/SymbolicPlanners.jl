@@ -22,6 +22,12 @@ problem = load_problem(joinpath(domain_dir, "instance-$INSTANCE.pddl"))
 # problem = load_problem(joinpath(@__DIR__, "logical", "freecell", "instance-26.pddl"))
 # domain = load_domain(joinpath(@__DIR__, "logical", "grid", "domain.pddl"))
 # problem = load_problem(joinpath(@__DIR__, "logical", "grid", "instance-1.pddl"))
+# domain = load_domain(joinpath(@__DIR__, "logical", "tireworld", "domain.pddl"))
+# problem = load_problem(joinpath(@__DIR__, "logical", "tireworld", "pfile1.pddl"))
+# domain = load_domain(joinpath(@__DIR__, "logical", "logistics", "domain.pddl"))
+# problem = load_problem(joinpath(@__DIR__, "logical", "logistics", "instance-77.pddl"))
+# domain = load_domain(joinpath(@__DIR__, "logical", "prodigy-bw", "domain.pddl"))
+# problem = load_problem(joinpath(@__DIR__, "logical", "prodigy-bw", "bw-large-a.pddl"))
 
 state = initstate(domain, problem)
 spec = Specification(problem)
@@ -32,6 +38,7 @@ planner = OrderedLandmarksPlanner()
 # g = compute_landmark_graph(domain, state, spec)
 
 rg = compute_relaxed_landmark_graph(domain, state, spec)
+landmark_graph_remove_cycles(rg.first)
 approximate_reasonable_orders(rg.first, rg.second)
 
 import SymbolicPlanners.LandmarkNode, SymbolicPlanners.EdgeType, SymbolicPlanners.FactPair

@@ -5,9 +5,9 @@
 ;;; Length:   18
 
 (define (problem bw-large-b)
-  (:domain prodigy-bw)
+  (:domain blocks)
   (:length (:parallel 18) (:serial 18))
-  (:objects 1 2 3 4 5 6 7 8 9 10 11)
+  (:objects 1 2 3 4 5 6 7 8 9 10 11 - block)
   (:init (arm-empty)
 	 (on 3 2)
 	 (on 2 1)
