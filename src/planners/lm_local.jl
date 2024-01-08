@@ -74,7 +74,7 @@ function solve(planner::LMLocalPlanner,
         internal_planner = used_planner
         sol = shortest_sol
     end
-
+    sol.status = :in_progress
     sol = search!(sol, internal_planner, domain, spec)
 
     # Reset internal LM Graph to prevent not using landmarks in subsequent runs
