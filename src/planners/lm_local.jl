@@ -22,6 +22,7 @@ function solve(planner::LMLocalPlanner,
                 domain::Domain, state::State, spec::Specification)
     @unpack lm_graph, p_graph, internal_planner = planner
     @unpack h_mult, heuristic, save_search = internal_planner
+    saved_lm_graph = deepcopy(lm_graph)
     # Since REASONABLE and NATURAL edges often cause cycles we remove them to prevent issues.
     remove_reasonable_and_natural_edges(lm_graph)
     # Simplify goal specification
@@ -75,6 +76,10 @@ function solve(planner::LMLocalPlanner,
     end
 
     sol = search!(sol, internal_planner, domain, spec)
+
+    # Reset internal LM Graph to prevent not using landmarks in subsequent runs
+    planner.lm_graph = saved_lm_graph
+
     # Return solution
     if save_search
         return sol

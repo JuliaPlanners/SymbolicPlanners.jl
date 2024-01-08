@@ -34,7 +34,6 @@ for d_name in list_domains(JuliaPlannersRepo)
         #Create LM graph
         lm_graph::LandmarkGraph, gen_data::SymbolicPlanners.LandmarkGenerationData = compute_relaxed_landmark_graph(domain, state, spec)
         approximate_reasonable_orders(lm_graph, gen_data)
-        size_landmarks = length(lm_graph.nodes)
 
         # Repeat for both original and compiled
         for dom in (domain, cdomain), planner_name in planners
@@ -49,9 +48,9 @@ for d_name in list_domains(JuliaPlannersRepo)
             elseif planner_name == "HAdd"
                 planner = AStarPlanner(HAdd(), max_time=TIMEOUT, save_search=true)
             elseif planner_name == "LM_Count"
-                planner = AStarPlanner(LMCount(lm_graph, gen_data.planning_graph), max_time=TIMEOUT, save_search=true)
+                planner = AStarPlanner(LMCount(deepcopy(lm_graph), gen_data.planning_graph), max_time=TIMEOUT, save_search=true)
             elseif planner_name == "LM_Local-HAdd"
-                planner = LMLocalPlanner(lm_graph, gen_data.planning_graph, AStarPlanner(HAdd(), save_search=true), TIMEOUT)
+                planner = LMLocalPlanner(deepcopy(lm_graph), gen_data.planning_graph, AStarPlanner(HAdd(), save_search=true), TIMEOUT)
             end
 
             nruns = dom isa CompiledDomain ? NRUNS + 1 : NRUNS
@@ -59,7 +58,7 @@ for d_name in list_domains(JuliaPlannersRepo)
             # Run and time planner
             for i in 1:nruns
                 if timed_out continue end
-                println("- Run: $i ")
+                println("- Run: $i - LMGraph Size: $(length(lm_graph.nodes))")
                 stats = @timed begin
                     sol = planner(dom, state, spec)
                 end
@@ -77,7 +76,7 @@ for d_name in list_domains(JuliaPlannersRepo)
                     n_steps = timed_out ? -1 : length(sol.plan),
                     n_eval = length(sol.search_tree),
                     n_expand = sol.expanded,
-                    n_landmarks = size_landmarks
+                    n_landmarks = length(lm_graph.nodes)
                 )
                 push!(df, row)
                 GC.gc()
@@ -85,7 +84,7 @@ for d_name in list_domains(JuliaPlannersRepo)
         end
         println()
     end
-    CSV.write(df_path, df)
+    CSV.write(df_name, df)
 end
 
 #IPC 2014 domains
@@ -159,5 +158,5 @@ for d_name in list_domains(IPCInstancesRepo, "ipc-2014")
         end
         println()
     end
-    CSV.write(df_path, df)
+    CSV.write(df_name, df)
 end
