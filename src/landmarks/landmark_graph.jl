@@ -177,7 +177,7 @@ function landmark_graph_remove_occurences(landmark_graph::LandmarkGraph, node::L
     else
         delete!(landmark_graph.simple_landmarks_to_nodes, first(landmark.facts))
     end
-    setdiff!(landmark_graph.nodes, [node])
+    
 end
 
 function landmark_graph_remove_node(landmark_graph::LandmarkGraph, node::LandmarkNode)
@@ -446,6 +446,16 @@ function compute_relaxed_landmark_graph(domain::Domain, state::State, spec::Spec
     landmark_graph::LandmarkGraph = LandmarkGraph(0, 0, Dict(), Dict(), [])
     planning_graph::PlanningGraph = build_planning_graph(domain, state, spec)
 
+for term::Term in keys(state)
+        if !(term in planning_graph.conditions)
+            push!(planning_graph.conditions, term)
+        end
+    end
+    # state_len::Int = length(state.facts)
+    # filter!(f -> f in planning_graph.conditions, state.facts)
+    # if length(state.facts) != state_len
+    #     print("Reduced state")
+    # end
     term_index = Dict(map(reverse, enumerate(planning_graph.conditions)))
 
     initial_state::Vector{FactPair} = map(s -> FactPair(term_index[s], 1), keys(state))
@@ -489,19 +499,107 @@ function compute_relaxed_landmark_graph(domain::Domain, state::State, spec::Spec
 
     add_lm_forward_orders(landmark_graph, forward_orders)
 
-    # if (!disjunctive_landmarks) {
-    #     discard_disjunctive_landmarks();
-    # }
-
-    # if (!use_orders) {
-    #     discard_all_orderings();
-    # }
-
-    # if (only_causal_landmarks) {
-    #     discard_noncausal_landmarks(task_proxy, exploration);
-    # }
+    landmark_graph_remove_node_if(landmark_graph, n -> landmark_is_true_in_state(n.landmark, initial_state))
+    remove_cycles(landmark_graph)
 
     return Pair(landmark_graph, generation_data)
+end
+
+function remove_cycles(landmark_graph::LandmarkGraph)
+    nodes_to_check::Set{LandmarkNode} = Set(landmark_graph.nodes)
+    while !isempty(nodes_to_check)
+        node::LandmarkNode = first(nodes_to_check)
+        cycle::Vector{LandmarkNode} = search_cycle(node, Set{LandmarkNode}())
+        if isempty(cycle)
+            delete!(nodes_to_check, node)
+        else
+            least_connected::LandmarkNode = first(cycle)
+            least_connection_num::Int = typemax(Int)
+            for art::LandmarkNode in first(cycle, length(cycle) - 1)
+                delete!(nodes_to_check, art)
+                connection::Int = length(art.children)
+                connection += length(art.parents)
+                if connection < least_connection_num
+                    least_connected = art
+                    least_connection_num = connection
+                end
+            end
+            landmark_graph_remove_occurences(landmark_graph, least_connected)
+        end
+    end
+end
+
+function search_cycle(node::LandmarkNode, trajectory::Set{LandmarkNode}) :: Vector{LandmarkNode}
+    if node in trajectory
+        return [node]
+    end
+    push!(trajectory, node)
+
+    for child::LandmarkNode in keys(node.children)
+        cycle::Vector{LandmarkNode} = search_cycle(child, trajectory)
+        if !isempty(cycle)
+            if length(cycle) == 1 || last(cycle) != first(cycle)
+                push!(cycle, node)
+            end
+            return cycle
+        end
+    end
+
+    delete!(trajectory, node)
+    return []
+end
+
+# In progress
+function remove_cycles_v2(landmark_graph::LandmarkGraph)
+    visited::Set{LandmarkNode} = Set()
+    cycles::Vector{Pair{Set{LandmarkNode}, Bool}} = search_cycles(landmark_graph.nodes[25], Set{LandmarkNode}(), visited)
+    cycle_count::Dict{LandmarkNode, Vector{Int}} = Dict()
+    for (i::Int, cycle::Pair{Set{LandmarkNode}, Bool}) in enumerate(cycles)
+        for node::LandmarkNode in cycle.first
+            if !haskey(cycle_count, node)
+                cycle_count[node] = []
+            end
+            push!(cycle_count[node], i)
+        end
+    end
+end
+
+# In progress
+function search_cycles(node::LandmarkNode, trajectory::Set{LandmarkNode}, visited::Set{LandmarkNode}) :: Vector{Pair{Set{LandmarkNode}, Bool}}
+    if node in trajectory
+        return [Pair(Set([node]), true)]
+    end
+    push!(trajectory, node)
+    push!(visited, node)
+
+    results::Vector{Pair{Set{LandmarkNode}, Bool}} = []
+    for child::LandmarkNode in keys(node.children)
+        cycles::Vector{Pair{Set{LandmarkNode}, Bool}} = search_cycles(child, trajectory, visited)
+        for cycle_open::Pair{Set{LandmarkNode}, Bool} in cycles
+            cycle::Set{LandmarkNode} = cycle_open.first
+            open::Bool = cycle_open.second
+            if node in cycle
+                open = false
+            end
+            if open
+                push!(cycle, node)
+            end
+
+            add::Bool = true
+            for result::Pair{Set{LandmarkNode}, Bool} in results
+                if issetequal(result.first, cycle) && result.second == open
+                    add = false
+                    break
+                end
+            end
+            if add
+                push!(results, Pair(cycle, open))
+            end
+        end
+    end
+    delete!(trajectory, node)
+
+    return results
 end
 
 function add_lm_forward_orders(landmark_graph::LandmarkGraph, forward_orders::Dict{LandmarkNode, Vector{FactPair}})
@@ -565,7 +663,7 @@ function compute_disjunctive_preconditions(generation_data::LandmarkGenerationDa
     num_ops::Int = 0
     preconditions::Dict{Int, Vector{FactPair}} = Dict()
     used_operators::Dict{Int, Set{Int}} = Dict()
-    for i::Int in range(1, length(op_ids))
+    for i::Int in range(1, length=length(op_ids))
         op::Int = op_ids[i]
         if possibly_reaches_lm(generation_data, op, reached, landmark)
             num_ops += 1
@@ -681,19 +779,21 @@ function find_forward_orders(generation_data::LandmarkGenerationData, reached::D
                     if fact.value == 0
                         effect = Compound(:not, [effect])
                     end
-                    reach_fact::Vector{Int} = generation_data.planning_graph.effect_map[effect]
+                    reach_fact::Vector{Int} = get(generation_data.planning_graph.effect_map, effect, [])
+                    # reach_fact::Vector{Int} = generation_data.planning_graph.effect_map[effect]
         
                     effect_lm::Term = generation_data.planning_graph.conditions[lm_fact.var]
                     if lm_fact.value == 0
                         effect_lm = Compound(:not, [effect_lm])
                     end
-                    reach_lm::Vector{Int} = generation_data.planning_graph.effect_map[effect_lm]
+                    reach_lm::Vector{Int} = get(generation_data.planning_graph.effect_map, effect_lm, [])
+                    # reach_lm::Vector{Int} = generation_data.planning_graph.effect_map[effect_lm]
 
-                    for j::Int in range(1, length(reach_fact))
+                    for j::Int in range(1, length=length(reach_fact))
                         if !intersection_empty
                             break
                         end
-                        for k::Int in range(1, length(reach_lm))
+                        for k::Int in range(1, length=length(reach_lm))
                             if !intersection_empty
                                 break
                             end
@@ -1028,7 +1128,20 @@ function interferes(landmark_a::Landmark, landmark_b::Landmark, generation_data:
             if lm_fact_a.value == 0
                 effect = Compound(:not, [effect])
             end
-            op_ids::Vector{Int} = generation_data.planning_graph.effect_map[effect]
+            op_ids::Vector{Int} = get(generation_data.planning_graph.effect_map, effect, [])
+            # if !haskey(generation_data.planning_graph.effect_map, effect)
+            #     effects2::Vector{Int} = []
+            #     term2::Term = generation_data.planning_graph.conditions[lm_fact_a.var]
+            #     for (i::Int, action::GroundAction) in pairs(generation_data.planning_graph.actions)
+            #         if term2 in action.effect.add && term2 == effect
+            #             push!(effects2, i)
+            #         elseif term2 in action.effect.del && term2 != effect
+            #             push!(effects2, i)
+            #         end
+            #     end
+            #     generation_data.planning_graph.effect_map[effect] = effects2
+            # end
+            # op_ids::Vector{Int} = generation_data.planning_graph.effect_map[effect]
             for op_id::Int in op_ids
                 if !init && isempty(shared_eff)
                     break
