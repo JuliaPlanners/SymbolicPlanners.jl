@@ -38,7 +38,6 @@ planner = OrderedLandmarksPlanner()
 # g = compute_landmark_graph(domain, state, spec)
 
 rg = compute_relaxed_landmark_graph(domain, state, spec)
-landmark_graph_remove_cycles(rg.first)
 approximate_reasonable_orders(rg.first, rg.second)
 
 import SymbolicPlanners.LandmarkNode, SymbolicPlanners.EdgeType, SymbolicPlanners.FactPair
@@ -50,8 +49,8 @@ function factpair_to_term(factpair::FactPair) :: Term
     end
     return effect
 end
-
 node_lookup::Dict{LandmarkNode, Int} = Dict(map(reverse, enumerate(rg.first.nodes)))
+
 for node::Tuple{Int, LandmarkNode} in enumerate(rg.first.nodes)
     println("Landmark $(node[1]) ($(factpair_to_term(first(node[2].landmark.facts))))")
     for child::Pair{LandmarkNode, EdgeType} in node[2].children
@@ -59,6 +58,21 @@ for node::Tuple{Int, LandmarkNode} in enumerate(rg.first.nodes)
     end
 end
 println()
+
+println("len: $(length(rg.first.nodes))")
+landmark_graph_remove_cycles_complete(rg.first)
+# landmark_graph_remove_cycles_fast(rg.first)
+println("len2: $(length(rg.first.nodes))")
+println()
+
+for node::Tuple{Int, LandmarkNode} in enumerate(rg.first.nodes)
+    println("Landmark $(node[1]) ($(factpair_to_term(first(node[2].landmark.facts))))")
+    for child::Pair{LandmarkNode, EdgeType} in node[2].children
+        println("    Edge to $(node_lookup[child.first]) - $(child.second)")
+    end
+end
+println()
+
 
 ## Verification ##
 

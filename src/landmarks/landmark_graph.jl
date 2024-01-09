@@ -8,7 +8,8 @@ import SymbolicPlanners.build_planning_graph
 export compute_landmark_graph
 export compute_relaxed_landmark_graph
 export approximate_reasonable_orders
-export landmark_graph_remove_cycles
+export landmark_graph_remove_cycles_fast
+export landmark_graph_remove_cycles_complete
 
 mutable struct FactPair
     var::Int
@@ -492,7 +493,7 @@ function compute_relaxed_landmark_graph(domain::Domain, state::State, spec::Spec
     return Pair(landmark_graph, generation_data)
 end
 
-function landmark_graph_remove_cycles(landmark_graph::LandmarkGraph)
+function landmark_graph_remove_cycles_fast(landmark_graph::LandmarkGraph)
     nodes_to_check::Set{LandmarkNode} = Set(landmark_graph.nodes)
     while !isempty(nodes_to_check)
         node::LandmarkNode = first(nodes_to_check)
@@ -512,6 +513,7 @@ function landmark_graph_remove_cycles(landmark_graph::LandmarkGraph)
                 end
             end
             landmark_graph_remove_occurences(landmark_graph, least_connected)
+            landmark_graph_remove_node(landmark_graph, least_connected)
         end
     end
 end
@@ -536,22 +538,60 @@ function search_cycle(node::LandmarkNode, trajectory::Set{LandmarkNode}) :: Vect
     return []
 end
 
-# In progress
-function remove_cycles_v2(landmark_graph::LandmarkGraph)
-    visited::Set{LandmarkNode} = Set()
-    cycles::Vector{Pair{Set{LandmarkNode}, Bool}} = search_cycles(landmark_graph.nodes[25], Set{LandmarkNode}(), visited)
-    cycle_count::Dict{LandmarkNode, Vector{Int}} = Dict()
-    for (i::Int, cycle::Pair{Set{LandmarkNode}, Bool}) in enumerate(cycles)
-        for node::LandmarkNode in cycle.first
-            if !haskey(cycle_count, node)
-                cycle_count[node] = []
+function landmark_graph_remove_cycles_complete(landmark_graph::LandmarkGraph)
+    nodes_to_check::Set{LandmarkNode} = Set(landmark_graph.nodes)
+    while !isempty(nodes_to_check)
+        n::LandmarkNode = first(nodes_to_check)
+        visited::Set{LandmarkNode} = Set()
+        cycles::Vector{Pair{Set{LandmarkNode}, Bool}} = search_cycles(n, Set{LandmarkNode}(), visited)
+        cycle_set::Dict{LandmarkNode, Set{Int}} = Dict()
+        for (i::Int, cycle::Pair{Set{LandmarkNode}, Bool}) in enumerate(cycles)
+            for node::LandmarkNode in cycle.first
+                if !haskey(cycle_set, node)
+                    cycle_set[node] = Set()
+                end
+                push!(cycle_set[node], i)
             end
-            push!(cycle_count[node], i)
         end
+        max_cycles::Int = 0
+        levels::Vector{Set{LandmarkNode}} = []
+        for lmn::Pair{LandmarkNode, Set{Int}} in cycle_set
+            len::Int = length(lmn.second)
+            if len > max_cycles
+                append!(levels, fill(Set(), len - max_cycles))
+                max_cycles = len
+            end
+            push!(levels[len], lmn.first)
+        end
+        while !isempty(levels)
+            nds::Set{LandmarkNode} = last(levels)
+            if !isempty(nds)
+                nd::LandmarkNode = first(nds)
+
+                for cyc::Int in cycle_set[nd]
+                    for lndn::LandmarkNode in cycles[cyc].first
+                        level::Int = length(cycle_set[lndn])
+                        delete!(levels[level], lndn)
+                        delete!(cycle_set[lndn], cyc)
+                        if (level > 1)
+                            push!(levels[level-1], lndn)
+                        end
+                    end
+                end
+
+                landmark_graph_remove_occurences(landmark_graph, nd)
+                landmark_graph_remove_node(landmark_graph, nd)
+
+                delete!(nds, nd)
+            end
+            if length(nds) <= 1
+                deleteat!(levels, length(levels))
+            end
+        end
+        setdiff!(nodes_to_check, visited)
     end
 end
 
-# In progress
 function search_cycles(node::LandmarkNode, trajectory::Set{LandmarkNode}, visited::Set{LandmarkNode}) :: Vector{Pair{Set{LandmarkNode}, Bool}}
     if node in trajectory
         return [Pair(Set([node]), true)]
