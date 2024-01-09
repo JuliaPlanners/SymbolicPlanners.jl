@@ -56,6 +56,9 @@ function precompute!(h::LMCount,
 end
 
 function precompute!(h::LMCount, domain::Domain, state::State)
+    for (idx, lm) in enumerate(h.lm_graph.nodes)
+        lm.id = idx
+    end
     progress_initial_state(h.lm_status_manager, state)
     h.prev_state = state
     h.is_precomputed = true
