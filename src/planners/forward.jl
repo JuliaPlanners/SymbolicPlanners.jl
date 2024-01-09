@@ -240,6 +240,10 @@ function expand!(planner::ForwardPlanner, node::PathNode,
                  domain::Domain, spec::Specification)
     @unpack g_mult, h_mult, heuristic = planner
     state = node.state
+    # LM Count is a pseudo heuristic it needs the correct previous state to compute the correct H value
+    if heuristic isa LMCount 
+        heuristic.prev_state = state
+    end
     # Iterate over available actions
     for act in available(domain, state)
         # Execute action and trigger all post-action events

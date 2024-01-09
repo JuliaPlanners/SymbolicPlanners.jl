@@ -32,6 +32,7 @@ end
 
 @test is_goal(spec, domain, sol.trajectory[end])
 println("Interpreted Finished in ", stats.time, " seconds")
+println("Eval: $(length(sol.search_tree)) - Expand: $(sol.expanded)")
 
 cdomain, cstate = compiled(domain, state)
 

@@ -5,94 +5,90 @@ export LandmarkStatusManager
 @kwdef mutable struct LandmarkStatusManager
     lm_graph::LandmarkGraph
     p_graph::PlanningGraph
-    past::Set{LandmarkNode} = Set()
-    future::Set{LandmarkNode} = Set()
-    curr_true::Set{LandmarkNode} = Set()
+    past::Dict{State, Set{LandmarkNode}}
+    future::Dict{State, Set{LandmarkNode}}
 end
 
 function LandmarkStatusManager(lm_graph::LandmarkGraph, p_graph::PlanningGraph)
-    return LandmarkStatusManager(lm_graph, p_graph, Set(), Set(), Set())
+    return LandmarkStatusManager(lm_graph, p_graph, Dict(), Dict())
 end
 
-function get_past_landmarks(lm_status_manager::LandmarkStatusManager) :: Set{LandmarkNode} 
-    return lm_status_manager.past
-end
-
-function get_future_landmarks(lm_status_manager::LandmarkStatusManager) :: Set{LandmarkNode} 
-    return lm_status_manager.future
-end
-
-function get_curr_true_landmarks(lm_status_manager::LandmarkStatusManager) :: Set{LandmarkNode}
-    return lm_status_manager.curr_true
-end
-
-function progress(lm_status_manager::LandmarkStatusManager, prev, curr::State)
-    @unpack lm_graph, p_graph, past, future, curr_true = lm_status_manager
-    #= If previous state is nothing then we are progessing the inital state.
-     Landmarks in that are part of the initial state should be added to past
-     and all their children should be added to Future.
-     If landmarks that are true in the initial state have parents also add that landmark to future=#
-    if (isnothing(prev))
-        for lm in lm_graph.nodes
-            if landmark_is_true_in_state(lm.landmark, p_graph, curr)
-                push!(past, lm)
-
-                for (child,edge) in lm.children
-                    if (edge == NECESSARY || edge == GREEDY_NECESSARY)
-                        push!(future, child)
-                    end
-                end
-                
-                # Find one parent with edge that is eith NECESSARY or GREEDY_NECESSARY
-                for (parent, edge) in lm.parents
-                    if (edge == NECESSARY || edge == GREEDY_NECESSARY)
-                        push!(future, lm)
-                        break
-                    end
-                end
-            end
-        end
-    elseif (!isnothing(prev))
-        # If the state hasn't changed because there is some do nothing action there is no need to update LM statuses
-        if (prev == curr) return end
-        
-        for lm in lm_graph.nodes
-            if landmark_is_true_in_state(lm.landmark, p_graph, curr)
-                # Add landmark to past if it is true in the current state
-                if lm ∉ past 
-                    push!(past, lm) 
-                end
-
-                # Add each child with edge that is NECESSARY or GREEDY_NECESSARY to future
-                for (child, edge) in lm.children
-                    if (edge == NECESSARY || edge == GREEDY_NECESSARY)
-                        push!(future, child)
-                    end
-                end
-                
-                # Find parent that has edge NECESSARY or GREEDY_NECESSARY that is not in the past
-                # Add landmark to currently true set, if it does need to remain in the future (This extra set is needed based on the definition
-                # given in the paper Landmarks Revisited by Richter et al.)
-                # If that parent does not exist remove this landmark from future aswell
-                for (parent, edge) in lm.parents
-                    if parent in future 
-                        push!(curr_true, lm)
-                        return
-                    end
-                    if parent ∉ past 
-                        if (edge == NECESSARY || edge == GREEDY_NECESSARY)
-                            push!(curr_true, lm)
-                            return
-                        end
-                    end
-                end
-                delete!(future, lm)
-            elseif lm in curr_true
-                # Landmark is not currently true anymore so remove from currently true set.
-                delete!(curr_true, lm)
-            end
-        end
-
+function get_past_landmarks(lm_status_manager::LandmarkStatusManager, state::State) :: Set{LandmarkNode} 
+    if !haskey(lm_status_manager.past, state)
+        lm_status_manager.past[state] = Set(lm_status_manager.lm_graph.nodes)
     end
+    return lm_status_manager.past[state]
+end
 
+function get_future_landmarks(lm_status_manager::LandmarkStatusManager, state::State) :: Set{LandmarkNode} 
+    if !haskey(lm_status_manager.future, state)
+        lm_status_manager.future[state] = Set()
+    end
+    return lm_status_manager.future[state]
+end
+
+function progress_initial_state(lm_status_manager::LandmarkStatusManager, initial_state::State)
+    @unpack lm_graph, p_graph = lm_status_manager
+
+    past = get_past_landmarks(lm_status_manager, initial_state)
+    future = get_future_landmarks(lm_status_manager, initial_state)   
+    not_past::Set{LandmarkNode} = Set()
+    for lm in lm_graph.nodes
+        if landmark_is_true_in_state(lm.landmark, p_graph, initial_state)
+            # If there is one parent that does not hold in the initial state and it comes before this landmark we can put this landmark in future.
+            for (parent, edge) in lm.parents
+                if (parent ∉ past && !landmark_is_true_in_state(parent.landmark, p_graph, curr)) && (edge != REASONABLE)
+                    push!(future, lm)
+                    break
+                end
+            end
+        else
+            # If the Landmark is not true now it must become true at some point.
+            push!(not_past, lm)
+            push!(future, lm)
+        end
+    end
+    setdiff!(past, not_past)
+end
+
+function progress(lm_status_manager::LandmarkStatusManager, prev::State, curr::State)
+    # If the state hasn't changed because there is some do nothing action there is no need to update LM statuses
+    if (prev == curr) return end
+    @unpack lm_graph, p_graph = lm_status_manager
+
+    parent_past::Set{LandmarkNode} = get_past_landmarks(lm_status_manager, prev)
+    past::Set{LandmarkNode} = get_past_landmarks(lm_status_manager, curr)
+    parent_future::Set{LandmarkNode} = get_future_landmarks(lm_status_manager, prev)
+    future::Set{LandmarkNode} = get_future_landmarks(lm_status_manager, curr)   
+
+    not_past::Set{LandmarkNode} = Set()
+    for lm in lm_graph.nodes
+        if lm in parent_future
+            #If landmark was in the future and its still not true it remains in the future
+            #If landmark not true in the parent_past and not true in this state, not in past
+            if (!landmark_is_true_in_state(lm.landmark, p_graph, curr))
+                push!(future, lm)
+                if lm ∉ parent_past push!(not_past, lm) end
+            #If Landmark not true in the previous state, it should be added to future again because it is also not true in this state.
+            elseif (landmark_is_true_in_state(lm.landmark, p_graph, prev))
+                push!(future, lm)
+            end
+        end
+        #Goal LM's always in future
+        if lm.landmark.is_true_in_goal push!(future, lm) end
+
+        # Greedy Necessary orderings
+        for (child, edge) in lm.children
+            if (edge == NECESSARY || edge == GREEDY_NECESSARY) && (child ∉ past) && !landmark_is_true_in_state(lm, p_graph, curr)
+                push!(future, lm)
+            end
+        end
+        # Reasonable orderings
+        for (parent, edge) in lm.parents
+            if (edge == REASONABLE) && (parent ∉ past)
+                push!(future, lm)
+            end
+        end
+    end
+    setdiff!(past, not_past)
 end
