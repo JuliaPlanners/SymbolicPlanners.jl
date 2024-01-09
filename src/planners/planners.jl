@@ -79,7 +79,7 @@ include("backward.jl")
 include("bidirectional.jl")
 
 # Landmark planners
-include("ordered_landmarks.jl")
+include("lm_local.jl")
 
 # Policy-based planning algorithms
 include("rtdp.jl")

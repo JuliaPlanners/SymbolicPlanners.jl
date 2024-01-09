@@ -31,7 +31,7 @@ problem = load_problem(joinpath(domain_dir, "instance-$INSTANCE.pddl"))
 
 state = initstate(domain, problem)
 spec = Specification(problem)
-planner = OrderedLandmarksPlanner()
+planner = AStarPlanner(HAdd(), save_search=true)
 
 ## Experimental code ##
 
@@ -220,6 +220,3 @@ prob_df_path = "$DOMAIN_NAME-problem-summary-$(today()).csv"
 psize_df_path = "$DOMAIN_NAME-psize-summary-$(today()).csv"
 CSV.write(prob_df_path, prob_df)
 CSV.write(psize_df_path, psize_df)
-
-ratio_df_path = "$DOMAIN_NAME-ratio-expand-summary-$(today()).csv"
-CSV.write(ratio_df_path, ratio_df)
