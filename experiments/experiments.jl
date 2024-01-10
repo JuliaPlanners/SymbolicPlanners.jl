@@ -9,6 +9,7 @@ planners = ["FF", "LM_Count", "LM_Local-FF"]
 benchmark_file = "ordered-landmarks-benchmark.txt"
 
 TIMEOUT = 180.0
+MAX_MEMORY = 7000000000.0
 NRUNS = 4
 
 df = DataFrame(domain=String[], problem=String[], problem_size=Int[], planner=String[], run=Int[], n_steps=Int[],
@@ -85,15 +86,15 @@ for (d_name::String, d_path::String) in domains
                 planner = nothing
                 lm_num = -1
                 if planner_name == "FF"
-                    planner = AStarPlanner(FFHeuristic(), max_time=TIMEOUT, max_mem=7000000000, save_search=true)
+                    planner = AStarPlanner(FFHeuristic(), max_time=TIMEOUT, max_mem=MAX_MEMORY, save_search=true)
                 elseif planner_name == "LM_Count" && !isnothing(lm_graph)
                     lm_num = length(lm_graph.nodes)
-                    planner = AStarPlanner(LMCount(lm_graph, p_graph), max_time=TIMEOUT, max_mem=7000000000, save_search=true)
+                    planner = AStarPlanner(LMCount(lm_graph, p_graph), max_time=TIMEOUT, max_mem=MAX_MEMORY, save_search=true)
                 elseif planner_name == "LM_Local-FF" && !isnothing(lm_graph)
                     graphcopy = deepcopy(lm_graph)
                     landmark_graph_remove_cycles_complete(graphcopy)
                     lm_num = length(graphcopy.nodes)
-                    planner = LMLocalPlanner(graphcopy, p_graph, AStarPlanner(FFHeuristic(), max_time=TIMEOUT, max_mem=7000000000, save_search=true), TIMEOUT, 7000000000)
+                    planner = LMLocalPlanner(graphcopy, p_graph, AStarPlanner(FFHeuristic(), max_time=TIMEOUT, max_mem=MAX_MEMORY, save_search=true), TIMEOUT, MAX_MEMORY)
                 else
                     continue
                 end

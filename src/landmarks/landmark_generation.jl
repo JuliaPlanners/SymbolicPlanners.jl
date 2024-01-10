@@ -370,6 +370,19 @@ function landmark_graph_remove_cycles_complete(landmark_graph::LandmarkGraph)
         cycles::Vector{Pair{Set{LandmarkNode}, Bool}} = search_cycles(n, Set{LandmarkNode}(), visited)
         cycle_set::Dict{LandmarkNode, Set{Int}} = Dict()
         for (i::Int, cycle::Pair{Set{LandmarkNode}, Bool}) in enumerate(cycles)
+            if length(cycle.first) == 2
+                cycle_vec::Vector{LandmarkNode} = collect(cycle.first)
+                if cycle_vec[1].children[cycle_vec[2]] < cycle_vec[2].children[cycle_vec[1]]
+                    delete!(cycle_vec[1].children, cycle_vec[2])
+                    delete!(cycle_vec[2].parents, cycle_vec[1])
+                    continue
+                end
+                if cycle_vec[2].children[cycle_vec[1]] < cycle_vec[1].children[cycle_vec[2]]
+                    delete!(cycle_vec[2].children, cycle_vec[1])
+                    delete!(cycle_vec[1].parents, cycle_vec[2])
+                    continue
+                end
+            end
             for node::LandmarkNode in cycle.first
                 if !haskey(cycle_set, node)
                     cycle_set[node] = Set()
@@ -390,9 +403,18 @@ function landmark_graph_remove_cycles_complete(landmark_graph::LandmarkGraph)
         while !isempty(levels)
             nds::Set{LandmarkNode} = last(levels)
             if !isempty(nds)
-                nd::LandmarkNode = first(nds)
-
-                for cyc::Int in cycle_set[nd]
+                most_conn_children::LandmarkNode = first(nds)
+                most_conn_children_num::Int = 0
+                for art::LandmarkNode in nds
+                    connection::Int = foldl((tot, lm) -> length(lm.children) + length(lm.parents), keys(art.children), init=0)
+                    connection += foldl((tot, lm) -> length(lm.children) + length(lm.parents), keys(art.parents), init=0)
+                    if connection > most_conn_children_num
+                        most_conn_children = art
+                        most_conn_children_num = connection
+                    end
+                end
+    
+                for cyc::Int in cycle_set[most_conn_children]
                     for lndn::LandmarkNode in cycles[cyc].first
                         level::Int = length(cycle_set[lndn])
                         delete!(levels[level], lndn)
@@ -403,10 +425,10 @@ function landmark_graph_remove_cycles_complete(landmark_graph::LandmarkGraph)
                     end
                 end
 
-                landmark_graph_remove_occurences(landmark_graph, nd)
-                landmark_graph_remove_node(landmark_graph, nd)
+                landmark_graph_remove_occurences(landmark_graph, most_conn_children)
+                landmark_graph_remove_node(landmark_graph, most_conn_children)
 
-                delete!(nds, nd)
+                delete!(nds, most_conn_children)
             end
             if length(nds) <= 1
                 deleteat!(levels, length(levels))
