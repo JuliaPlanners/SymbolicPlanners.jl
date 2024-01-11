@@ -51,11 +51,11 @@ for d_name in list_domains(JuliaPlannersRepo)
                 planner = AStarPlanner(LMCount(deepcopy(lm_graph), gen_data.planning_graph), max_time=TIMEOUT, save_search=true)
             elseif planner_name == "LM_Local-HAdd"
                 deep_lm_graph = deepcopy(lm_graph)
-                landmark_graph_remove_cycles_complete(deep_lm_graph)
+                landmark_graph_remove_cycles_fast(deep_lm_graph)
                 planner = LMLocalPlanner(deepcopy(deep_lm_graph), gen_data.planning_graph, AStarPlanner(HAdd(), save_search=true), TIMEOUT)
             elseif planner_name == "LM_Local_Smart-HAdd"
                 deep_lm_graph = deepcopy(lm_graph)
-                landmark_graph_remove_cycles_complete(deep_lm_graph)
+                landmark_graph_remove_cycles_fast(deep_lm_graph)
                 planner = LMLocalSmartPlanner(deepcopy(deep_lm_graph), gen_data, AStarPlanner(HAdd(), save_search=true), TIMEOUT)
             end
 
@@ -130,11 +130,11 @@ for d_name in list_domains(IPCInstancesRepo, "ipc-2014")
                 planner = AStarPlanner(LMCount(lm_graph, gen_data.planning_graph), max_time=TIMEOUT, save_search=true)
             elseif planner_name == "LM_Local-HAdd"
                 deep_lm_graph = deepcopy(lm_graph)
-                landmark_graph_remove_cycles_complete(deep_lm_graph)
+                landmark_graph_remove_cycles_fast(deep_lm_graph)
                 planner = LMLocalPlanner(deep_lm_graph, gen_data.planning_graph, AStarPlanner(HAdd(), save_search=true), TIMEOUT)
             elseif planner_name == "LM_Local_Smart-HAdd"
                 deep_lm_graph = deepcopy(lm_graph)
-                landmark_graph_remove_cycles_complete(deep_lm_graph)
+                landmark_graph_remove_cycles_fast(deep_lm_graph)
                 planner = LMLocalSmartPlanner(deepcopy(deep_lm_graph), gen_data, AStarPlanner(HAdd(), save_search=true), TIMEOUT)
             end
 
