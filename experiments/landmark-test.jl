@@ -38,7 +38,9 @@ planner = AStarPlanner(HAdd(), save_search=true)
 # g = compute_landmark_graph(domain, state, spec)
 
 rg = compute_relaxed_landmark_graph(domain, state, spec)
+landmark_graph_remove_initial_state(rg.first, rg.second.initial_state)
 approximate_reasonable_orders(rg.first, rg.second)
+landmark_graph_remove_cycles_complete(rg.first)
 
 landmark_graph_print(rg.first, rg.second.planning_graph)
 landmark_graph_draw_png(joinpath(@__DIR__, "test.png"), rg.first, rg.second.planning_graph)

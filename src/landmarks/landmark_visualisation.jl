@@ -32,7 +32,7 @@ function landmark_graph_draw_png(filename::String, landmark_graph::LandmarkGraph
     end
     g = SimpleDiGraph(ne, fadj, badj)
 
-    layout=(args...)->spring_layout(args...; C=15)
+    layout=(args...)->spring_layout(args...; C=25)
     p = gplot(g, layout=layout, nodelabel=names, NODELABELSIZE=3.0, NODESIZE=0.06, EDGELABELSIZE=3.0,
                 edgelabel=edgelabels, arrowlengthfrac=0.02, edgelabelc=colorant"orange")
 

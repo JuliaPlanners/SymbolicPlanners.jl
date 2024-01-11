@@ -8,6 +8,7 @@ export compute_relaxed_landmark_graph
 export approximate_reasonable_orders
 export landmark_graph_remove_cycles_fast
 export landmark_graph_remove_cycles_complete
+export landmark_graph_remove_initial_state
 
 
 mutable struct Proposition
@@ -310,10 +311,14 @@ function compute_relaxed_landmark_graph(domain::Domain, state::State, spec::Spec
     end
 
     add_lm_forward_orders(landmark_graph, forward_orders)
-    landmark_graph_remove_node_if(landmark_graph, n -> landmark_is_true_in_state(n.landmark, initial_state))
     landmark_graph_set_landmark_ids(landmark_graph)
 
     return Pair(landmark_graph, generation_data)
+end
+
+function landmark_graph_remove_initial_state(landmark_graph::LandmarkGraph, initial_state::Vector{FactPair})
+    landmark_graph_remove_node_if(landmark_graph, n -> landmark_is_true_in_state(n.landmark, initial_state))
+    landmark_graph_set_landmark_ids(landmark_graph)
 end
 
 function landmark_graph_remove_cycles_fast(landmark_graph::LandmarkGraph)
@@ -972,8 +977,116 @@ function approximate_reasonable_orders(landmark_graph::LandmarkGraph, generation
     landmark_graph_set_landmark_ids(landmark_graph)
 end
 
-function is_mutex(fact_a::FactPair, fact_b::FactPair)
-    return fact_a.var == fact_b.var && fact_a.value != fact_b.value
+function is_mutex(fact_a::FactPair, fact_b::FactPair, generation_data::LandmarkGenerationData)
+    if fact_a.var == fact_b.var
+        return fact_a.value != fact_b.value
+    end
+
+    term_a::Term = generation_data.planning_graph.conditions[fact_a.var]
+    if fact_a.value == 0
+        term_a = Compound(:not, [term_a])
+    end
+    term_b::Term = generation_data.planning_graph.conditions[fact_b.var]
+    if fact_b.value == 0
+        term_b = Compound(:not, [term_b])
+    end
+
+    op_ids_a::Vector{Int} = get(generation_data.planning_graph.effect_map, term_a, [])
+    actions_a::Vector{GroundAction} = []
+    for op_id::Int in op_ids_a
+        if !fact_false_after_op(fact_b, op_id, generation_data)
+           push!(actions_a, generation_data.planning_graph.actions[op_id])
+        end
+    end
+    op_ids_b::Vector{Int} = get(generation_data.planning_graph.effect_map, term_b, [])
+    actions_b::Vector{GroundAction} = []
+    for op_id::Int in op_ids_b
+        if !fact_false_after_op(fact_a, op_id, generation_data)
+           push!(actions_b, generation_data.planning_graph.actions[op_id])
+        end
+    end
+
+    for op_a::GroundAction in actions_a
+        mutex_op::Bool = false
+        for pre_a::Term in op_a.preconds
+            if op_deletes_condition(op_a, pre_a) && all_have_precondition(actions_b, pre_a)
+                mutex_op = true
+                break
+            end
+        end
+        if !mutex_op
+            return false
+        end
+    end
+    for op_b::GroundAction in actions_b
+        mutex_op::Bool = false
+        for pre_b::Term in op_b.preconds
+            if op_deletes_condition(op_b, pre_b) && all_have_precondition(actions_a, pre_b)
+                mutex_op = true
+                break
+            end
+        end
+        if !mutex_op
+            return false
+        end
+    end
+
+    return true
+end
+
+function op_deletes_condition(op::GroundAction, condition::Term) :: Bool
+    for del::Term in op.effect.del
+        if condition == del
+            return true
+        end
+    end
+    return false
+end
+
+function all_have_precondition(actions::Vector{GroundAction}, precondition::Term) :: Bool
+    all_have::Bool = false
+    for op::GroundAction in actions
+        has_pre::Bool = false
+        for pre::Term in op.preconds
+            if pre == precondition
+                has_pre = true
+                break
+            end
+        end
+        if has_pre
+            all_have = true
+        else
+            return false
+        end
+    end
+    return all_have
+end
+
+function fact_false_after_op(fact::FactPair, op_id::Int, generation_data::LandmarkGenerationData) :: Bool
+    op::GroundAction = generation_data.planning_graph.actions[op_id]
+    effects::Vector{FactPair} = map(t -> FactPair(generation_data.term_index[t], 1), op.effect.add)
+    append!(effects, map(t -> FactPair(generation_data.term_index[t], 0), op.effect.del))
+
+    for eff::FactPair in effects
+        if eff == fact
+            return false
+        end
+        if eff.var == fact.var && eff.value != fact.value # Or if mutex(eff, fact), but inf recursion
+            return true
+        end
+    end
+
+    preconds::Vector{FactPair} = map(t -> FactPair(generation_data.term_index[t], 1), op.preconds)
+    for pre::FactPair in preconds
+        if pre == fact
+            return false
+        end
+        if pre.var == fact.var && pre.value != fact.value
+            return true
+        end
+    end
+
+    return false
 end
 
 function interferes(landmark_a::Landmark, landmark_b::Landmark, generation_data::LandmarkGenerationData) :: Bool
@@ -991,7 +1104,7 @@ function interferes(landmark_a::Landmark, landmark_b::Landmark, generation_data:
                 continue
             end
 
-            if is_mutex(lm_fact_a, lm_fact_b)
+            if is_mutex(lm_fact_a, lm_fact_b, generation_data)
                 return true
             end
 
@@ -1034,7 +1147,7 @@ function interferes(landmark_a::Landmark, landmark_b::Landmark, generation_data:
 
             for eff::Pair{Int, Int} in shared_eff
                 effect_fact::FactPair = FactPair(eff.first, eff.second)
-                if effect_fact != lm_fact_a && effect_fact != lm_fact_b && is_mutex(effect_fact, lm_fact_b)
+                if effect_fact != lm_fact_a && effect_fact != lm_fact_b && is_mutex(effect_fact, lm_fact_b, generation_data)
                     return true
                 end
             end

@@ -5,7 +5,8 @@ using DataFrames, CSV, Dates, Statistics
 println("Started")
 println()
 
-planners = ["FF", "LM_Count", "LM_Local-FF"]
+# planners = ["FF", "LM_Count", "LM_Local-FF"]
+planners = ["FF", "LM_Local-FF"]
 benchmark_file = "ordered-landmarks-benchmark.txt"
 
 TIMEOUT = 180.0
@@ -68,10 +69,14 @@ for (d_name::String, d_path::String) in domains
         rg = compute_relaxed_landmark_graph(cdomain, cstate, spec, TIMEOUT)
         lm_graph = nothing
         p_graph = nothing
+        i_state = nothing
         if !isnothing(rg)
-            approximate_reasonable_orders(rg.first, rg.second)
             lm_graph = rg.first
             p_graph = rg.second.planning_graph
+            i_state = rg.second.initial_state
+
+            landmark_graph_remove_initial_state(lm_graph, i_state)
+            approximate_reasonable_orders(lm_graph, rg.second)
         end
 
         # Solve using all planners
