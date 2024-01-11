@@ -1,3 +1,4 @@
+import Base.gc_live_bytes
 export ForwardPlanner, BestFirstPlanner, UniformCostPlanner, GreedyPlanner
 export AStarPlanner, WeightedAStarPlanner
 export ProbForwardPlanner, ProbAStarPlanner
@@ -55,6 +56,8 @@ $(FIELDS)
     max_nodes::Int = typemax(Int)
     "Maximum time in seconds before planner times out."
     max_time::Float64 = Inf
+    "Maximum memory to use."
+    max_mem::Float64 = Inf
     "Flag to terminate search if the heuristic estimates an infinite cost."
     fail_fast::Bool = false
     "Flag to save the search tree and frontier in the returned solution."
@@ -205,7 +208,7 @@ function search!(sol::PathSearchSolution, planner::ForwardPlanner,
             sol.status = :success # Goal reached
         elseif sol.expanded >= planner.max_nodes
             sol.status = :max_nodes # Node budget reached
-        elseif time() - start_time >= planner.max_time
+        elseif time() - start_time >= planner.max_time || gc_live_bytes() > planner.max_mem
             sol.status = :max_time # Time budget reached
         elseif planner.fail_fast && priority[1] == Inf
             sol.status = :failure # Search space exhausted

@@ -12,6 +12,8 @@ export LMLocalPlanner
     internal_planner::Planner
     # Max timout in seconds
     max_time::Float64 = Inf
+    # Max memory in bytes
+    max_mem::Float64 = Inf
 end
 
 function LMLocalPlanner(lm_graph::LandmarkGraph, p_graph::PlanningGraph, internal_planner::Planner, max_time::Float32)
@@ -39,7 +41,7 @@ function solve(planner::LMLocalPlanner,
 
     start_time = time()
     while (length(lm_graph.nodes) > 0)
-        if time() - start_time >= planner.max_time
+        if time() - start_time >= planner.max_time || gc_live_bytes() > planner.max_mem
             sol.status = :max_time # Time budget reached
             return sol
         end

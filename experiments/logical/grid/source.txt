@@ -1,0 +1,3 @@
+https://github.com/potassco/pddl-instances
+
+pddl-instances/ipc-1998/domains
