@@ -88,3 +88,4 @@ include("external.jl")
 
 #Landmark local planner
 include("lm_local.jl")
+include("lm_local_smart.jl")
