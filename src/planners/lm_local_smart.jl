@@ -25,9 +25,6 @@ function solve(planner::LMLocalSmartPlanner,
     @unpack lm_graph, gen_data, internal_planner = planner
     @unpack h_mult, heuristic, save_search = internal_planner
     p_graph = gen_data.planning_graph
-    #TODO not remove edges
-    remove_reasonable_edges(lm_graph)
-    remove_natural_edges(lm_graph)
     saved_lm_graph = deepcopy(lm_graph)
 
     # Generate Terms for each Landmark
@@ -35,7 +32,7 @@ function solve(planner::LMLocalSmartPlanner,
     for (idx, lm) in enumerate(lm_graph.nodes)
         lm.id = idx
         term = landmark_to_terms(lm.landmark, p_graph)
-        lm_id_to_terms[lm.id] = Compound(:and, term)
+        lm_id_to_terms[lm.id] = term
     end
     
     # Create compatibility Matrix for all terms/landmarks
@@ -43,8 +40,8 @@ function solve(planner::LMLocalSmartPlanner,
     compat_mat = trues(nr_nodes, nr_nodes)
     for i in 1:nr_nodes
         for j in i+1:nr_nodes
-            # sat = interferes(lm_graph.nodes[i].landmark, lm_graph.nodes[j].landmark, gen_data)
-            sat = PDDL.satisfy(domain, state, Compound(:and, [lm_id_to_terms[i], lm_id_to_terms[j]]))
+            sat = !interferes(lm_graph.nodes[i].landmark, lm_graph.nodes[j].landmark, gen_data)
+            # sat = PDDL.satisfy(domain, state, Compound(:and, [lm_id_to_terms[i], lm_id_to_terms[j]]))
             compat_mat[i,j] = sat
             compat_mat[j,i] = sat
         end
@@ -135,38 +132,3 @@ function solve(planner::LMLocalSmartPlanner,
     end
 end
 
-function remove_reasonable_edges(lm_graph::LandmarkGraph)
-    for lm in lm_graph.nodes
-        for (child, edge) in lm.children
-            if edge == REASONABLE || edge == NATURAL delete!(lm.children, child) end
-        end
-    end
-end
-
-function remove_natural_edges(lm_graph::LandmarkGraph)
-    for lm in lm_graph.nodes
-        for (parent, edge) in lm.parents
-            if edge == REASONABLE || edge == NATURAL delete!(lm.parents, parent) end
-        end
-    end
-end
-
-function get_sources(lm_graph::LandmarkGraph) :: Set{LandmarkNode}
-    res::Set{LandmarkNode} = Set()
-    for lm in lm_graph.nodes
-        if length(lm.parents) == 0 push!(res, lm) end
-    end
-    return res
-end
-
-function landmark_to_terms(lm::Landmark, p_graph::PlanningGraph) :: Vector{Term}
-    res::Vector{Term} = Vector()
-    for fact_p :: FactPair in lm.facts
-        if fact_p.value == 1
-            push!(res, p_graph.conditions[fact_p.var])
-        else 
-            push!(res, Compound(:not, [p_graph.conditions[fact_p.var]]))
-        end
-    end
-    return res
-end

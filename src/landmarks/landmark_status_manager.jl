@@ -37,7 +37,7 @@ function progress_initial_state(lm_status_manager::LandmarkStatusManager, initia
         if landmark_is_true_in_state(lm.landmark, p_graph, initial_state)
             # If there is one parent that does not hold in the initial state and it comes before this landmark we can put this landmark in future.
             for (parent, edge) in lm.parents
-                if (parent.id ∉ past && !landmark_is_true_in_state(parent.landmark, p_graph, curr)) && (edge != REASONABLE)
+                if (parent.id ∉ past && !landmark_is_true_in_state(parent.landmark, p_graph, initial_state)) && (edge != REASONABLE)
                     push!(future, lm.id)
                     break
                 end
