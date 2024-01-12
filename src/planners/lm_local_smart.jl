@@ -40,8 +40,8 @@ function solve(planner::LMLocalSmartPlanner,
     compat_mat = trues(nr_nodes, nr_nodes)
     for i in 1:nr_nodes
         for j in i+1:nr_nodes
-            sat = !interferes(lm_graph.nodes[i].landmark, lm_graph.nodes[j].landmark, gen_data)
-            # sat = PDDL.satisfy(domain, state, Compound(:and, [lm_id_to_terms[i], lm_id_to_terms[j]]))
+            # sat = !interferes(lm_graph.nodes[i].landmark, lm_graph.nodes[j].landmark, gen_data)
+            sat = PDDL.satisfy(domain, state, Compound(:and, [lm_id_to_terms[i], lm_id_to_terms[j]]))
             compat_mat[i,j] = sat
             compat_mat[j,i] = sat
         end
@@ -91,7 +91,7 @@ function solve(planner::LMLocalSmartPlanner,
         shortest_sol = nothing
         used_planner = nothing
         for goal in goal_terms
-                        # Copy planner so we dont get side effects
+            # Copy planner so we dont get side effects
             copy_planner = deepcopy(internal_planner)
             sub_sol = deepcopy(sol)
             inter_spec = Specification(goal)
