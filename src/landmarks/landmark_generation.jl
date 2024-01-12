@@ -332,7 +332,6 @@ function landmark_graph_remove_cycles_fast(landmark_graph::LandmarkGraph)
             least_connected::LandmarkNode = first(cycle)
             least_connection_num::Int = typemax(Int)
             for art::LandmarkNode in first(cycle, length(cycle) - 1)
-                delete!(nodes_to_check, art)
                 connection::Int = length(art.children)
                 connection += length(art.parents)
                 if connection < least_connection_num
@@ -340,6 +339,7 @@ function landmark_graph_remove_cycles_fast(landmark_graph::LandmarkGraph)
                     least_connection_num = connection
                 end
             end
+            delete!(nodes_to_check, least_connected)
             landmark_graph_remove_occurences(landmark_graph, least_connected)
             landmark_graph_remove_node(landmark_graph, least_connected)
         end
