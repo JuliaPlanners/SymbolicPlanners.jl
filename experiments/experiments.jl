@@ -35,11 +35,12 @@ for d_name in list_domains(JuliaPlannersRepo)
         # Repeat for both original and compiled
         for dom in (domain, cdomain), planner_name in planners
             # Indicate if we do Compiled or Interpreted
-            dom isa CompiledDomain ? println("Compiled ($planner_name):") : println("Interpreted ($planner_name):")
+            dom isa CompiledDomain ? println("----- Compiled ($planner_name): -----") : println("----- Interpreted ($planner_name): -----")
             state = initstate(dom, problem)
             #Create LM graph
             lm_graph::LandmarkGraph, gen_data::SymbolicPlanners.LandmarkGenerationData = compute_relaxed_landmark_graph(dom, state, spec)
             approximate_reasonable_orders(lm_graph, gen_data)
+            size_landmarks = length(lm_graph.nodes)
             
             # Create appropriate planner based on planner_name
             planner = nothing
@@ -52,10 +53,12 @@ for d_name in list_domains(JuliaPlannersRepo)
             elseif planner_name == "LM_Local-HAdd"
                 deep_lm_graph = deepcopy(lm_graph)
                 landmark_graph_remove_cycles_fast(deep_lm_graph)
+                size_landmarks = length(deep_lm_graph.nodes)
                 planner = LMLocalPlanner(deepcopy(deep_lm_graph), gen_data.planning_graph, AStarPlanner(HAdd(), save_search=true), TIMEOUT)
             elseif planner_name == "LM_Local_Smart-HAdd"
                 deep_lm_graph = deepcopy(lm_graph)
                 landmark_graph_remove_cycles_fast(deep_lm_graph)
+                size_landmarks = length(deep_lm_graph.nodes)
                 planner = LMLocalSmartPlanner(deepcopy(deep_lm_graph), gen_data, AStarPlanner(HAdd(), save_search=true), TIMEOUT)
             end
 
@@ -82,7 +85,7 @@ for d_name in list_domains(JuliaPlannersRepo)
                     n_steps = timed_out ? -1 : length(sol.plan),
                     n_eval = length(sol.search_tree),
                     n_expand = sol.expanded,
-                    n_landmarks = length(lm_graph.nodes)
+                    n_landmarks = size_landmarks
                 )
                 push!(df, row)
                 GC.gc()
@@ -114,11 +117,12 @@ for d_name in list_domains(IPCInstancesRepo, "ipc-2014")
         # Repeat for both original and compiled
         for dom in (domain, cdomain), planner_name in planners
             # Indicate if we do Compiled or Interpreted
-            dom isa CompiledDomain ? println("Compiled ($planner_name):") : println("Interpreted ($planner_name):")
+            dom isa CompiledDomain ? println("----- Compiled ($planner_name): -----") : println("----- Interpreted ($planner_name): -----")
             state = initstate(dom, problem)
             #Create LM graph
             lm_graph::LandmarkGraph, gen_data::SymbolicPlanners.LandmarkGenerationData = compute_relaxed_landmark_graph(dom, state, spec)
             approximate_reasonable_orders(lm_graph, gen_data)
+            size_landmarks = length(lm_graph.nodes)
             
             # Create appropriate planner based on planner_name
             planner = nothing
@@ -131,10 +135,12 @@ for d_name in list_domains(IPCInstancesRepo, "ipc-2014")
             elseif planner_name == "LM_Local-HAdd"
                 deep_lm_graph = deepcopy(lm_graph)
                 landmark_graph_remove_cycles_fast(deep_lm_graph)
+                size_landmarks = length(deep_lm_graph.nodes)
                 planner = LMLocalPlanner(deep_lm_graph, gen_data.planning_graph, AStarPlanner(HAdd(), save_search=true), TIMEOUT)
             elseif planner_name == "LM_Local_Smart-HAdd"
                 deep_lm_graph = deepcopy(lm_graph)
                 landmark_graph_remove_cycles_fast(deep_lm_graph)
+                size_landmarks = length(deep_lm_graph.nodes)
                 planner = LMLocalSmartPlanner(deepcopy(deep_lm_graph), gen_data, AStarPlanner(HAdd(), save_search=true), TIMEOUT)
             end
 
@@ -162,7 +168,7 @@ for d_name in list_domains(IPCInstancesRepo, "ipc-2014")
                     n_steps = timed_out ? -1 : length(sol.plan),
                     n_eval = length(sol.search_tree),
                     n_expand = sol.expanded,
-                    n_landmarks = length(lm_graph.nodes)
+                    n_landmarks = size_landmarks
                 )
                 push!(df, row)
                 GC.gc()

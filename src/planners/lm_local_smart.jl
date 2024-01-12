@@ -91,7 +91,7 @@ function solve(planner::LMLocalSmartPlanner,
         shortest_sol = nothing
         used_planner = nothing
         for goal in goal_terms
-            # Copy planner so we dont get side effects
+                        # Copy planner so we dont get side effects
             copy_planner = deepcopy(internal_planner)
             sub_sol = deepcopy(sol)
             inter_spec = Specification(goal)

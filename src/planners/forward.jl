@@ -243,10 +243,6 @@ function expand!(planner::ForwardPlanner, node::PathNode,
                  domain::Domain, spec::Specification)
     @unpack g_mult, h_mult, heuristic = planner
     state = node.state
-    # LM Count is a pseudo heuristic it needs the correct previous state to compute the correct H value
-    if heuristic isa LMCount 
-        heuristic.prev_state = state
-    end
     # Iterate over available actions
     for act in available(domain, state)
         # Execute action and trigger all post-action events
@@ -265,7 +261,7 @@ function expand!(planner::ForwardPlanner, node::PathNode,
         end
         # Update path costs if new path is shorter
         next_node = get!(search_tree, next_id,
-                         PathNode(next_id, next_state, Inf32))
+        PathNode(next_id, next_state, Inf32))
         cost_diff = next_node.path_cost - path_cost
         if cost_diff > 0
             next_node.parent_id = node.id
@@ -273,8 +269,12 @@ function expand!(planner::ForwardPlanner, node::PathNode,
             next_node.path_cost = path_cost
             # Update estimated cost from next state to goal
             if !(next_id in keys(queue))
+                # LM Count is a pseudo heuristic it needs the correct previous state to compute the correct H value
+                if heuristic isa LMCount 
+                    heuristic.prev_state = state
+                end
                 h_val::Float32 = is_action_goal ? 
-                    0.0f0 : compute(heuristic, domain, next_state, spec)
+                0.0f0 : compute(heuristic, domain, next_state, spec)
                 f_val::Float32 = g_mult * path_cost + h_mult * h_val
                 priority = (f_val, h_val, length(search_tree))
                 enqueue!(queue, next_id, priority)
