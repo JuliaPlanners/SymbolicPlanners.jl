@@ -46,7 +46,7 @@ NRUNS = 3
 df = DataFrame(domain=String[], problem=String[], problem_size=Int[],
                compiled=Bool[], planner=String[], run=Int[],
                n_steps=Int[], time=Float64[], bytes=Int[],
-               n_eval=Int[], n_expand=Int[], n_landmarks=Int[])
+               n_eval=Int[], n_expand=Int[], n_landmarks=Int[], correct_goal=Bool[])
 
 #JuliaPlannerRepo domains
 for (d_name::String, d_path::String) in domains
@@ -87,13 +87,13 @@ for (d_name::String, d_path::String) in domains
             elseif planner_name == "LM_Local-HAdd"
                 deep_lm_graph = deepcopy(lm_graph)
                 landmark_graph_remove_initial_state(deep_lm_graph, gen_data.initial_state)
-                landmark_graph_remove_cycles_complete(deep_lm_graph)
+                landmark_graph_remove_cycles_fast(deep_lm_graph)
                 size_landmarks = length(deep_lm_graph.nodes)
                 planner = LMLocalPlanner(deepcopy(deep_lm_graph), gen_data.planning_graph, AStarPlanner(HAdd(), save_search=true), TIMEOUT)
             elseif planner_name == "LM_Local_Smart-HAdd"
                 deep_lm_graph = deepcopy(lm_graph)
                 landmark_graph_remove_initial_state(deep_lm_graph, gen_data.initial_state)
-                landmark_graph_remove_cycles_complete(deep_lm_graph)
+                landmark_graph_remove_cycles_fast(deep_lm_graph)
                 size_landmarks = length(deep_lm_graph.nodes)
                 planner = LMLocalSmartPlanner(deepcopy(deep_lm_graph), gen_data, AStarPlanner(HAdd(), save_search=true), TIMEOUT)
             end
@@ -121,7 +121,8 @@ for (d_name::String, d_path::String) in domains
                     n_steps = timed_out ? -1 : length(sol.plan),
                     n_eval = length(sol.search_tree),
                     n_expand = sol.expanded,
-                    n_landmarks = size_landmarks
+                    n_landmarks = size_landmarks,
+                    correct_goal = is_goal(spec, dom, sol.trajectory[end])
                 )
                 push!(df, row)
                 GC.gc()

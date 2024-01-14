@@ -14,7 +14,8 @@ spec = Specification(problem)
 #Create LM graph
 lm_graph::LandmarkGraph, gen_data::SymbolicPlanners.LandmarkGenerationData = compute_relaxed_landmark_graph(domain, state, spec)
 approximate_reasonable_orders(lm_graph, gen_data)
-landmark_graph_remove_cycles_fast(lm_graph)
+landmark_graph_remove_initial_state(lm_graph, gen_data.initial_state)
+landmark_graph_remove_cycles_complete(lm_graph)
 # landmark_graph_draw_png("graph.png", lm_graph, gen_data.planning_graph)
 
 # Add our planner here

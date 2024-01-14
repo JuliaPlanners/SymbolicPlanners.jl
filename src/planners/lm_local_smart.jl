@@ -22,7 +22,8 @@ end
 
 function solve(planner::LMLocalSmartPlanner,
                 domain::Domain, state::State, spec::Specification)
-    @unpack lm_graph, gen_data, internal_planner = planner
+    @unpack lm_graph, gen_data, internal_planner, max_time = planner
+    internal_planner.max_time = max_time
     @unpack h_mult, heuristic, save_search = internal_planner
     p_graph = gen_data.planning_graph
     saved_lm_graph = deepcopy(lm_graph)
@@ -40,8 +41,8 @@ function solve(planner::LMLocalSmartPlanner,
     compat_mat = trues(nr_nodes, nr_nodes)
     for i in 1:nr_nodes
         for j in i+1:nr_nodes
-            # sat = !interferes(lm_graph.nodes[i].landmark, lm_graph.nodes[j].landmark, gen_data)
-            sat = PDDL.satisfy(domain, state, Compound(:and, [lm_id_to_terms[i], lm_id_to_terms[j]]))
+            sat = !interferes(lm_graph.nodes[i].landmark, lm_graph.nodes[j].landmark, gen_data)
+            # sat = PDDL.satisfy(domain, state, Compound(:and, [lm_id_to_terms[i], lm_id_to_terms[j]]))
             compat_mat[i,j] = sat
             compat_mat[j,i] = sat
         end
@@ -71,21 +72,33 @@ function solve(planner::LMLocalSmartPlanner,
             println("No new sources")
             break 
         end
-
+        
         # Create Conjunctive Goals based on compatibiliity matrix and current sources
-        used::Set{Int} = Set()
-        goal_terms::Vector{Vector{Term}} = Vector()
+        groups::Vector{Set{Int}} = Vector()
         for i in sources
-            if i.id in used continue end
-            goal = Vector()
-            for j in sources
-                if compat_mat[i.id,j.id]
-                    push!(goal, lm_id_to_terms[j.id])
-                    push!(used, j.id)
+            added = false
+            new_groups::Vector{Set{Int}} = Vector()
+            for goal_group::Set{Int} in groups
+                compat = filter(id -> compat_mat[i.id, id], goal_group)
+                # If the matching group stays the same size, new source can be added to it.
+                if length(compat) == length(goal_group) 
+                    added = true
+                    push!(goal_group, i.id)
+                # New source is compatible with something, create new group for that
+                elseif length(compat) > 0
+                    added = true
+                    push!(compat, i.id)
+                    is_new = true
+                    for new_group in new_groups if issetequal(compat, new_group) is_new = false end end
+                    if is_new push!(new_groups, compat) end
                 end
             end
-            push!(goal_terms, goal)
+
+            if !added push!(groups, Set([i.id])) end
+            append!(groups, new_groups)
         end
+        # Turn Goal Groups in to Goal Vectors
+        goal_terms::Vector{Vector{Term}} = map(group -> map(id -> lm_id_to_terms[id], collect(group)), groups)
 
         # For each next up Goal compute plan to get there, take shortest and add to final solution
         shortest_sol = nothing
@@ -118,7 +131,6 @@ function solve(planner::LMLocalSmartPlanner,
     end
     sol.status = :in_progress
     sol = search!(sol, internal_planner, domain, spec)
-
     # Reset internal LM Graph to prevent not using landmarks in subsequent runs
     planner.lm_graph = saved_lm_graph
 

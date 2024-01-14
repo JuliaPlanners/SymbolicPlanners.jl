@@ -32,8 +32,8 @@ function landmark_to_terms(lm::Landmark, p_graph::PlanningGraph) :: Term
     for fact_p :: FactPair in lm.facts
         if fact_p.value == 1
             push!(res, p_graph.conditions[fact_p.var])
-        # else 
-        #     push!(res, Compound(:not, [p_graph.conditions[fact_p.var]]))
+        else 
+            push!(res, Compound(:not, [p_graph.conditions[fact_p.var]]))
         end
     end
     if length(res) > 1 return Compound(:and, res)
