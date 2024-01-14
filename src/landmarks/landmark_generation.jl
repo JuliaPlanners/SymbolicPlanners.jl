@@ -369,10 +369,10 @@ function search_cycle(node::LandmarkNode, trajectory::Set{LandmarkNode}) :: Vect
     return []
 end
 
-function landmark_graph_remove_cycles_complete(landmark_graph::LandmarkGraph, max_time::Float32 = Inf) :: Bool
+function landmark_graph_remove_cycles_complete(landmark_graph::LandmarkGraph, max_time::Float64 = Inf) :: Bool
     nodes_to_check::Set{LandmarkNode} = Set(landmark_graph.nodes)
     nodes::Vector{LandmarkNode} = sort(landmark_graph.nodes, lt=(n1, n2) -> length(n1.children) < length(n2.children))
-    end_time::Float32 = time() + max_time
+    end_time::Float64 = time() + max_time
     for n::LandmarkNode in nodes
         if !(n in nodes_to_check)
             continue
@@ -459,7 +459,7 @@ function landmark_graph_remove_cycles_complete(landmark_graph::LandmarkGraph, ma
     return true
 end
 
-function search_cycles(node::LandmarkNode, trajectory::Set{LandmarkNode}, visited::Set{LandmarkNode}, result::Set{Set{LandmarkNode}}, end_time::Float32) :: Set{Set{LandmarkNode}}
+function search_cycles(node::LandmarkNode, trajectory::Set{LandmarkNode}, visited::Set{LandmarkNode}, result::Set{Set{LandmarkNode}}, end_time::Float64) :: Set{Set{LandmarkNode}}
     if node in trajectory
         return Set([Set([node])])
     end
@@ -906,8 +906,8 @@ function edge_add(from::LandmarkNode, to::LandmarkNode, type::EdgeType)
     end
 end
 
-function generate_mutex_lookup(generation_data::LandmarkGenerationData, max_time::Float32=Inf)
-    start_time::Float32 = time()
+function generate_mutex_lookup(generation_data::LandmarkGenerationData, max_time::Float64=Inf)
+    start_time::Float64 = time()
     generation_data.mutexes = Dict()
     for fact::Term in keys(generation_data.planning_graph.effect_map)
         value::Int = 1
