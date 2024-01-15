@@ -9,6 +9,7 @@ export approximate_reasonable_orders
 export landmark_graph_remove_cycles_fast
 export landmark_graph_remove_cycles_complete
 export landmark_graph_remove_initial_state
+export generate_mutex_lookup
 
 
 mutable struct Proposition
@@ -42,6 +43,7 @@ mutable struct LandmarkGenerationData
     propositions::Dict{FactPair, Proposition}
     unary_operators::Vector{UnaryOperator}
     initial_state::Vector{FactPair}
+    mutexes::Dict{FactPair, Set{FactPair}}
 end
 
 
@@ -233,7 +235,7 @@ function compute_landmark_graph(domain::Domain, state::State, spec::Specificatio
     initial_state::Vector{FactPair} = map(s -> FactPair(term_index[s], 1), keys(state))
     initial_index::Dict{Int, FactPair} = Dict(map(f -> Pair(f.var, f), initial_state))
 
-    generation_data::LandmarkGenerationData = LandmarkGenerationData(planning_graph, term_index, Queue{Proposition}(), Set(), Dict(), Dict(), [], initial_state)
+    generation_data::LandmarkGenerationData = LandmarkGenerationData(planning_graph, term_index, Queue{Proposition}(), Set(), Dict(), Dict(), [], initial_state, Dict())
     for var in planning_graph.conditions
         for value in [0,1]
             fact_pair = FactPair(term_index[var], value)
@@ -267,7 +269,7 @@ function compute_relaxed_landmark_graph(domain::Domain, state::State, spec::Spec
     term_index = Dict(map(reverse, enumerate(planning_graph.conditions)))
 
     initial_state::Vector{FactPair} = map(s -> FactPair(term_index[s], 1), keys(state))
-    generation_data::LandmarkGenerationData = LandmarkGenerationData(planning_graph, term_index, Queue{Proposition}(), Set(), Dict(), Dict(), [], initial_state)
+    generation_data::LandmarkGenerationData = LandmarkGenerationData(planning_graph, term_index, Queue{Proposition}(), Set(), Dict(), Dict(), [], initial_state, Dict())
 
     dtg_successors::Dict{Int, Dict{Int, Set{Int}}} = build_dtg_successors(generation_data)
     disjunction_classes::Dict{Int, Dict{Int, Int}} = build_disjunction_classes(generation_data)
@@ -367,16 +369,27 @@ function search_cycle(node::LandmarkNode, trajectory::Set{LandmarkNode}) :: Vect
     return []
 end
 
-function landmark_graph_remove_cycles_complete(landmark_graph::LandmarkGraph)
+function landmark_graph_remove_cycles_complete(landmark_graph::LandmarkGraph, max_time::Float64 = Inf) :: Bool
     nodes_to_check::Set{LandmarkNode} = Set(landmark_graph.nodes)
-    while !isempty(nodes_to_check)
-        n::LandmarkNode = first(nodes_to_check)
+    nodes::Vector{LandmarkNode} = sort(landmark_graph.nodes, lt=(n1, n2) -> length(n1.children) < length(n2.children))
+    end_time::Float64 = time() + max_time
+    for n::LandmarkNode in nodes
+        if !(n in nodes_to_check)
+            continue
+        end
+
         visited::Set{LandmarkNode} = Set()
-        cycles::Vector{Pair{Set{LandmarkNode}, Bool}} = search_cycles(n, Set{LandmarkNode}(), visited)
+        cycles_out::Set{Set{LandmarkNode}} = Set()
+        search_cycles(n, Set{LandmarkNode}(), visited, cycles_out, end_time)
+        if time() > end_time
+            return false
+        end
+
+        cycles::Vector{Set{LandmarkNode}} = collect(cycles_out)
         cycle_set::Dict{LandmarkNode, Set{Int}} = Dict()
-        for (i::Int, cycle::Pair{Set{LandmarkNode}, Bool}) in enumerate(cycles)
-            if length(cycle.first) == 2
-                cycle_vec::Vector{LandmarkNode} = collect(cycle.first)
+        for (i::Int, cycle::Set{LandmarkNode}) in enumerate(cycles)
+            if length(cycle) == 2
+                cycle_vec::Vector{LandmarkNode} = collect(cycle)
                 if cycle_vec[1].children[cycle_vec[2]] < cycle_vec[2].children[cycle_vec[1]]
                     delete!(cycle_vec[1].children, cycle_vec[2])
                     delete!(cycle_vec[2].parents, cycle_vec[1])
@@ -388,7 +401,7 @@ function landmark_graph_remove_cycles_complete(landmark_graph::LandmarkGraph)
                     continue
                 end
             end
-            for node::LandmarkNode in cycle.first
+            for node::LandmarkNode in cycle
                 if !haskey(cycle_set, node)
                     cycle_set[node] = Set()
                 end
@@ -420,7 +433,7 @@ function landmark_graph_remove_cycles_complete(landmark_graph::LandmarkGraph)
                 end
     
                 for cyc::Int in cycle_set[most_conn_children]
-                    for lndn::LandmarkNode in cycles[cyc].first
+                    for lndn::LandmarkNode in cycles[cyc]
                         level::Int = length(cycle_set[lndn])
                         delete!(levels[level], lndn)
                         delete!(cycle_set[lndn], cyc)
@@ -442,43 +455,35 @@ function landmark_graph_remove_cycles_complete(landmark_graph::LandmarkGraph)
         setdiff!(nodes_to_check, visited)
     end
     landmark_graph_set_landmark_ids(landmark_graph)
+
+    return true
 end
 
-function search_cycles(node::LandmarkNode, trajectory::Set{LandmarkNode}, visited::Set{LandmarkNode}) :: Vector{Pair{Set{LandmarkNode}, Bool}}
+function search_cycles(node::LandmarkNode, trajectory::Set{LandmarkNode}, visited::Set{LandmarkNode}, result::Set{Set{LandmarkNode}}, end_time::Float64) :: Set{Set{LandmarkNode}}
     if node in trajectory
-        return [Pair(Set([node]), true)]
+        return Set([Set([node])])
     end
     push!(trajectory, node)
     push!(visited, node)
 
-    results::Vector{Pair{Set{LandmarkNode}, Bool}} = []
+    temp::Set{Set{LandmarkNode}} = Set()
     for child::LandmarkNode in keys(node.children)
-        cycles::Vector{Pair{Set{LandmarkNode}, Bool}} = search_cycles(child, trajectory, visited)
-        for cycle_open::Pair{Set{LandmarkNode}, Bool} in cycles
-            cycle::Set{LandmarkNode} = cycle_open.first
-            open::Bool = cycle_open.second
+        cycles::Set{Set{LandmarkNode}} = search_cycles(child, trajectory, visited, result, end_time)
+        if time() > end_time
+            return Set()
+        end
+        for cycle::Set{LandmarkNode} in cycles
             if node in cycle
-                open = false
-            end
-            if open
+                push!(result, cycle)
+            else
                 push!(cycle, node)
-            end
-
-            add::Bool = true
-            for result::Pair{Set{LandmarkNode}, Bool} in results
-                if issetequal(result.first, cycle) && result.second == open
-                    add = false
-                    break
-                end
-            end
-            if add
-                push!(results, Pair(cycle, open))
+                push!(temp, cycle)
             end
         end
     end
     delete!(trajectory, node)
 
-    return results
+    return temp
 end
 
 function add_lm_forward_orders(landmark_graph::LandmarkGraph, forward_orders::Dict{LandmarkNode, Vector{FactPair}})
@@ -852,31 +857,6 @@ function get_greedy_preconditions_for_lm(generation_data::LandmarkGenerationData
         end
     end
 
-    # lm_props_achievable::Set{Int} = Set()
-    # for effect::Int in generation_data.planning_graph.act_children[op_id]
-    #     effect_fact::FactPair = FactPair(effect, 1)
-    #     for j in range(1, length(landmark.facts))
-    #         if landmark.facts[j] == effect_fact
-    #             push!(lm_props_achievable, j)
-    #         end
-    #     end
-    # end
-
-    # intersection::Dict{Int, Int} = Dict()
-    # init::Bool = true
-    # for lm_prop::Int in lm_props_achievable
-    #     for effect::Int in generation_data.planning_graph.act_children[op_id]
-    #         if !init && isempty(intersection)
-    #             break
-    #         end
-
-    #         effect_fact::FactPair = FactPair(effect, 1)
-    #         current_cond::Dict{Int, Int} = Dict()
-    #         if landmark.facts[lm_prop] == effect_fact
-
-    #         end
-    #     end
-    # end
     return result
 end
 
@@ -923,6 +903,48 @@ function edge_add(from::LandmarkNode, to::LandmarkNode, type::EdgeType)
     if !haskey(from.children, to) || from.children[to] >= type
         from.children[to] = type
         to.parents[from] = type
+    end
+end
+
+function generate_mutex_lookup(generation_data::LandmarkGenerationData, max_time::Float64=Inf)
+    start_time::Float64 = time()
+    generation_data.mutexes = Dict()
+    for fact::Term in keys(generation_data.planning_graph.effect_map)
+        value::Int = 1
+        if fact isa Compound && fact.name == :not
+            c_fact::Compound = fact
+            fact = first(c_fact.args)
+            value = 0
+        end
+        var::Int = generation_data.term_index[fact]
+
+        generation_data.mutexes[FactPair(var, value)] = Set()
+    end
+    for fact::FactPair in generation_data.initial_state
+        generation_data.mutexes[FactPair(fact.var, fact.value)] = Set()
+    end
+
+    num_mutex::Int = 0
+    old_num::Int = -1
+    passes::Int = 0
+    while passes < 10 && old_num != num_mutex
+        passes += 1
+        old_num = num_mutex
+
+        for fact1::FactPair in keys(generation_data.mutexes)
+            if time() - start_time > max_time
+                return
+            end
+            for fact2::FactPair in keys(generation_data.mutexes)
+                if fact1 != fact2 && !(fact2 in generation_data.mutexes[fact1])
+                    if is_mutex(fact1, fact2, generation_data)
+                        push!(generation_data.mutexes[fact1], fact2)
+                        push!(generation_data.mutexes[fact2], fact1)
+                        num_mutex += 1
+                    end
+                end
+            end
+        end
     end
 end
 
@@ -981,6 +1003,15 @@ function is_mutex(fact_a::FactPair, fact_b::FactPair, generation_data::LandmarkG
     if fact_a.var == fact_b.var
         return fact_a.value != fact_b.value
     end
+    if fact_a in get(generation_data.mutexes, fact_b, Set())
+        return true
+    end
+
+    a_true::Bool = fact_always_true(fact_a, generation_data)
+    b_true::Bool = fact_always_true(fact_b, generation_data)
+    # if a_true && b_true
+    #     return false
+    # end
 
     term_a::Term = generation_data.planning_graph.conditions[fact_a.var]
     if fact_a.value == 0
@@ -992,13 +1023,62 @@ function is_mutex(fact_a::FactPair, fact_b::FactPair, generation_data::LandmarkG
     end
 
     op_ids_a::Vector{Int} = get(generation_data.planning_graph.effect_map, term_a, [])
+    if length(op_ids_a) == 0 && !a_true
+        return true
+    end
+    op_ids_b::Vector{Int} = get(generation_data.planning_graph.effect_map, term_b, [])
+    if length(op_ids_b) == 0 && !b_true
+        return true
+    end
+
+    # a_can_be_true::Bool = true
+    # if length(op_ids_a) == 0
+    #     in_init_state_a::Bool = false
+    #     for fact::FactPair in generation_data.initial_state
+    #         if fact == fact_a
+    #             in_init_state_a = true
+    #             break
+    #         end
+    #     end
+    #     if in_init_state_a
+    #         complement::Term = generation_data.planning_graph.conditions[fact.var]
+    #         if fact.value == 0
+    #             complement = Compound(:not, [complement])
+    #         end
+    #         if length(get(generation_data.planning_graph.effect_map, complement, [])) == 0
+    #             a_can_be_true = false
+    #         end
+    #     else
+    #         return true
+    #     end
+    # end
+    # if length(op_ids_b) == 0
+    #     in_init_state_b::Bool = false
+    #     for fact::FactPair in generation_data.initial_state
+    #         if fact == fact_b
+    #             complement::Term = generation_data.planning_graph.conditions[fact.var]
+    #             if fact.value == 0
+    #                 complement = Compound(:not, [complement])
+    #             end
+    #             if length(get(generation_data.planning_graph.effect_map, complement, [])) == 0
+    #                 return a_can_be_true
+    #             end
+            
+    #             in_init_state_b = true
+    #             break
+    #         end
+    #     end
+    #     if !in_init_state_b
+    #         return true
+    #     end
+    # end
+
     actions_a::Vector{GroundAction} = []
     for op_id::Int in op_ids_a
         if !fact_false_after_op(fact_b, op_id, generation_data)
            push!(actions_a, generation_data.planning_graph.actions[op_id])
         end
     end
-    op_ids_b::Vector{Int} = get(generation_data.planning_graph.effect_map, term_b, [])
     actions_b::Vector{GroundAction} = []
     for op_id::Int in op_ids_b
         if !fact_false_after_op(fact_a, op_id, generation_data)
@@ -1032,6 +1112,32 @@ function is_mutex(fact_a::FactPair, fact_b::FactPair, generation_data::LandmarkG
     end
 
     return true
+end
+
+function fact_always_true(fact::FactPair, generation_data::LandmarkGenerationData) :: Bool
+    in_init::Bool = fact.value == 0
+    for init_fact::FactPair in generation_data.initial_state
+        if init_fact.var == fact.var
+            if init_fact.value == fact.value
+                in_init = true
+                break
+            else
+                return false
+            end
+        end
+    end
+
+    if in_init
+        complement::Term = generation_data.planning_graph.conditions[fact.var]
+        if fact.value == 1
+            complement = Compound(:not, [complement])
+        end
+
+        if length(get(generation_data.planning_graph.effect_map, complement, [])) == 0
+            return true
+        end
+    end
+    return false
 end
 
 function op_deletes_condition(op::GroundAction, condition::Term) :: Bool
@@ -1071,7 +1177,7 @@ function fact_false_after_op(fact::FactPair, op_id::Int, generation_data::Landma
         if eff == fact
             return false
         end
-        if eff.var == fact.var && eff.value != fact.value # Or if mutex(eff, fact), but inf recursion
+        if (eff.var == fact.var && eff.value != fact.value) || fact in get(generation_data.mutexes, eff, Set()) # Or if mutex(eff, fact), but inf recursion
             return true
         end
     end
@@ -1081,7 +1187,7 @@ function fact_false_after_op(fact::FactPair, op_id::Int, generation_data::Landma
         if pre == fact
             return false
         end
-        if pre.var == fact.var && pre.value != fact.value
+        if (pre.var == fact.var && pre.value != fact.value) || fact in get(generation_data.mutexes, pre, Set())
             return true
         end
     end
@@ -1126,7 +1232,7 @@ function interferes(landmark_a::Landmark, landmark_b::Landmark, generation_data:
 
                 next_eff::Dict{Int, Int} = Dict()
                 for effect_fact::FactPair in effects
-                    if effect_fact.var != lm_fact_a
+                    if effect_fact.var != lm_fact_a.var
                         next_eff[effect_fact.var] = effect_fact.value
                     end
                 end
