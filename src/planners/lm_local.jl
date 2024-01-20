@@ -22,7 +22,8 @@ end
 
 function solve(planner::LMLocalPlanner,
                 domain::Domain, state::State, spec::Specification)
-    @unpack lm_graph, p_graph, internal_planner = planner
+    @unpack lm_graph, p_graph, internal_planner, max_time = planner
+    internal_planner.max_time = max_time 
     @unpack h_mult, heuristic, save_search = internal_planner
     saved_lm_graph = deepcopy(lm_graph)
     

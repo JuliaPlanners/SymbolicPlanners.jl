@@ -69,7 +69,7 @@ function progress(lm_status_manager::LandmarkStatusManager, prev::State, curr::S
             if (!landmark_is_true_in_state(lm.landmark, p_graph, curr))
                 push!(future, lm.id)
                 if lm.id ∉ parent_past push!(not_past, lm.id) end
-            #If Landmark not true in the previous state, it should be added to future again because it is also not true in this state.
+            #If Landmark true in the previous state, but not true in the current state. It was not added by this transition. Should thus remain in the future
             elseif (landmark_is_true_in_state(lm.landmark, p_graph, prev))
                 push!(future, lm.id)
             end

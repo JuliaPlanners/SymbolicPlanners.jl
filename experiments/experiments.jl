@@ -131,4 +131,9 @@ for (d_name::String, d_path::String) in domains
         println()
     end
     CSV.write(df_name, df)
+    global df = DataFrame(domain=String[], problem=String[], problem_size=Int[],
+               compiled=Bool[], planner=String[], run=Int[],
+               n_steps=Int[], time=Float64[], bytes=Int[],
+               n_eval=Int[], n_expand=Int[], n_landmarks=Int[], correct_goal=Bool[])
+    GC.gc()
 end
