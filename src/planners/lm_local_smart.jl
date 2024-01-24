@@ -106,10 +106,16 @@ function solve(planner::LMLocalSmartPlanner,
         for goal in goal_terms
             # Copy planner so we dont get side effects
             copy_planner = deepcopy(internal_planner)
+            copy_planner.max_time = planner.max_time - (time() - start_time)
             sub_sol = deepcopy(sol)
             inter_spec = Specification(goal)
             sub_sol.status = :in_progress
             sub_sol = search!(sub_sol, copy_planner, domain, inter_spec)
+            # If we hit a timeout return the solution we are currently on.
+            if sub_sol.status == :max_time
+                return sub_sol
+            end
+            # Update used/Shortest Solution.
             if isnothing(shortest_sol) 
                 shortest_sol = sub_sol 
                 used_planner = copy_planner

@@ -60,10 +60,16 @@ function solve(planner::LMLocalPlanner,
         for lm in sources
             # Copy planner so we dont get side effects
             copy_planner = deepcopy(internal_planner)
+            copy_planner.max_time = planner.max_time- (time() - start_time)
             sub_sol = deepcopy(sol)
             inter_spec = Specification(landmark_to_terms(lm.landmark, p_graph))
             sub_sol.status = :in_progress
             sub_sol = search!(sub_sol, copy_planner, domain, inter_spec)
+            # If we hit a timeout return the solution we are currently on.
+            if sub_sol.status == :max_time
+                return sub_sol
+            end
+            # Update used/Shortest Solution.
             if isnothing(shortest_sol) 
                 shortest_sol = sub_sol 
                 used_lm = lm
