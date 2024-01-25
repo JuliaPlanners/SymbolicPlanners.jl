@@ -81,12 +81,14 @@ function progress(lm_status_manager::LandmarkStatusManager, prev::State, curr::S
         for (child, edge) in lm.children
             if (edge == NECESSARY || edge == GREEDY_NECESSARY) && (child.id ∉ past) && !landmark_is_true_in_state(lm.landmark, p_graph, curr)
                 push!(future, lm.id)
+                break
             end
         end
         # Reasonable orderings
         for (parent, edge) in lm.parents
             if (edge == REASONABLE) && (parent.id ∉ past)
                 push!(future, lm.id)
+                break
             end
         end
     end
