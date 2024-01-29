@@ -3,6 +3,10 @@ export remove_natural_edges
 export landmark_to_terms
 export get_sources
 
+"""
+Utility Functions for both the landmark based Planners, LM Local and LM Local Smart.
+"""
+
 function remove_reasonable_edges(lm_graph::LandmarkGraph)
     for lm in lm_graph.nodes
         for (child, edge) in lm.children

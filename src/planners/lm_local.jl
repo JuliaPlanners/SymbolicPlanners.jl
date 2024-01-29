@@ -1,6 +1,30 @@
 export LMLocalPlanner
 
 """
+    LMLocalPlanner(;
+        lm_graph::LandmarkGraph,
+        p_graph::PlanningGraph,
+        internal_planner::Planner,
+        max_time::Float64 = Inf,
+        max_mem::Float64 = Inf
+    )
+
+Landmark based planner that exploits landmarks by using them as intermediary goals.
+Landmark graphs given to this planner should not contain any cycles. Due to the need for sources of the graph for each step of the algorithm.
+
+Original procedure would use disjunctive goals but due to lack of support for that the following steps are used.
+    1. Get current sources of the landmark graph
+    2. For each source:
+        1. Copy the internal planner
+        2. Solve for source
+        3. Compare with saved solution, if shorter save this solution, planner and landmark
+    3. Remove used landmark from landmark graph
+    4. Update Internal Planner and Solution.
+    5. Repeat from step 1 untill landmark graph is empty.
+    6. Solve for orginal goal.
+
+    [1] B. van Maris, "Landmarks in Planning: Using landmarks as Intermediary Goals or as a Pseudo-Heuristic",
+    Delft University of Technology.
 """
 
 @kwdef mutable struct LMLocalPlanner <: Planner

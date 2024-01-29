@@ -1,6 +1,33 @@
 export LMLocalSmartPlanner
 
 """
+    LMLocalPlanner(;
+        lm_graph::LandmarkGraph,
+        p_graph::PlanningGraph,
+        internal_planner::Planner,
+        max_time::Float64 = Inf,
+        max_mem::Float64 = Inf
+    )
+
+Extension on LM Local. Tries to combine landmarks into groups to need less copied planners.
+Landmark graphs given to this planner should not contain any cycles. Due to the need for sources of the graph for each step of the algorithm.
+
+Adds to the procedure layed out by LM Local by first computing a compatibility matrix.
+This matrix can then be used to combine landmarks into larger goals.
+Procedure thus lookes as follows:
+    1. Get current sources of the landmark graph
+    2. Create Conjunctive Goals based on compatibiliity matrix and current sources
+    2. For each GoalGroup:
+        1. Copy the internal planner
+        2. Solve for Group
+        3. Compare with saved solution, if shorter save this solution, planner
+    3. Remove used landmarks from landmark graph
+    4. Update Internal Planner and Solution.
+    5. Repeat from step 1 untill landmark graph is empty.
+    6. Solve for orginal goal.
+
+[1] B. van Maris, "Landmarks in Planning: Using landmarks as Intermediary Goals or as a Pseudo-Heuristic",
+Delft University of Technology.
 """
 
 @kwdef mutable struct LMLocalSmartPlanner <: Planner
@@ -73,7 +100,7 @@ function solve(planner::LMLocalSmartPlanner,
             break 
         end
         
-        # Create Conjunctive Goals based on compatibiliity matrix and current sources
+        # Create Conjunctive Goals based on compatibility matrix and current sources
         groups::Vector{Set{Int}} = Vector()
         for i in sources
             added = false

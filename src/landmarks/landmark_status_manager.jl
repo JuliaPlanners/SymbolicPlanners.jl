@@ -1,7 +1,8 @@
-
-
 export LandmarkStatusManager
 
+"""
+Landmark Status Manager for the Landmark Count Pseudo-Heuristic.
+"""
 @kwdef mutable struct LandmarkStatusManager
     lm_graph::LandmarkGraph
     p_graph::PlanningGraph

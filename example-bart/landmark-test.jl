@@ -1,5 +1,5 @@
-# Run using 'julia --project=. experiments/landmark-test.jl'
-# Can also be ran using 'julia ./experiments/landmark-test.jl' after adding all the bellow packages in the julia pkg manager
+# Run using 'julia --project=. example-bart/landmark-test.jl'
+# Can also be ran using 'julia ./example-bart/landmark-test.jl' after adding all the bellow packages in the julia pkg manager
 using PDDL, SymbolicPlanners, Test, PlanningDomains
 
 println("Started")
