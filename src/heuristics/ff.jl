@@ -53,7 +53,7 @@ function precompute!(h::FFHeuristic,
                      domain::Domain, state::State, spec::Specification)
     # If goal specification is provided, assume non-dynamic goal
     h.dynamic_goal = false
-    h.goal_hash = hash(spec)
+    h.goal_hash = hash(get_goal_terms(spec))
     h.statics = infer_static_fluents(domain)
     h.graph = build_planning_graph(domain, state, spec; statics=h.statics)
     return h
@@ -62,10 +62,10 @@ end
 function compute(h::FFHeuristic,
                  domain::Domain, state::State, spec::Specification)
     # If necessary, update planning graph with new goal
-    if h.dynamic_goal && hash(spec) != h.goal_hash
+    if h.dynamic_goal && hash(get_goal_terms(spec)) != h.goal_hash
         h.graph = update_pgraph_goal!(h.graph, domain, state, spec;
                                       statics=h.statics)
-        h.goal_hash = hash(spec)
+        h.goal_hash = hash(get_goal_terms(spec))
     end
     # Compute achievers to each condition node of the relaxed planning graph
     costs, achievers, goal_idx, _ =
