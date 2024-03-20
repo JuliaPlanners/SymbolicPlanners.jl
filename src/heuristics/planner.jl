@@ -4,10 +4,13 @@ export PlannerHeuristic
     PlannerHeuristic(planner, [d_transform, s_transform])
 
 Computes distance to the goal based on the solution returned by `planner`.
-If an [`OrderedSolution`](@ref) is returned, the length of solution is used
-as the heuristic estimate. If a [`PolicySolution`](@ref) is returned, the
-negated value (returned by [`get_value`](@ref)) is used as the heuristic 
-estimate.
+
+If an [`OrderedSolution`](@ref) is returned, the cost of solution is used
+as the heuristic estimate, (plus the heuristic value of final state, if the 
+planner is a [`ForwardPlanner`](@ref).)
+
+If a [`PolicySolution`](@ref) is returned, the negated value
+(returned by [`get_value`](@ref)) is used as the heuristic estimate.
 
 If `d_transform` or `s_transform` are provided, this transforms the input
 domain or state it is passed to the `planner`. This can be used to relax the 
@@ -36,8 +39,18 @@ function compute(h::PlannerHeuristic,
     domain = h.d_transform(domain)
     state = h.s_transform(state)
     sol = h.planner(domain, state, spec)
-    if sol isa OrderedSolution
-        return length(sol)
+    if sol isa NullSolution
+        return Inf
+    elseif hasproperty(sol, :status) && sol.status == :failure
+        return Inf
+    elseif sol isa OrderedSolution
+        actions = collect(sol)
+        cost = -PDDL.simulate(RewardAccumulator(), domain, state, actions, spec)
+        if h.planner isa ForwardPlanner && sol isa PathSearchSolution
+            inner_h = h.planner.heuristic
+            cost += inner_h(domain, sol.trajectory[end], spec)
+        end
+        return cost
     elseif sol isa PolicySolution
         return -get_value(sol, state)
     else

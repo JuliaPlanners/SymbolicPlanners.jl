@@ -65,6 +65,28 @@ function get_action_values(sol::TabularPolicy, state::State)
     end
 end
 
+function set_value!(sol::TabularPolicy, state::State, val::Real)
+    sol.V[hash(state)] = val
+end
+
+function set_value!(sol::TabularPolicy, state_id::UInt, val::Real)
+    sol.V[state_id] = val
+end
+
+function set_value!(sol::TabularPolicy, state::State, action::Term, val::Real)
+    qs = get!(sol.Q, hash(state)) do
+        Dict{Term,Float64}()
+    end
+    qs[action] = val
+end
+
+function set_value!(sol::TabularPolicy, state_id::UInt, action::Term, val::Real)
+    qs = get!(sol.Q, state_id) do
+        Dict{Term,Float64}()
+    end
+    qs[action] = val
+end
+
 """
     TabularVPolicy(V::Dict, domain, spec, default)
     TabularVPolicy(domain, spec, default = NullPolicy())
@@ -122,12 +144,25 @@ function get_value(sol::TabularVPolicy, state::State)
     end
 end
 
+function get_value(sol::TabularVPolicy, state::State, action::Term)
+    next_state = transition(sol.domain, state, action)
+    if (has_action_goal(sol.spec) &&
+        is_goal(sol.spec, sol.domain, next_state, action))
+        next_v = 0.0
+    else
+        next_v = get_value(sol, next_state)
+    end
+    r = get_reward(sol.spec, sol.domain, state, action, next_state)
+    return get_discount(sol.spec) * next_v + r
+end
+
 get_action_values(sol::TabularVPolicy, state::State) =
     Dict(act => get_value(sol, state, act) for act in available(sol.domain, state))
 
-function get_value(sol::TabularVPolicy, state::State, action::Term)
-    next_state = transition(sol.domain, state, action)
-    next_v = get_value(sol, next_state)
-    r = get_reward(sol.spec, sol.domain, state, action, next_state)
-    return get_discount(sol.spec) * next_v + r
+function set_value!(sol::TabularVPolicy, state::State, val::Real)
+    sol.V[hash(state)] = val
+end
+
+function set_value!(sol::TabularVPolicy, state_id::UInt, val::Real)
+    sol.V[state_id] = val
 end

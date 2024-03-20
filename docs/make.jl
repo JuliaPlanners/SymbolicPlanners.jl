@@ -21,5 +21,5 @@ makedocs(
 )
 
 deploydocs(
-    repo = "github.com/JuliaPlanners/SymbolicPlanners.jl.git",
+    repo = "github.com/JuliaPlanners/SymbolicPlanners.jl.git"
 )

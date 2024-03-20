@@ -44,6 +44,12 @@ function compute(h::MemoizedHeuristic,
     return val
 end
 
+filter_available(h::MemoizedHeuristic, domain::Domain, state::State, spec) =
+    filter_available(h.heuristic, domain, state, spec)
+
+filter_relevant(h::MemoizedHeuristic, domain::Domain, state::State, spec) =
+    filter_relevant(h.heuristic, domain, state, spec)
+
 function (h::MemoizedHeuristic)(domain::Domain, state::State, spec::Specification;
                                 precompute::Bool=true)
     key = (hash(domain), hash(state), hash(spec))

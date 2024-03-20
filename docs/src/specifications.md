@@ -42,6 +42,17 @@ MinMetricGoal
 MaxMetricGoal
 ```
 
+It is also possible to plan to achieve a specific action using the
+[`ActionGoal`](@ref) specification:
+
+```@docs
+ActionGoal
+```
+
+However, action goals are not currently supported by planners that make use 
+of backward search, such as [`BackwardPlanner`](@ref) and
+[`BidirectionalPlanner`](@ref).
+
 ## Constraint Specifications
 
 SymbolicPlanners.jl also provides limited support for planning under
@@ -62,6 +73,8 @@ Problems of this sort can be defined using the following specifications:
 ```@docs
 MinActionCosts
 ExtraActionCosts
+MinPerAgentActionCosts
+ExtraPerAgentActionCosts
 ```
 
 We also introduce interface methods to determine if a specification provides
@@ -100,3 +113,7 @@ discounted
 More general reward functions can also be defined using the
 [`MaxMetricGoal`](@ref) introduced earlier, by defining a metric fluent that
 is corresponds to the total reward.
+
+Reward-based specifications should generally be used with policy-based
+planning algorithms such as [`RTDP`](@ref RealTimeDynamicPlanner),
+[`RTHS`](@ref RealTimeHeuristicSearch) and [`MCTS`](@ref MonteCarloTreeSearch).

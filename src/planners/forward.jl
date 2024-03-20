@@ -10,8 +10,11 @@ export ProbForwardPlanner, ProbAStarPlanner
         h_mult::Float32 = 1.0f0,
         max_nodes::Int = typemax(Int),
         max_time::Float64 = Inf,
+        fail_fast::Bool = false,
         save_search::Bool = false,
-        save_search_order::Bool = false
+        save_search_order::Bool = save_search,
+        verbose::Bool = false,
+        callback = verbose ? LoggerCallback() : nothing
     )
 
 Forward best-first search planner, which encompasses uniform-cost search, 
@@ -39,7 +42,7 @@ return a `NullSolution` with `status` set to `:failure`.
 
 $(FIELDS)
 """
-@kwdef mutable struct ForwardPlanner{T <: Union{Nothing, Float64}} <: Planner
+@kwdef mutable struct ForwardPlanner{T <: Union{Nothing, Float64}}  <: Planner
     "Search heuristic that estimates cost of a state to the goal."
     heuristic::Heuristic = GoalCountHeuristic()
     "Amount of Boltzmann search noise (`nothing` for deterministic search)."
@@ -52,10 +55,16 @@ $(FIELDS)
     max_nodes::Int = typemax(Int)
     "Maximum time in seconds before planner times out."
     max_time::Float64 = Inf
+    "Flag to terminate search if the heuristic estimates an infinite cost."
+    fail_fast::Bool = false
     "Flag to save the search tree and frontier in the returned solution."
     save_search::Bool = false
     "Flag to save the node expansion order in the returned solution."
-    save_search_order::Bool = false
+    save_search_order::Bool = save_search
+    "Flag to print debug information during search."
+    verbose::Bool = false
+    "Callback function for logging, etc."
+    callback::Union{Nothing, Function} = verbose ? LoggerCallback() : nothing
 end
 
 @auto_hash ForwardPlanner
@@ -148,7 +157,8 @@ ProbAStarPlanner(heuristic::Heuristic; search_noise=1.0, kwargs...) =
 function Base.copy(p::ForwardPlanner)
     return ForwardPlanner(p.heuristic, p.search_noise, 
                           p.g_mult, p.h_mult, p.max_nodes, p.max_time,
-                          p.save_search, p.save_search_order)
+                          p.fail_fast, p.save_search, p.save_search_order,
+                          p.verbose, p.callback)
 end
 
 function solve(planner::ForwardPlanner,
@@ -168,7 +178,7 @@ function solve(planner::ForwardPlanner,
     sol = PathSearchSolution(:in_progress, Term[], Vector{typeof(state)}(),
                              0, search_tree, queue, search_order)
     # Run the search
-    sol = search!(sol, planner, domain, spec)
+    sol = search!(sol, planner, planner.heuristic, domain, spec)
     # Return solution
     if save_search
         return sol
@@ -179,7 +189,8 @@ function solve(planner::ForwardPlanner,
     end
 end
 
-function search!(sol::PathSearchSolution, planner::ForwardPlanner,
+function search!(sol::PathSearchSolution,
+                 planner::ForwardPlanner, heuristic::Heuristic,
                  domain::Domain, spec::Specification)
     @unpack search_noise = planner
     start_time = time()
@@ -187,50 +198,68 @@ function search!(sol::PathSearchSolution, planner::ForwardPlanner,
     queue, search_tree = sol.search_frontier, sol.search_tree
     while length(queue) > 0
         # Get state with lowest estimated cost to goal
-        node_id, _ = isnothing(search_noise) ?
+        node_id, priority = isnothing(search_noise) ?
             peek(queue) : prob_peek(queue, search_noise)
         node = search_tree[node_id]
         # Check search termination criteria
-        if is_goal(spec, domain, node.state)
+        if is_goal(spec, domain, node.state, node.parent_action)
             sol.status = :success # Goal reached
         elseif sol.expanded >= planner.max_nodes
             sol.status = :max_nodes # Node budget reached
         elseif time() - start_time >= planner.max_time
             sol.status = :max_time # Time budget reached
+        elseif planner.fail_fast && priority[1] == Inf
+            sol.status = :failure # Search space exhausted
+            break
         end
         if sol.status == :in_progress
             # Dequeue current node
             isnothing(search_noise) ? dequeue!(queue) : delete!(queue, node_id) 
             # Expand current node
-            expand!(planner, node, search_tree, queue, domain, spec)
+            expand!(planner, heuristic, node, search_tree, queue, domain, spec)
             sol.expanded += 1
             if planner.save_search && planner.save_search_order
                 push!(sol.search_order, node_id)
             end
+            if !isnothing(planner.callback)
+                planner.callback(planner, sol, node_id, priority)
+            end
         else # Reconstruct plan and return solution
             sol.plan, sol.trajectory = reconstruct(node_id, search_tree)
+            if !isnothing(planner.callback)
+                planner.callback(planner, sol, node_id, priority)
+            end
             return sol
         end
+    end
+    if !isnothing(planner.callback)
+        planner.callback(planner, sol, nothing, (Inf32, Inf32, 0))
     end
     sol.status = :failure
     return sol
 end
 
-function expand!(planner::ForwardPlanner, node::PathNode,
+function expand!(planner::ForwardPlanner, heuristic::Heuristic, node::PathNode,
                  search_tree::Dict{UInt,<:PathNode}, queue::PriorityQueue,
                  domain::Domain, spec::Specification)
-    @unpack g_mult, h_mult, heuristic = planner
+    @unpack g_mult, h_mult = planner
     state = node.state
-    # Iterate over available actions
-    for act in available(domain, state)
+    # Iterate over available actions, filtered by heuristic
+    for act in filter_available(heuristic, domain, state, spec)
         # Execute action and trigger all post-action events
-        next_state = execute(domain, state, act; check=false)
+        next_state = transition(domain, state, act; check=false)
         next_id = hash(next_state)
         # Check if next state satisfies trajectory constraints
         if is_violated(spec, domain, state) continue end
         # Compute path cost
         act_cost = get_cost(spec, domain, state, act, next_state)
         path_cost = node.path_cost + act_cost
+        # Check if action goal is reached
+        is_action_goal = false
+        if has_action_goal(spec) && is_goal(spec, domain, next_state, act)
+            is_action_goal = true
+            next_id = hash((next_state, act))
+        end
         # Update path costs if new path is shorter
         next_node = get!(search_tree, next_id,
                          PathNode(next_id, next_state, Inf32))
@@ -241,7 +270,8 @@ function expand!(planner::ForwardPlanner, node::PathNode,
             next_node.path_cost = path_cost
             # Update estimated cost from next state to goal
             if !(next_id in keys(queue))
-                h_val::Float32 = compute(heuristic, domain, next_state, spec)
+                h_val::Float32 = is_action_goal ? 
+                    0.0f0 : compute(heuristic, domain, next_state, spec)
                 f_val::Float32 = g_mult * path_cost + h_mult * h_val
                 priority = (f_val, h_val, length(search_tree))
                 enqueue!(queue, next_id, priority)
@@ -262,5 +292,40 @@ function refine!(
     sol.status = :in_progress
     spec = simplify_goal(spec, domain, state)
     ensure_precomputed!(planner.heuristic, domain, state, spec)
-    return search!(sol, planner, domain, spec)
+    return search!(sol, planner, planner.heuristic, domain, spec)
+end
+
+function (cb::LoggerCallback)(
+    planner::ForwardPlanner,
+    sol::PathSearchSolution, node_id::Union{UInt, Nothing}, priority
+)
+    node = isnothing(node_id) ? nothing : sol.search_tree[node_id]
+    f, h, _ = priority
+    g = isnothing(node) ? Inf32 : node.path_cost
+    m, n = length(sol.search_tree), sol.expanded
+    schedule = get(cb.options, :log_period_schedule,
+                   [(10, 2), (100, 10), (1000, 100), (typemax(Int), 1000)])
+    idx = findfirst(x -> n < x[1], schedule)
+    log_period = isnothing(idx) ? 1000 : schedule[idx][2]
+    if n <= 1 && get(cb.options, :log_header, true)
+        @logmsg cb.loglevel "Starting forward search..."
+        max_nodes, max_time = planner.max_nodes, planner.max_time
+        @logmsg cb.loglevel "max_nodes = $max_nodes, max_time = $max_time" 
+        search_noise = planner.search_noise
+        if !isnothing(search_noise)
+            @logmsg cb.loglevel "search_noise = $search_noise"
+        end
+    end
+    if n % log_period == 0 || sol.status != :in_progress
+        @logmsg cb.loglevel "f = $f, g = $g, h = $h, $m evaluated, $n expanded"
+    end
+    if sol.status != :in_progress && get(cb.options, :log_solution, true)
+        k = length(sol.plan)
+        @logmsg cb.loglevel "Search terminated with status: $(sol.status)"
+        if sol.status != :failure
+            sol_txt = sol.status == :success ? "Solution" : "Partial solution"
+            @logmsg cb.loglevel "$sol_txt: $k actions, $g cost, $m evaluated, $n expanded"
+        end
+    end
+    return nothing
 end

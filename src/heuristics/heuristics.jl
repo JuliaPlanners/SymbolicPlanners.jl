@@ -63,6 +63,24 @@ compute(h::Heuristic, domain::Domain, state::State, spec::Specification) =
 compute(h::Heuristic, domain::Domain, state::State, spec) =
     compute(h, domain, state, Specification(spec))
 
+"""
+$(SIGNATURES)
+
+Uses heuristic information to filter the set of available actions at a
+given state. Defaults to returning `available(domain, state)`.
+"""
+filter_available(h::Heuristic, domain::Domain, state::State, spec) =
+    available(domain, state)
+
+"""
+$(SIGNATURES)
+
+Uses heuristic information to filter the set of relevant actions at a
+given state. Defaults to returning `relevant(domain, state)`.
+"""
+filter_relevant(h::Heuristic, domain::Domain, state::State, spec) =
+    relevant(domain, state)
+
 function (h::Heuristic)(domain::Domain, state::State, spec::Specification;
                         precompute::Bool=true)
     # Precompute heuristic if necessary
@@ -85,6 +103,7 @@ end
 
 include("memoized.jl")
 include("precomputed.jl")
+include("pruning.jl")
 include("basic.jl")
 include("metric.jl")
 include("planner.jl")

@@ -9,8 +9,11 @@ export ProbBackwardPlanner, ProbBackwardAStarPlanner
         h_mult::Float32 = 1.0f0,
         max_nodes::Int = typemax(Int),
         max_time::Float64 = Inf,
+        fail_fast::Bool = false,
         save_search::Bool = false,
-        save_search_order::Bool = false
+        save_search_order::Bool = save_search,
+        verbose::Bool = false,
+        callback = verbose ? LoggerCallback() : nothing
     )
 
 Heuristic-guided backward (i.e. regression) search planner. Instead of searching
@@ -58,10 +61,16 @@ $(FIELDS)
     max_nodes::Int = typemax(Int)
     "Maximum time in seconds before planner times out."
     max_time::Float64 = Inf
+    "Flag to terminate search if the heuristic estimates an infinite cost."
+    fail_fast::Bool = false
     "Flag to save the search tree and frontier in the returned solution."
     save_search::Bool = false
     "Flag to save the node expansion order in the returned solution."
-    save_search_order::Bool = false
+    save_search_order::Bool = save_search
+    "Flag to print debug information during search."
+    verbose::Bool = false
+    "Callback function for logging, etc."
+    callback::Union{Nothing, Function} = verbose ? LoggerCallback() : nothing
 end
 
 @auto_hash BackwardPlanner
@@ -114,7 +123,8 @@ ProbBackwardAStarPlanner(heuristic::Heuristic; search_noise=1.0, kwargs...) =
 function Base.copy(p::BackwardPlanner)
     return BackwardPlanner(p.heuristic, p.search_noise,
                            p.g_mult, p.h_mult, p.max_nodes, p.max_time,
-                           p.save_search, p.save_search_order)
+                           p.fail_fast, p.save_search, p.save_search_order,
+                           p.verbose, p.callback)
 end
 
 function solve(planner::BackwardPlanner,
@@ -125,7 +135,7 @@ function solve(planner::BackwardPlanner,
     # Simplify goal specification
     spec = simplify_goal(spec, domain, state)
     # Convert to backward search goal specification
-    spec = BackwardSearchGoal(spec, state)
+    spec = BackwardSearchGoal(spec, domain, state)
     state = goalstate(domain, PDDL.get_objtypes(state), get_goal_terms(spec))
     # Initialize search tree and priority queue
     node_id = hash(state)
@@ -137,7 +147,7 @@ function solve(planner::BackwardPlanner,
     sol = PathSearchSolution(:in_progress, Term[], Vector{typeof(state)}(),
                              0, search_tree, queue, search_order)
     # Run the search
-    sol = search!(sol, planner, domain, spec)
+    sol = search!(sol, planner, planner.heuristic, domain, spec)
     # Return solution
     if save_search
         return sol
@@ -148,7 +158,8 @@ function solve(planner::BackwardPlanner,
     end
 end
 
-function search!(sol::PathSearchSolution, planner::BackwardPlanner,
+function search!(sol::PathSearchSolution,
+                 planner::BackwardPlanner, heuristic::Heuristic,
                  domain::Domain, spec::BackwardSearchGoal)
     @unpack search_noise = planner
     start_time = time()
@@ -156,7 +167,7 @@ function search!(sol::PathSearchSolution, planner::BackwardPlanner,
     queue, search_tree = sol.search_frontier, sol.search_tree
     while length(queue) > 0
         # Get state with lowest estimated cost to goal
-        node_id, _ = isnothing(search_noise) ?
+        node_id, priority = isnothing(search_noise) ?
             peek(queue) : prob_peek(queue, search_noise)
         node = search_tree[node_id]
         # Check search termination criteria
@@ -166,20 +177,29 @@ function search!(sol::PathSearchSolution, planner::BackwardPlanner,
             sol.status = :max_nodes # Node budget reached
         elseif time() - start_time >= planner.max_time
             sol.status = :max_time # Time budget reached
+        elseif planner.fail_fast && priority[1] == Inf
+            sol.status = :failure # Search space exhausted
+            break
         end
         if sol.status == :in_progress
             # Dequeue current node
             isnothing(search_noise) ? dequeue!(queue) : dequeue!(queue, node_id) 
             # Expand current node
-            expand!(planner, node, search_tree, queue, domain, spec)
+            expand!(planner, heuristic, node, search_tree, queue, domain, spec)
             sol.expanded += 1
             if planner.save_search && planner.save_search_order
                 push!(sol.search_order, node_id)
             end
+            if !isnothing(planner.callback)
+                planner.callback(planner, sol, node_id, priority)
+            end            
         else # Reconstruct plan and return solution
             sol.plan, sol.trajectory = reconstruct(node_id, search_tree)
             reverse!(sol.plan)
             reverse!(sol.trajectory)
+            if !isnothing(planner.callback)
+                planner.callback(planner, sol, node_id, priority)
+            end
             return sol
         end
     end
@@ -187,13 +207,13 @@ function search!(sol::PathSearchSolution, planner::BackwardPlanner,
     return sol
 end
 
-function expand!(planner::BackwardPlanner, node::PathNode,
+function expand!(planner::BackwardPlanner, heuristic::Heuristic, node::PathNode,
                  search_tree::Dict{UInt,<:PathNode}, queue::PriorityQueue,
                  domain::Domain, spec::BackwardSearchGoal)
-    @unpack g_mult, h_mult, heuristic = planner
+    @unpack g_mult, h_mult = planner
     state = node.state
-    # Iterate over relevant actions
-    for act in relevant(domain, state)
+    # Iterate over relevant actions, filtered by heuristic
+    for act in filter_relevant(heuristic, domain, state, spec)
         # Regress (reverse-execute) the action
         next_state = regress(domain, state, act; check=false)
         # Add constraints to regression state
@@ -232,7 +252,41 @@ function refine!(
     sol.status == :success && return sol
     sol.status = :in_progress
     spec = simplify_goal(spec, domain, state)
-    spec = BackwardSearchGoal(spec, state)
+    spec = BackwardSearchGoal(spec, domain, state)
     ensure_precomputed!(planner.heuristic, domain, state, spec)
-    return search!(sol, planner, domain, spec)
+    return search!(sol, planner, planner.heuristic, domain, spec)
+end
+
+function (cb::LoggerCallback)(
+    planner::BackwardPlanner,
+    sol::PathSearchSolution, node_id::UInt, priority
+)
+    f, h, _ = priority
+    g = sol.search_tree[node_id].path_cost
+    m, n = length(sol.search_tree), sol.expanded
+    schedule = get(cb.options, :log_period_schedule,
+                   [(10, 2), (100, 10), (1000, 100), (typemax(Int), 1000)])
+    idx = findfirst(x -> n < x[1], schedule)
+    log_period = isnothing(idx) ? 1000 : schedule[idx][2]
+    if n == 1 && get(cb.options, :log_header, true)
+        @logmsg cb.loglevel "Starting backward search..."
+        max_nodes, max_time = planner.max_nodes, planner.max_time
+        @logmsg cb.loglevel "max_nodes = $max_nodes, max_time = $max_time" 
+        search_noise = planner.search_noise
+        if !isnothing(search_noise)
+            @logmsg cb.loglevel "search_noise = $search_noise"
+        end
+    end
+    if n % log_period == 0 || sol.status != :in_progress
+        @logmsg cb.loglevel "f = $f, g = $g, h = $h, $m evaluated, $n expanded"
+    end
+    if sol.status != :in_progress && get(cb.options, :log_solution, true)
+        k = length(sol.plan)
+        @logmsg cb.loglevel "Search terminated with status: $(sol.status)"
+        if sol.status != :failure
+            sol_txt = sol.status == :success ? "Solution" : "Partial solution"
+            @logmsg cb.loglevel "$sol_txt: $k actions, $g cost, $m evaluated, $n expanded"
+        end
+    end
+    return nothing
 end

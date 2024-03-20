@@ -24,9 +24,10 @@ function simulate(sim::StateActionRecorder, sol::Solution,
  				  domain::Domain, state::State, spec::Specification)
     actions = Term[]
     trajectory = [state]
+    act = PDDL.no_op
 	steps = sim.max_steps === nothing ? countfrom(1) : (1:sim.max_steps)
     for t in steps
-		if is_goal(spec, domain, state) break end
+		if is_goal(spec, domain, state, act) break end
         act = get_action(sol, t, state)
         state = transition(domain, state, act)
 		push!(actions, act)

@@ -12,22 +12,55 @@ lazy_collect(collection::Array) = collection
 lazy_collect(element_type::Type, collection) = collect(element_type, collection)
 lazy_collect(::Type{T}, collection::Array{T}) where {T} = collection
 
-"Automatically generate `Base.hash` for a user-defined (composite) type."
+"Generate `Base.hash` for a user-defined (composite) type."
 macro auto_hash(type)
     expr = quote
-        names = fieldnames($(esc(type)))
-        eval(AutoHashEquals.auto_hash($(esc(type)), names))
+        fields = fieldnames($(esc(type)))
+        eval(auto_hash_expr($(esc(type)), fields))
     end
     return expr
 end
 
-"Automatically generate `Base.(==)` for a user-defined (composite) type."
+function auto_hash_expr(type, fields)
+    function expand(i)
+        if i == 0
+            :(h)
+        else
+            :(hash(a.$(fields[i]), $(expand(i-1))))
+        end
+    end
+    return quote
+        function Base.hash(a::$(type), h::UInt)
+            $(expand(length(fields)))
+        end
+    end
+end
+
+"Generate `Base.(==)` and `Base.isqual` for a user-defined (composite) type."
 macro auto_equals(type)
     expr = quote
         names = fieldnames($(esc(type)))
-        eval(AutoHashEquals.auto_equals($(esc(type)), names))
+        eval(auto_equals_expr($(esc(type)), names))
     end
     return expr
+end
+
+function auto_equals_expr(type, fields)
+    function expand(i, f)
+        if i == 0
+            :true
+        else
+            :($f(a.$(fields[i]), b.$(fields[i])) && $(expand(i-1, f)))
+        end
+    end
+    return quote
+        function Base.:(==)(a::$(type), b::$(type))
+            $(expand(length(fields), :(==)))
+        end
+        function Base.isequal(a::$(type), b::$(type))
+            $(expand(length(fields), :isequal))
+        end
+    end
 end
 
 "Convert vector of unnormalized scores to probabiities."
@@ -42,3 +75,7 @@ end
 function randgumbel(rng::AbstractRNG=Random.GLOBAL_RNG)
     return -log(-log(rand(rng)))
 end
+
+unzip_pairs(ps) = unzip_pairs(collect(ps))
+unzip_pairs(ps::AbstractDict) = collect(keys(ps)), collect(values(ps))
+unzip_pairs(ps::AbstractArray{<:Pair}) = first.(ps), last.(ps)

@@ -20,10 +20,21 @@ end
 Construct planning graph for a `domain` grounded in a `state`, with an
 optional `goal` specification that will be converted to action nodes.
 """
-function build_planning_graph(domain::Domain, state::State, goal::Specification;
-                              kwargs...)
+function build_planning_graph(
+    domain::Domain, state::State, goal::Specification;
+    kwargs...
+)
     goal = Compound(:and, get_goal_terms(goal))
     return build_planning_graph(domain, state, goal; kwargs...)
+end
+
+function build_planning_graph(
+    domain::Domain, state::State, goal::ActionGoal;
+    kwargs...
+)
+    graph = build_planning_graph(domain, state; kwargs...)
+    update_pgraph_goal!(graph, domain, state, goal)
+    return graph
 end
 
 function build_planning_graph(
@@ -72,8 +83,10 @@ function build_planning_graph(
         if length(act.preconds) > Sys.WORD_SIZE
             resize!(act.preconds, Sys.WORD_SIZE)
         end
-        preconds = isempty(act.preconds) ? Term[Const(true)] : act.preconds
-        for (j, cond) in enumerate(preconds) # Preconditions
+        if isempty(act.preconds)
+            push!(act.preconds, Const(true))
+        end
+        for (j, cond) in enumerate(act.preconds) # Preconditions
             if cond.name == :or # Handle disjunctions
                 for c in cond.args
                     idxs = get!(Vector{Tuple{Int,Int}}, cond_map, c)
@@ -101,7 +114,9 @@ function build_planning_graph(
     cond_children = collect(values(cond_map))
     conditions = collect(keys(cond_map))
     # Determine parent and child conditions of each action
-    act_parents = [[Int[] for c in act.preconds] for act in actions]
+    act_parents = map(actions) do act 
+        [Int[] for _ in 1:length(act.preconds)]
+    end
     act_children = [Int[] for _ in actions]
     for (i, cond) in enumerate(conditions)
         # Collect parent conditions
@@ -135,8 +150,18 @@ function build_planning_graph(
 end
 
 "Add a goal formula as one or more ground actions in a planning graph."
-function pgraph_goal_to_actions(domain::Domain, state::State, goal::Term;
-                                statics=infer_static_fluents(domain))
+function pgraph_goal_to_actions(
+    graph::PlanningGraph, domain::Domain, state::State, spec::Specification;
+    statics=infer_static_fluents(domain)
+)
+    goal = Compound(:and, get_goal_terms(spec))
+    return pgraph_goal_to_actions(domain, state, goal, statics=statics)
+end
+
+function pgraph_goal_to_actions(
+    domain::Domain, state::State, goal::Term;
+    statics=infer_static_fluents(domain)
+)
     # Dequantify and simplify goal condition
     goal = PDDL.to_nnf(PDDL.dequantify(goal, domain, state, statics))
     goal = PDDL.simplify_statics(goal, domain, state, statics)
@@ -158,24 +183,49 @@ function pgraph_goal_to_actions(domain::Domain, state::State, goal::Term;
     return goal_actions
 end
 
-"Add or replace goal actions in a planning graph."
-function update_pgraph_goal!(graph::PlanningGraph, domain::Domain, state::State,
-                             goal::Specification; kwargs...)
-    goal = Compound(:and, get_goal_terms(goal))
-    return update_pgraph_goal!(graph, domain, state, goal; kwargs...)
+function pgraph_goal_to_actions(
+    graph::PlanningGraph, domain::Domain, state::State, spec::ActionGoal;
+    statics=nothing
+)
+    # Convert contstraints to CNF form
+    constraints = PDDL.is_cnf(spec.constraints) ?
+        spec.constraints : PDDL.to_cnf_clauses(spec.constraints)
+    # Create goal action for each action that matches the specification
+    goal_actions = GroundAction[]
+    for orig_act in graph.actions
+        # Check if action unifies with goal action
+        unifiers = PDDL.unify(spec.action, orig_act.term)
+        isnothing(unifiers) && continue
+        conds = copy(orig_act.preconds)
+        # Add constraints to preconditions
+        for c in constraints
+            c = isempty(unifiers) ? c : PDDL.substitute(c, unifiers)
+            PDDL.is_ground(c) || continue # Skip non-ground constraints
+            push!(conds, c)
+        end
+        act = GroundAction(:goal, orig_act.term, conds, PDDL.GenericDiff())
+        push!(goal_actions, act)
+    end
+    return goal_actions
 end
 
-function update_pgraph_goal!(graph::PlanningGraph, domain::Domain, state::State,
-                             goal::Term; statics=infer_static_fluents(domain))
-    # Convert goal to ground actions
-    goal_actions = pgraph_goal_to_actions(domain, state, goal, statics=statics)
+"Add or replace goal actions in a planning graph."
+function update_pgraph_goal!(
+    graph::PlanningGraph, domain::Domain, state::State, spec::Specification;
+    statics=infer_static_fluents(domain)
+)
+    # Convert goal specification to ground actions
+    goal_actions =
+        pgraph_goal_to_actions(graph, domain, state, spec, statics=statics)
     # Replace old goal actions with new ones
     n_nongoals = length(graph.actions) - graph.n_goals
     resize!(graph.actions, n_nongoals)
     resize!(graph.act_parents, n_nongoals)
     resize!(graph.act_children, n_nongoals)
     graph.n_goals = length(goal_actions)
-    goal_parents = [[Int[] for c in act.preconds] for act in goal_actions]
+    goal_parents = map(goal_actions) do act 
+        [Int[] for _ in 1:min(Sys.WORD_SIZE, length(act.preconds))]
+    end
     goal_children = [Int[] for _ in goal_actions]
     append!(graph.actions, goal_actions)
     append!(graph.act_parents, goal_parents)
@@ -284,12 +334,16 @@ function relaxed_pgraph_search(domain::Domain, state::State, spec::Specification
             # Compute path cost and distance of achieved action or axiom
             act_parents = graph.act_parents[act_idx]
             is_axiom = act_idx <= graph.n_axioms
-            if is_axiom # Axioms cost is the max of parent consts
+            if is_axiom # Axiom cost is the max of parent costs
                 next_cost = maximum(act_parents) do precond_parents
                     minimum(costs[p] for p in precond_parents)
                 end
                 next_dist = dists[cond_idx]
-            else # Lookup action cost if specified, default to one otherwise
+            elseif is_goal # Goal cost is the accumulation of parent costs
+                next_cost = accum_op(act_parents) do precond_parents
+                    minimum(costs[p] for p in precond_parents)
+                end
+            else # Look up action cost if specified, default to one otherwise
                 path_cost = accum_op(act_parents) do precond_parents
                     minimum(costs[p] for p in precond_parents)
                 end
@@ -299,8 +353,9 @@ function relaxed_pgraph_search(domain::Domain, state::State, spec::Specification
                 next_dist = accum_op === maximum && !has_action_cost(spec) ?
                     next_cost : dists[cond_idx] + 1
             end
-            if is_goal # Return goal index and goal cost
-                goal_idx, goal_cost = act_idx, path_cost
+            # Return goal index and goal cost if goal is reached
+            if is_goal
+                goal_idx, goal_cost = act_idx, next_cost
                 break
             end
             # Place child conditions on queue
@@ -328,7 +383,8 @@ function relaxed_pgraph_search(domain::Domain, state::State, spec::Specification
 end
 
 "Returns planning graph indices for initial facts."
-function pgraph_init_idxs(graph::SymbolicPlanners.PlanningGraph, domain::Domain, state::State)
+function pgraph_init_idxs(graph::PlanningGraph,
+                          domain::Domain, state::State)
     @unpack conditions, cond_derived, cond_functional = graph
     # Handle non-derived initial conditions
     function check_cond(c, is_derived, is_func)
@@ -343,7 +399,7 @@ function pgraph_init_idxs(graph::SymbolicPlanners.PlanningGraph, domain::Domain,
     if length(PDDL.get_axioms(domain)) > 0
         init_idxs = pgraph_derived_idxs!(init_idxs, graph, domain, state)
     end
-    return init_idxs
+    return init_idxs::BitVector
 end
 
 function pgraph_init_idxs(graph::PlanningGraph,
@@ -354,6 +410,7 @@ function pgraph_init_idxs(graph::PlanningGraph,
         is_derived && return false
         is_func && return satisfy(domain, state, c)::Bool
         c.name == :not && return !(c.args[1] in PDDL.get_facts(state))
+        c.name isa Bool && return c.name
         return c in PDDL.get_facts(state)
     end
     init_idxs = broadcast(check_cond, conditions, cond_derived, cond_functional)
@@ -361,7 +418,7 @@ function pgraph_init_idxs(graph::PlanningGraph,
     if !isempty(PDDL.get_axioms(domain))
         init_idxs = pgraph_derived_idxs!(init_idxs, graph, domain, state)
     end
-    return init_idxs
+    return init_idxs::BitVector
 end
 
 "Determine indices for initial facts derived from axioms."
@@ -397,5 +454,5 @@ function pgraph_derived_idxs!(init_idxs::BitVector, graph::PlanningGraph,
         end
     end
     # Return updated initial indices
-    return init_idxs
+    return init_idxs::BitVector
 end

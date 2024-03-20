@@ -24,6 +24,13 @@ goal_count = GoalCountHeuristic()
 @test goal_count(doors_keys_gems, dkg_state, dkg_problem.goal) == 1
 @test goal_count(blocksworld, bw_state, bw_problem.goal) == 2
 
+gw_act_spec = ActionGoal(pddl"(up)")
+@test goal_count(gridworld, gw_state, gw_act_spec) == 2
+dkg_act_spec = ActionGoal(pddl"(unlock ?k ?d)")
+@test goal_count(doors_keys_gems, dkg_state, dkg_act_spec) == 3
+bw_act_spec = ActionGoal(pddl"(stack a ?x)", pddl"(on ?x c)")
+@test goal_count(blocksworld, bw_state, bw_act_spec) == 2
+
 end
 
 @testset "Metric Heuristic" begin
@@ -116,27 +123,51 @@ end
 
 @testset "HSP Heuristics" begin
 
+# Test HSP heuristics (without axioms)
 h_add = HAdd()
 h_max = HMax()
 @test h_add(blocksworld, bw_state, bw_problem.goal) == 4
 @test h_max(blocksworld, bw_state, bw_problem.goal) == 2
 
-# Test dynamic goal updating
+# Test dynamic goal updating (without axioms)
 precompute!(h_add, blocksworld, bw_state)
 precompute!(h_max, blocksworld, bw_state)
 @test compute(h_add, blocksworld, bw_state, bw_problem.goal) == 4
 @test compute(h_max, blocksworld, bw_state, bw_problem.goal) == 2
 
+# Test HSP heuristics with axioms
 h_add = HAdd()
 h_max = HMax()
 @test h_add(bw_axioms, ba_state, ba_problem.goal) == 4
 @test h_max(bw_axioms, ba_state, ba_problem.goal) == 2
 
-# Test dynamic goal updating
+# Test dynamic goal updating with axioms
 precompute!(h_add, bw_axioms, ba_state)
 precompute!(h_max, bw_axioms, ba_state)
 @test compute(h_add, bw_axioms, ba_state, ba_problem.goal) == 4
 @test compute(h_max, bw_axioms, ba_state, ba_problem.goal) == 2
+
+# Test HSP heuristics with action goals
+h_add = HAdd()
+h_max = HMax()
+bw_act_spec = ActionGoal(pddl"(pick-up a)")
+@test h_add(blocksworld, bw_state, bw_act_spec) == 0
+@test h_max(blocksworld, bw_state, bw_act_spec) == 0
+bw_act_spec = ActionGoal(pddl"(stack a c)")
+@test h_add(blocksworld, bw_state, bw_act_spec) == 1
+@test h_max(blocksworld, bw_state, bw_act_spec) == 1
+bw_act_spec = ActionGoal(pddl"(stack a ?x)", pddl"(on ?x c)")
+@test h_add(blocksworld, bw_state, bw_act_spec) == 3
+@test h_max(blocksworld, bw_state, bw_act_spec) == 2
+
+# Test HSP heuristics with action costs
+bw_actions = collect(keys(PDDL.get_actions(blocksworld)))
+bw_act_costs = ones(length(bw_actions)) .* 2
+bw_act_spec = MinActionCosts([bw_problem.goal], bw_actions, bw_act_costs)
+h_add = HAdd()
+h_max = HMax()
+@test h_add(blocksworld, bw_state, bw_act_spec) == 8
+@test h_max(blocksworld, bw_state, bw_act_spec) == 4
 
 end
 
@@ -163,6 +194,15 @@ precompute!(ff, blocksworld, bw_state)
 @test compute(ff, blocksworld, bw_state, bw_problem.goal) <= 4
 precompute!(ff, bw_axioms, ba_state)
 @test compute(ff, bw_axioms, ba_state, ba_problem.goal) <= 4
+
+# Test FF heuristic with action goals
+ff = FFHeuristic()
+bw_act_spec = ActionGoal(pddl"(pick-up a)")
+@test ff(blocksworld, bw_state, bw_act_spec) == 0
+bw_act_spec = ActionGoal(pddl"(stack a c)")
+@test ff(blocksworld, bw_state, bw_act_spec) == 1
+bw_act_spec = ActionGoal(pddl"(stack a ?x)", pddl"(on ?x c)")
+@test ff(blocksworld, bw_state, bw_act_spec) == 3
 
 end
 

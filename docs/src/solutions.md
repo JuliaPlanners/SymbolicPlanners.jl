@@ -101,6 +101,7 @@ policies that always return the estimated best action for a given state:
 TabularPolicy
 TabularVPolicy
 FunctionalVPolicy
+ReusableTreePolicy
 ```
 
 ## Stochastic Policies
@@ -112,4 +113,6 @@ intended for use as wrappers around deterministic policies:
 RandomPolicy
 EpsilonGreedyPolicy
 BoltzmannPolicy
+BoltzmannMixturePolicy
+MixturePolicy
 ```

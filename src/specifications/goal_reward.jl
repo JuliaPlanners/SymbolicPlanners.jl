@@ -4,7 +4,7 @@ export GoalReward, BonusGoalReward, MultiGoalReward
     GoalReward(terms, reward=1.0, discount=0.9)
 
 [`Goal`](@ref) specification which returns a `reward` when all goal `terms`
-are achieved, along with a `discount` factor. Each action zero cost.
+are achieved, along with a `discount` factor. Each action has zero cost.
 """
 @kwdef struct GoalReward <: Goal
     terms::Vector{Term} # Goal terms to be satisfied
@@ -40,7 +40,6 @@ set_goal_terms(spec::GoalReward, terms) =
 discounted(spec::GoalReward, discount::Float64) =
     GoalReward(spec.terms, spec.reward, discount * spec.discount)
 
-
 """
     BonusGoalReward(goal::Goal, reward=1.0, discount=0.9)
 
@@ -58,20 +57,32 @@ BonusGoalReward(spec::Goal, reward) = BonusGoalReward(spec, reward, 1.0)
 BonusGoalReward(spec::BonusGoalReward, reward, discount) =
     BonusGoalReward(spec.goal, reward + spec.reward, discount * spec.discount)
 
+Base.hash(spec::BonusGoalReward, h::UInt) =
+    hash(spec.reward, hash(spec.discount, hash(spec.goal, h)))
+Base.:(==)(s1::BonusGoalReward, s2::BonusGoalReward) =
+    s1.reward == s2.reward && s1.discount == s2.discount && s1.goal == s2.goal
+
 is_goal(spec::BonusGoalReward, domain::Domain, state::State) =
     is_goal(spec.goal, domain, state)
+is_goal(spec::BonusGoalReward, domain::Domain, state::State, action::Term) =
+    is_goal(spec.goal, domain, state, action)
 is_violated(spec::BonusGoalReward, domain::Domain, state::State) =
     is_violated(spec.goal, domain, state)
 get_cost(spec::BonusGoalReward, domain::Domain, s1::State, a::Term, s2::State) =
     -get_reward(spec, domain, s1, a, s2)
 get_reward(spec::BonusGoalReward, domain::Domain, s1::State, a::Term, s2::State) =
     get_reward(spec.goal, domain, s1, a, s2) +
-    is_goal(spec, domain, s2) ? spec.reward : 0.0
+    (is_goal(spec, domain, s2, a) ? spec.reward : 0.0)
 get_discount(spec::BonusGoalReward) = spec.discount * get_discount(spec.goal)
 get_goal_terms(spec::BonusGoalReward) = get_goal_terms(spec.goal)
 
 set_goal_terms(spec::BonusGoalReward, terms) =
     BonusGoalReward(set_goal_terms(spec.goal, terms), spec.reward, spec.discount)
+
+has_action_goal(spec::BonusGoalReward) = has_action_goal(spec.goal)
+has_action_cost(spec::BonusGoalReward) = has_action_cost(spec.goal)
+get_action_cost(spec::BonusGoalReward, action::Term) =
+    get_action_cost(spec.goal, action)
 
 discounted(spec::BonusGoalReward, discount::Float64) =
     BonusGoalReward(spec.goal, spec.reward, discount * spec.discount)
@@ -102,8 +113,6 @@ is_violated(spec::MultiGoalReward, domain::Domain, state::State) = false
 get_cost(spec::MultiGoalReward, domain::Domain, s1::State, a::Term, s2::State) =
     -get_reward(spec, domain, s1, a, s2)
 get_discount(spec::MultiGoalReward) = spec.discount
-get_goal_terms(spec::MultiGoalReward) =
-    Term[Compound(:or, spec.goals)]
 
 function get_reward(spec::MultiGoalReward, domain::Domain,
                     s1::State, a::Term, s2::State)
@@ -114,5 +123,16 @@ function get_reward(spec::MultiGoalReward, domain::Domain,
     return reward
 end
 
+get_goal_terms(spec::MultiGoalReward) =
+    Term[Compound(:or, spec.goals)]
+
+function set_goal_terms(spec::MultiGoalReward, terms)
+    goals = PDDL.flatten_disjs(terms)
+    if length(goals) != length(spec.rewards)
+        error("Number of goals must match number of rewards.")
+    end
+    return MultiGoalReward(goals, spec.rewards, spec.discount)
+end
+
 discounted(spec::MultiGoalReward, discount::Float64) =
-    MultiGoalReward(spec.terms, spec.reward, discount * spec.discount)
+    MultiGoalReward(spec.goals, spec.rewards, discount * spec.discount)

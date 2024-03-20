@@ -29,3 +29,27 @@ function compute(h::GoalCountHeuristic,
     count = sum(!satisfy(domain, state, g) for g in goals)
     return h.dir == :backward ? length(goals) - count : count
 end
+
+function compute(h::GoalCountHeuristic,
+                 domain::Domain, state::State, spec::ActionGoal)
+    @assert h.dir == :forward "Backwards goal count unsupported for ActionGoal."
+    # Convert action precondition to goals
+    goals = PDDL.flatten_conjs(PDDL.get_precond(domain, spec.action))
+    # Filter out global predicates with global function subterms
+    goals = filter!(goals) do g
+        if PDDL.is_global_pred(g) && g isa Compound
+            return all(!PDDL.has_global_func(a) for a in g.args)
+        else
+            return true
+        end
+    end
+    # Add constraint predicates to goals if unaffected by action
+    affected = PDDL.get_affected(PDDL.get_action(domain, spec.action.name))
+    for constraint in spec.constraints
+        PDDL.has_name(constraint, affected) && continue
+        PDDL.has_global_func(constraint) && continue
+        push!(goals, constraint)
+    end        
+    count = sum(!satisfy(domain, state, g) for g in goals)
+    return count + spec.step_cost
+end

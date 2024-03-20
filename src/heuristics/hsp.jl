@@ -74,7 +74,7 @@ function precompute!(h::HSPHeuristic,
                      domain::Domain, state::State, spec::Specification)
     # If goal specification is provided, assume non-dynamic goal
     h.dynamic_goal = false
-    h.goal_hash = hash(spec)
+    h.goal_hash = hash(get_goal_terms(spec))
     h.statics = infer_static_fluents(domain)
     h.graph = build_planning_graph(domain, state, spec; statics=h.statics)
     return h
@@ -83,10 +83,10 @@ end
 function compute(h::HSPHeuristic,
                  domain::Domain, state::State, spec::Specification)
     # If necessary, update planning graph with new goal
-    if h.dynamic_goal && hash(spec) != h.goal_hash
+    if h.dynamic_goal && hash(get_goal_terms(spec)) != h.goal_hash
         h.graph = update_pgraph_goal!(h.graph, domain, state, spec;
                                       statics=h.statics)
-        h.goal_hash = hash(spec)
+        h.goal_hash = hash(get_goal_terms(spec))
     end
     # Compute relaxed costs to goal nodes of the planning graph
     _, _, _, goal_cost = relaxed_pgraph_search(domain, state, spec, h.op, h.graph)
