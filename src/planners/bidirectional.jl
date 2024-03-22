@@ -133,8 +133,8 @@ function init_forward(planner::ForwardPlanner, heuristic::Heuristic,
     @unpack h_mult, save_search = planner
     node_id = hash(state)
     search_tree = Dict(node_id => PathNode(node_id, state, 0.0))
-    est_cost::Float32 = h_mult * compute(heuristic, domain, state, spec)
-    priority = (est_cost, est_cost, 0)
+    h_val::Float32 = compute(heuristic, domain, state, spec)
+    priority = (h_mult * h_val, h_val, 0)
     queue = PriorityQueue(node_id => priority)
     return(search_tree, queue)
 end
@@ -147,8 +147,8 @@ function init_backward(planner::BackwardPlanner, heuristic::Heuristic,
     # Initialize search tree and priority queue
     node_id = hash(state)
     search_tree = Dict(node_id => PathNode(node_id, state, 0.0))
-    est_cost::Float32 = h_mult * compute(heuristic, domain, state, spec)
-    priority = (est_cost, est_cost, 0)
+    h_val::Float32 = compute(heuristic, domain, state, spec)
+    priority = (h_mult * h_val, h_val, 0)
     queue = PriorityQueue(node_id => priority)
     return(search_tree, queue)
 end

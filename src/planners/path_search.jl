@@ -75,36 +75,128 @@ end
 get_action_prob(sol::AbstractPathSearchSolution, state::State, action::Term) =
     action == best_action(sol, state) ? 1.0 : 0.0
 
+"Linked list of parent or child node references."
+@auto_hash_equals mutable struct LinkedNodeRef
+    id::UInt
+    action::Union{Term,Nothing}
+    next::Union{LinkedNodeRef,Nothing}
+end
+
+LinkedNodeRef(id) = LinkedNodeRef(id, nothing, nothing)
+LinkedNodeRef(id, action) = LinkedNodeRef(id, action, nothing)
+
+Base.copy(ref::LinkedNodeRef) = LinkedNodeRef(ref.id, ref.action, ref.next)
+
+function Base.unique(ref::LinkedNodeRef)
+    unique_keys = Set{Tuple{UInt, Union{Term,Nothing}}}()
+    iter = ref
+    while !isnothing(iter)
+        push!(unique_keys, (iter.id, iter.action))
+        iter = iter.next
+    end
+    new_ref = nothing
+    iter = ref
+    while !isnothing(iter)
+        if (iter.id, iter.action) in unique_keys
+            new_ref = LinkedNodeRef(iter.id, iter.action, new_ref)
+            delete!(unique_keys, (iter.id, iter.action))
+        end
+        iter = iter.next
+    end
+    return new_ref
+end
+
 """
     PathNode(id::UInt, state::State, path_cost::Float32,
-             parent_id::Union{UInt,Nothing},
-             parent_action::Union{Term,Nothing})
+             parent = nothing, child = nothing)
 
-Representation of search node with a backpointer, used by search-based planners.
+Representation of search node with optional parent and child pointers, used
+by search-based planners. One or more parents or children may be stored
+as a linked list using the `LinkedNodeRef` data type.
 """
-@auto_hash_equals mutable struct PathNode{S<:State}
+@auto_hash_equals mutable struct PathNode{S <: State}
     id::UInt
     state::S
     path_cost::Float32
-    parent_id::Union{UInt,Nothing}
-    parent_action::Union{Term,Nothing}
+    parent::Union{LinkedNodeRef,Nothing}
+    child::Union{LinkedNodeRef,Nothing}
 end
 
-PathNode(id, state::S, path_cost, parent_id, parent_action) where {S} =
-    PathNode{S}(id, state, Float32(path_cost), parent_id, parent_action)
-PathNode(id, state::S, path_cost) where {S} =
-    PathNode{S}(id, state, Float32(path_cost), nothing, nothing)
+function PathNode{S}(id, state::S, path_cost,
+                     parent = nothing) where {S <: State}
+    return PathNode{S}(id, state, Float32(path_cost), parent, nothing)
+end
 
+function PathNode(id, state::S, path_cost,
+                  parent = nothing, child = nothing) where {S}
+    return PathNode{S}(id, state, Float32(path_cost), parent, child)
+end
+
+function Base.copy(node::PathNode{S}) where {S}
+    parent = isnothing(node.parent) ? nothing : copy(node.parent)
+    child = isnothing(node.child) ? nothing : copy(node.child)
+    return PathNode{S}(node.id, node.state, node.path_cost, parent, child)
+end
+
+# function Base.hash(node::PathNode, h::UInt)
+#     h = hash(node.id, h)
+#     h = hash(node.state, h)
+#     h = hash(node.path_cost, h)
+#     h = isnothing(node.parent) ? h : hash(node.parent, h)
+#     h = isnothing(node.child) ? h : hash(node.child, h)
+#     return h
+# end
+
+# # Avoid recursive hashing and equality checking for `LinkedNodeRef`s
+# function Base.hash(ref::LinkedNodeRef{T}, h::UInt) where {T <: PathNode}
+#     h = hash(ref.node.id, h)
+#     h = hash(ref.action, h)
+#     h = isnothing(ref.next) ? h : hash(ref.next, h)
+#     return h
+# end
+
+# function Base.:(==)(
+#     ref1::LinkedNodeRef{T}, ref2::LinkedNodeRef{U}
+# ) where {T <: PathNode, U <: PathNode}
+#     T == U || return false
+#     ref1.node.id == ref2.node.id || return false
+#     typeof(ref1.action) == typeof(ref2.action) || return false
+#     ref1.action == ref2.action || return false
+#     typeof(ref1.next) == typeof(ref2.next) || return false
+#     isnothing(ref1.next) && isnothing(ref2.next) && return true
+#     return ref1.next == ref2.next
+# end
+
+# function Base.show(io::IO, ref::LinkedNodeRef{T}) where {T <: PathNode}
+#     if isnothing(ref.next)
+#         print(io, typeof(ref), "(", repr(ref.node.id), ", ", repr(ref.action), ")")
+#     else
+#         print(io, typeof(ref), "(", repr(ref.node.id), ", ", repr(ref.action), ", ", "...")
+#     end
+# end
+
+# "Reconstructs a plan and trajectory from the start node to the provided node."
+# function reconstruct(node::PathNode{S}) where {S}
+#     plan, traj = Term[], S[node.state]
+#     while !isnothing(node.parent) && !isnothing(node.parent.action)
+#         pushfirst!(plan, node.parent.action)
+#         node = node.parent.node
+#         pushfirst!(traj, node.state)
+#     end
+#     return plan, traj
+# end
+
+"Reconstructs a plan and trajectory from the start node to the provided node."
 function reconstruct(node_id::UInt, search_tree::Dict{UInt,PathNode{S}}) where S
-    plan, traj = Term[], S[]
-    while node_id in keys(search_tree)
-        node = search_tree[node_id]
-        pushfirst!(traj, node.state)
-        if node.parent_id === nothing break end
-        pushfirst!(plan, node.parent_action)
-        node_id = node.parent_id
+    plan, trajectory = Term[], S[]
+    node = get(search_tree, node_id, nothing)
+    while !isnothing(node)
+        pushfirst!(trajectory, node.state)
+        (isnothing(node.parent) || isnothing(node.parent.action)) && break
+        pushfirst!(plan, node.parent.action)
+        node = get(search_tree, node.parent.id, nothing)
     end
-    return plan, traj
+    return plan, trajectory
 end
 
 """
@@ -150,7 +242,7 @@ function Base.copy(sol::PathSearchSolution)
     trajectory = isnothing(sol.trajectory) ?
         nothing : copy(sol.trajectory)
     search_tree = isnothing(sol.search_tree) ?
-        nothing : copy(sol.search_tree)
+        nothing : Dict(key => copy(val) for (key, val) in sol.search_tree)
     search_frontier = isnothing(sol.search_frontier) ?
         nothing : copy(sol.search_frontier)
     search_order = copy(sol.search_order)

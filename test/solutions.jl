@@ -1,7 +1,8 @@
 @testset "Solutions" begin
 
 using SymbolicPlanners:
-    get_value, get_action_values, get_action_probs, get_action_prob, PathNode
+    get_value, get_action_values, get_action_probs, get_action_prob,
+    PathNode, LinkedNodeRef
 
 # Available actions in initial Blocksworld state
 bw_init_actions = collect(available(blocksworld, bw_state))
@@ -39,7 +40,8 @@ path_nodes = map(enumerate(trajectory)) do (i, state)
     path_cost = Float32(i - 1)
     parent_id = i > 1 ? hash(trajectory[i - 1]) : nothing
     parent_action = i > 1 ? plan[i - 1] : nothing
-    return PathNode(id, state, path_cost, parent_id, parent_action)
+    parent_ref = i > 1 ? LinkedNodeRef(parent_id, parent_action) : nothing
+    return PathNode(id, state, path_cost, parent_ref)
 end
 search_tree = Dict(node.id => node for node in path_nodes)
 queue = [trajectory[end]]
@@ -176,7 +178,8 @@ path_nodes = map(enumerate(trajectory)) do (i, state)
     path_cost = Float32(i - 1)
     parent_id = i > 1 ? hash(trajectory[i - 1]) : nothing
     parent_action = i > 1 ? plan[i - 1] : nothing
-    return PathNode(id, state, path_cost, parent_id, parent_action)
+    parent_ref = i > 1 ? LinkedNodeRef(parent_id, parent_action) : nothing
+    return PathNode(id, state, path_cost, parent_ref)
 end
 search_tree = Dict(node.id => node for node in path_nodes)
 
