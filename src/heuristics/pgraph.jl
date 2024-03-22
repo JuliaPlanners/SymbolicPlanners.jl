@@ -387,12 +387,14 @@ function pgraph_init_idxs(graph::PlanningGraph,
                           domain::Domain, state::State)
     @unpack conditions, cond_derived, cond_functional = graph
     # Handle non-derived initial conditions
-    function check_cond(c, is_derived, is_func)
+    function check_cond(@nospecialize(c::Term), is_derived::Bool, is_func::Bool)
         is_derived && return false
         is_func && return satisfy(domain, state, c)::Bool
-        c.name == :not && return !state[c.args[1]]::Bool
-        c.name isa Bool && return c.name
-        return state[c]::Bool
+        c.name == :not && return !PDDL.get_fluent(state, c.args[1])::Bool
+        c.name isa Bool && return c.name::Bool
+        c isa Const && return PDDL.get_fluent(state, c)::Bool
+        c isa Compound && return PDDL.get_fluent(state, c)::Bool
+        return PDDL.get_fluent(state, c)::Bool
     end
     init_idxs = broadcast(check_cond, conditions, cond_derived, cond_functional)
     # Handle derived initial conditions
@@ -406,11 +408,11 @@ function pgraph_init_idxs(graph::PlanningGraph,
                           domain::Domain, state::GenericState)
     @unpack conditions, cond_derived, cond_functional = graph
     # Handle non-derived initial conditions
-    function check_cond(c, is_derived, is_func)
+    function check_cond(@nospecialize(c::Term), is_derived::Bool, is_func::Bool)
         is_derived && return false
         is_func && return satisfy(domain, state, c)::Bool
         c.name == :not && return !(c.args[1] in PDDL.get_facts(state))
-        c.name isa Bool && return c.name
+        c.name isa Bool && return c.name::Bool
         return c in PDDL.get_facts(state)
     end
     init_idxs = broadcast(check_cond, conditions, cond_derived, cond_functional)

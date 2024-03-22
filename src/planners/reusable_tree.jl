@@ -40,10 +40,10 @@ rand_action(sol::ReusableTreePolicy, state::State) =
 
 function best_action(sol::ReusableTreePolicy, state::State)
     node = get(sol.tree, hash(state), nothing)
-    if isnothing(node) || isnothing(node.parent_action)
+    if isnothing(node) || isnothing(node.parent) || isnothing(node.parent.action)
         return best_action(sol.value_policy, state)
     else
-        return node.parent_action
+        return node.parent.action
     end
 end
 
@@ -70,16 +70,16 @@ function insert_path!(
     s_node = search_tree[node_id]
     g_node = get!(goal_tree, node_id) do
         # Insert new root/goal node to reusable tree
-        PathNode(node_id, s_node.state, f_val)
+        PathNode{S}(node_id, s_node.state, f_val)
     end
-    while s_node.parent_id !== nothing
-        next_id = s_node.parent_id
+    while !isnothing(s_node.parent) && !isnothing(s_node.parent.action)
+        next_id = s_node.parent.id
         next_s_node = search_tree[next_id]
-        g_node = get!(goal_tree, next_id) do 
+        g_node = get!(goal_tree, next_id) do
             # Insert new intermediate node to reusable tree
             h_val = f_val - s_node.path_cost
-            PathNode(next_id, next_s_node.state, h_val,
-                     node_id, s_node.parent_action)
+            parent_ref = LinkedNodeRef(node_id, s_node.parent.action)
+            PathNode{S}(next_id, next_s_node.state, h_val, parent_ref)
         end
         node_id = next_id
         s_node = next_s_node

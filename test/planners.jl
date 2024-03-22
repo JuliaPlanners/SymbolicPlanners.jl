@@ -234,7 +234,7 @@ sol = planner(blocksworld, sol.trajectory[end], bw_act_spec)
 @test collect(sol) == @pddl("(unstack a b)", "(stack a b)")
 
 # Test solution refinement
-planner = AStarPlanner(HAdd(), max_nodes=2, save_search=true)
+planner = AStarPlanner(HAdd(), max_nodes=2, refine_method=:continue)
 sol = planner(blocksworld, bw_state, bw_spec)
 @test sol.status == :max_nodes
 planner.max_nodes = typemax(Int)
@@ -244,6 +244,16 @@ refine!(sol, planner, blocksworld, bw_state, bw_spec)
 @test collect(sol) == @pddl("(pick-up a)", "(stack a b)",
                             "(pick-up c)", "(stack c a)")
 
+planner = AStarPlanner(GoalCountHeuristic(), max_nodes=10, refine_method=:reroot)
+sol = planner(doors_keys_gems, dkg_state, dkg_spec)
+@test sol.status == :max_nodes
+planner.max_nodes = typemax(Int)
+refine!(sol, planner, doors_keys_gems, sol.trajectory[3], dkg_spec)
+@test is_goal(dkg_spec, doors_keys_gems, sol.trajectory[end])
+@test collect(sol) == @pddl("(down)", "(pickup key1)", "(down)",
+                            "(unlock key1 door1)", "(right)", "(right)",
+                            "(up)", "(up)", "(pickup gem1)")[3:end]
+                            
 @test copy(planner) == planner
 
 end
@@ -282,6 +292,7 @@ sol2 = planner(doors_keys_gems, dkg_state, dkg_spec)
 @test sol1.search_order != sol2.search_order
 
 # Test solution refinement
+Random.seed!(0)
 planner = ProbAStarPlanner(HAdd(), max_nodes=2, save_search=true)
 sol = planner(blocksworld, bw_state, bw_spec)
 @test sol.status == :max_nodes
@@ -291,6 +302,17 @@ refine!(sol, planner, blocksworld, bw_state, bw_spec)
 @test is_goal(bw_spec, blocksworld, sol.trajectory[end])
 @test collect(sol) == @pddl("(pick-up a)", "(stack a b)",
                             "(pick-up c)", "(stack c a)")
+
+Random.seed!(0)
+planner = ProbAStarPlanner(GoalCountHeuristic(), max_nodes=10, refine_method=:reroot)
+sol = planner(doors_keys_gems, dkg_state, dkg_spec)
+@test sol.status == :max_nodes
+planner.max_nodes = typemax(Int)
+refine!(sol, planner, doors_keys_gems, sol.trajectory[3], dkg_spec)
+@test is_goal(dkg_spec, doors_keys_gems, sol.trajectory[end])
+@test collect(sol) == @pddl("(down)", "(pickup key1)", "(down)",
+                            "(unlock key1 door1)", "(right)", "(right)",
+                            "(up)", "(up)", "(pickup gem1)")[3:end]
 
 @test copy(planner) == planner
 
