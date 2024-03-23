@@ -30,6 +30,10 @@ get_value(sol::EpsilonGreedyPolicy, state::State, action::Term) =
     get_value(sol.policy, state, action)
 get_action_values(sol::EpsilonGreedyPolicy, state::State) =
     get_action_values(sol.policy, state)
+has_cached_value(sol::EpsilonGreedyPolicy, state::State) =
+    has_cached_value(sol.policy, state)
+has_cached_value(sol::EpsilonGreedyPolicy, state::State, action::Term) =
+    has_cached_value(sol.policy, state, action)
 
 function rand_action(sol::EpsilonGreedyPolicy, state::State)
     if rand(sol.rng) < sol.epsilon

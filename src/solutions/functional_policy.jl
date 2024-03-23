@@ -1,4 +1,4 @@
-export FunctionalVPolicy, FunctionalQPolicy
+export FunctionalVPolicy
 
 """
     FunctionalVPolicy(evaluator, domain, spec)

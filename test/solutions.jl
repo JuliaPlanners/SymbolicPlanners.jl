@@ -2,7 +2,7 @@
 
 using SymbolicPlanners:
     get_value, get_action_values, get_action_probs, get_action_prob,
-    PathNode, LinkedNodeRef
+    has_cached_value, PathNode, LinkedNodeRef
 
 # Available actions in initial Blocksworld state
 bw_init_actions = collect(available(blocksworld, bw_state))
@@ -101,6 +101,13 @@ sol.Q[hash(bw_state)] = bw_init_q
 @test get_value(sol, bw_state, pddl"(pick-up b)") == -6.0
 @test get_action_values(sol, bw_state) == bw_init_q
 
+next_bw_state = transition(blocksworld, bw_state, pddl"(pick-up a)")
+@test has_cached_value(sol, bw_state)
+@test !has_cached_value(sol, next_bw_state)
+@test has_cached_value(sol, bw_state, pddl"(pick-up a)")
+@test !has_cached_value(sol, bw_state, pddl"(pick-up z)")
+@test !has_cached_value(sol, next_bw_state, pddl"(put-down a)")
+
 probs = Dict(a => a == pddl"(pick-up a)" ? 1.0 : 0.0 for a in bw_init_actions)
 @test get_action_probs(sol, bw_state) == probs
 @test get_action_prob(sol, bw_state, pddl"(pick-up a)") == 1.0
@@ -127,6 +134,13 @@ end
 @test get_value(sol, bw_state) == -4.0
 @test get_value(sol, bw_state, pddl"(pick-up b)") == -6.0
 @test get_action_values(sol, bw_state) == bw_init_q
+
+next_bw_state = transition(blocksworld, bw_state, pddl"(pick-up a)")
+next_next_bw_state = transition(blocksworld, next_bw_state, pddl"(stack a b)")
+@test has_cached_value(sol, bw_state)
+@test has_cached_value(sol, next_bw_state)
+@test !has_cached_value(sol, next_next_bw_state)
+@test !has_cached_value(sol, bw_state, pddl"(pick-up a)")
 
 probs = Dict(a => a == pddl"(pick-up a)" ? 1.0 : 0.0 for a in bw_init_actions)
 @test get_action_probs(sol, bw_state) == probs

@@ -1,6 +1,19 @@
 export TabularPolicy, TabularVPolicy
 
 """
+    has_cached_value(sol, state)
+    has_cached_value(sol, state, action)
+
+Returns true if the value of `state` (and `action`) is cached in the state
+value or action value table of `sol`.
+"""
+has_cached_value(sol::Solution, state::State) = false
+has_cached_value(sol::Solution, state::State, action::Term) = false
+
+has_cached_value(sol::Solution, state_id::UInt) = false
+has_cached_value(sol::Solution, state_id::UInt, action::Term) = false
+
+"""
     TabularPolicy(V::Dict, Q::Dict, default)
     TabularPolicy(default = NullPolicy())
 
@@ -66,7 +79,7 @@ function get_action_values(sol::TabularPolicy, state::State)
 end
 
 function set_value!(sol::TabularPolicy, state::State, val::Real)
-    sol.V[hash(state)] = val
+    set_value!(sol, hash(state), val)
 end
 
 function set_value!(sol::TabularPolicy, state_id::UInt, val::Real)
@@ -74,10 +87,7 @@ function set_value!(sol::TabularPolicy, state_id::UInt, val::Real)
 end
 
 function set_value!(sol::TabularPolicy, state::State, action::Term, val::Real)
-    qs = get!(sol.Q, hash(state)) do
-        Dict{Term,Float64}()
-    end
-    qs[action] = val
+    set_value!(sol, hash(state), action, val)
 end
 
 function set_value!(sol::TabularPolicy, state_id::UInt, action::Term, val::Real)
@@ -85,6 +95,23 @@ function set_value!(sol::TabularPolicy, state_id::UInt, action::Term, val::Real)
         Dict{Term,Float64}()
     end
     qs[action] = val
+end
+
+function has_cached_value(sol::TabularPolicy, state::State)
+    return has_cached_value(sol, hash(state))
+end
+
+function has_cached_value(sol::TabularPolicy, state_id::UInt)
+    return haskey(sol.V, state_id)
+end
+
+function has_cached_value(sol::TabularPolicy, state::State, action::Term)
+    return has_cached_value(sol, hash(state), action)
+end
+
+function has_cached_value(sol::TabularPolicy, state_id::UInt, action::Term)
+    qs = get(sol.Q, state_id, nothing)
+    return !isnothing(qs) && haskey(qs, action)
 end
 
 """
@@ -165,4 +192,12 @@ end
 
 function set_value!(sol::TabularVPolicy, state_id::UInt, val::Real)
     sol.V[state_id] = val
+end
+
+function has_cached_value(sol::TabularVPolicy, state::State)
+    return has_cached_value(sol, hash(state))
+end
+
+function has_cached_value(sol::TabularVPolicy, state_id::UInt)
+    return haskey(sol.V, state_id)
 end
