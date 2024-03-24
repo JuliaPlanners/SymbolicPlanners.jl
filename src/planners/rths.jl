@@ -1,7 +1,5 @@
 export RealTimeHeuristicSearch, RTHS
 
-include("reusable_tree.jl")
-
 """
     RealTimeHeuristicSearch(;
         heuristic::Heuristic = GoalCountHeuristic(),

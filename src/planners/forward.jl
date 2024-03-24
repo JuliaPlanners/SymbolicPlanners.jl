@@ -271,6 +271,8 @@ function search!(sol::PathSearchSolution,
         # Check search termination criteria
         if is_goal(spec, domain, node.state, node.parent.action)
             sol.status = :success # Goal reached
+        elseif on_goal_path(spec, domain, node.state)
+            sol.status = :success # Previous path to goal reached
         elseif sol.expanded >= planner.max_nodes
             sol.status = :max_nodes # Node budget reached
         elseif time() - start_time >= planner.max_time

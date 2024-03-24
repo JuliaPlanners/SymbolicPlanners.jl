@@ -126,13 +126,22 @@ Base.hash(spec::ReusableTreeGoal, h::UInt) =
 Base.:(==)(s1::ReusableTreeGoal, s2::ReusableTreeGoal) =
     s1.tree == s2.tree && s1.spec == s2.spec
 
-is_goal(spec::ReusableTreeGoal, domain::Domain, state::State) =
-    is_goal(spec.spec, domain, state) ||
+"""
+    on_goal_path(spec, domain, state)
+
+If `spec` is a `ReusableTreeGoal`, returns `true` if a node in the reusable tree
+has been reached. Otherwise, returns `false`.
+"""
+on_goal_path(spec::Specification, domain::Domain, state::State) =
+    false
+on_goal_path(spec::ReusableTreeGoal, domain::Domain, state::State) =
     (!isempty(spec.tree) && haskey(spec.tree, hash(state)))
 
+is_goal(spec::ReusableTreeGoal, domain::Domain, state::State) =
+    is_goal(spec.spec, domain, state)
+
 is_goal(spec::ReusableTreeGoal, domain::Domain, state::State, action) =
-    is_goal(spec.spec, domain, state, action) ||
-    (!isempty(spec.tree) && haskey(spec.tree, hash(state)))
+    is_goal(spec.spec, domain, state, action)
 
 is_violated(spec::ReusableTreeGoal, domain::Domain, state::State) =
     is_violated(spec.spec, domain, state)
