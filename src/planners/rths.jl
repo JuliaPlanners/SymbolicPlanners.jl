@@ -59,20 +59,23 @@ Setting the `update_method` keyword argument controls how value estimates
   h(s) = h(t) + (c(r, t) - c(r, s))
   ```
   where ``c(r, s)`` is the cost from the root node ``r`` to ``s``. This is
-  the update rule used by Real-Time Adaptive A* [3]. Takes ``O(N)`` time, where
-  ``N`` is the size of the tree's interior.
+  the update used by Real-Time Adaptive A* [3]. Takes ``O(N)`` time, where ``N``
+  is the size of the tree's interior.
 
 - `:dijkstra`: Value estimates are backpropagated from the search frontier via
   Dijkstra's algorithm. For each node ``s`` in tree's interior, we update the
-  cost-to-goal ``h(s)`` by minimizing over all possible paths to the frontier:
+  cost-to-goal ``h(s)`` by minimizing over all paths to the frontier:
   ```math
   h(s) = \\min_{t \\in F} h(t) + c(s, t)
   ```
-  This is the update rule used by LSS-LRTA* [4], which produces more informed
-  value estimates than `:costdiff`, but takes ``O(NB log NB)`` time. ``N`` is
-  the size of the tree's interior and ``B`` is the maximal branching factor
-  at each node. The `save_parents` keyword for [`ForwardPlanner`](@ref) defaults
-  to `true` when this method is used.
+  This is the update rule by LSS-LRTA* [4], which produces more informed
+  value estimates than `:costdiff`, but takes ``O(NB \\log NB)`` time. ``N`` is
+  the size of the tree's interior and ``B`` is the maximal branching factor. 
+  The `save_parents` keyword for [`ForwardPlanner`](@ref) defaults to `true`
+  when this method is used.
+
+Both of these update methods require a `heuristic` that is initially consistent
+for the updated value estimates to remain consistent.
 
 [1] R. E. Korf, "Real-Time Heuristic Search," Artificial Intelligence, vol. 42,
 no. 2, pp. 189–211, Mar. 1990, <https://doi.org/10.1016/0004-3702(90)90054-4>.
