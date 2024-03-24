@@ -10,9 +10,6 @@ value or action value table of `sol`.
 has_cached_value(sol::Solution, state::State) = false
 has_cached_value(sol::Solution, state::State, action::Term) = false
 
-has_cached_value(sol::Solution, state_id::UInt) = false
-has_cached_value(sol::Solution, state_id::UInt, action::Term) = false
-
 """
     TabularPolicy(V::Dict, Q::Dict, default)
     TabularPolicy(default = NullPolicy())
@@ -54,17 +51,21 @@ best_action(sol::TabularPolicy, state::State) =
 
 function get_value(sol::TabularPolicy, state::State)
     return get(sol.V, hash(state)) do
-        get_value(sol.default, state)
+        get_value(sol.default, state_id) |> Float64
     end
+end
+
+function get_value(sol::TabularPolicy, state_id::UInt, default=nothing)
+    return get(sol.V, state_id, nothing)
 end
 
 function get_value(sol::TabularPolicy, state::State, action::Term)
     qs = get(sol.Q, hash(state), nothing)
     if qs === nothing
-        return get_value(sol.default, state, action)
+        return get_value(sol.default, state, action) |> Float64
     else
         return get(qs, action) do
-            get_value(sol.default, state, action)
+            get_value(sol.default, state, action) |> Float64
         end
     end
 end
@@ -167,8 +168,12 @@ end
 
 function get_value(sol::TabularVPolicy, state::State)
     return get(sol.V, hash(state)) do
-        get_value(sol.default, state)
+        get_value(sol.default, state) |> Float64
     end
+end
+
+function get_value(sol::TabularVPolicy, state_id::UInt, default=nothing)
+    return get(sol.V, state_id, default)
 end
 
 function get_value(sol::TabularVPolicy, state::State, action::Term)
@@ -177,7 +182,7 @@ function get_value(sol::TabularVPolicy, state::State, action::Term)
         is_goal(sol.spec, sol.domain, next_state, action))
         next_v = 0.0
     else
-        next_v = get_value(sol, next_state)
+        next_v = get_value(sol, next_state) |> Float64
     end
     r = get_reward(sol.spec, sol.domain, state, action, next_state)
     return get_discount(sol.spec) * next_v + r
@@ -200,4 +205,8 @@ end
 
 function has_cached_value(sol::TabularVPolicy, state_id::UInt)
     return haskey(sol.V, state_id)
+end
+
+function has_cached_value(sol::TabularVPolicy, state_id::UInt, action::Term)
+    return false
 end

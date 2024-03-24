@@ -310,7 +310,7 @@ function expand!(
     planner::ForwardPlanner, heuristic::Heuristic, node::PathNode{S},
     search_tree::Dict{UInt,PathNode{S}}, queue::PriorityQueue,
     domain::Domain, spec::Specification
-)where {S <: State}
+) where {S <: State}
     @unpack g_mult, h_mult = planner
     state = node.state
     # Iterate over available actions, filtered by heuristic

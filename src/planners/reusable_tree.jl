@@ -50,6 +50,9 @@ end
 get_value(sol::ReusableTreePolicy, state::State) =
     get_value(sol.value_policy, state)
 
+get_value(sol::ReusableTreePolicy, state_id::UInt, default = nothing) =
+    get_value(sol.value_policy, state_id, default)
+
 get_value(sol::ReusableTreePolicy, state::State, action::Term) =
     get_value(sol.value_policy, state, action)
 
@@ -62,22 +65,35 @@ set_value!(sol::ReusableTreePolicy, state::State, val::Real) =
 set_value!(sol::ReusableTreePolicy, state_id::UInt, val::Real) =
     set_value!(sol.value_policy, state_id, val)
 
+has_cached_value(sol::ReusableTreePolicy, state::State) =
+    has_cached_value(sol.value_policy, state)
+
+has_cached_value(sol::ReusableTreePolicy, state_id::UInt) =
+    has_cached_value(sol.value_policy, state_id)
+
+has_cached_value(sol::ReusableTreePolicy, state::State, action::Term) =
+    has_cached_value(sol.value_policy, state, action)
+
+has_cached_value(sol::ReusableTreePolicy, state_id::UInt, action::Term) =
+    has_cached_value(sol.value_policy, state_id, action)
+
 "Insert path that terminates at `node_id` from search tree into reusable tree."
 function insert_path!(
     goal_tree::Dict{UInt, PathNode{S}}, search_tree::Dict{UInt, PathNode{S}},
-    node_id::UInt, f_val::Float32
+    node_id::UInt, terminal_h_val::Float32
 ) where {S <: State}
     s_node = search_tree[node_id]
+    terminal_f_val = s_node.path_cost + terminal_h_val
     g_node = get!(goal_tree, node_id) do
         # Insert new root/goal node to reusable tree
-        PathNode{S}(node_id, s_node.state, f_val)
+        PathNode{S}(node_id, s_node.state, terminal_h_val)
     end
     while !isnothing(s_node.parent) && !isnothing(s_node.parent.action)
         next_id = s_node.parent.id
         next_s_node = search_tree[next_id]
         g_node = get!(goal_tree, next_id) do
             # Insert new intermediate node to reusable tree
-            h_val = f_val - s_node.path_cost
+            h_val = terminal_f_val - next_s_node.path_cost
             parent_ref = LinkedNodeRef(node_id, s_node.parent.action)
             PathNode{S}(next_id, next_s_node.state, h_val, parent_ref)
         end
@@ -89,9 +105,9 @@ end
 
 function insert_path!(
     sol::ReusableTreePolicy{S}, search_tree::Dict{UInt, PathNode{S}},
-    node_id::UInt, f_val::Float32
+    node_id::UInt, terminal_h_val::Float32
 ) where {S <: State} 
-    insert_path!(sol.tree, search_tree, node_id, f_val)
+    insert_path!(sol.tree, search_tree, node_id, terminal_h_val)
 end
 
 """
