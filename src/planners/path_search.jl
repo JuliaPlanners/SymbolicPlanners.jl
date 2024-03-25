@@ -138,54 +138,6 @@ function Base.copy(node::PathNode{S}) where {S}
     return PathNode{S}(node.id, node.state, node.path_cost, parent, child)
 end
 
-# function Base.hash(node::PathNode, h::UInt)
-#     h = hash(node.id, h)
-#     h = hash(node.state, h)
-#     h = hash(node.path_cost, h)
-#     h = isnothing(node.parent) ? h : hash(node.parent, h)
-#     h = isnothing(node.child) ? h : hash(node.child, h)
-#     return h
-# end
-
-# # Avoid recursive hashing and equality checking for `LinkedNodeRef`s
-# function Base.hash(ref::LinkedNodeRef{T}, h::UInt) where {T <: PathNode}
-#     h = hash(ref.node.id, h)
-#     h = hash(ref.action, h)
-#     h = isnothing(ref.next) ? h : hash(ref.next, h)
-#     return h
-# end
-
-# function Base.:(==)(
-#     ref1::LinkedNodeRef{T}, ref2::LinkedNodeRef{U}
-# ) where {T <: PathNode, U <: PathNode}
-#     T == U || return false
-#     ref1.node.id == ref2.node.id || return false
-#     typeof(ref1.action) == typeof(ref2.action) || return false
-#     ref1.action == ref2.action || return false
-#     typeof(ref1.next) == typeof(ref2.next) || return false
-#     isnothing(ref1.next) && isnothing(ref2.next) && return true
-#     return ref1.next == ref2.next
-# end
-
-# function Base.show(io::IO, ref::LinkedNodeRef{T}) where {T <: PathNode}
-#     if isnothing(ref.next)
-#         print(io, typeof(ref), "(", repr(ref.node.id), ", ", repr(ref.action), ")")
-#     else
-#         print(io, typeof(ref), "(", repr(ref.node.id), ", ", repr(ref.action), ", ", "...")
-#     end
-# end
-
-# "Reconstructs a plan and trajectory from the start node to the provided node."
-# function reconstruct(node::PathNode{S}) where {S}
-#     plan, traj = Term[], S[node.state]
-#     while !isnothing(node.parent) && !isnothing(node.parent.action)
-#         pushfirst!(plan, node.parent.action)
-#         node = node.parent.node
-#         pushfirst!(traj, node.state)
-#     end
-#     return plan, traj
-# end
-
 "Reconstructs a plan and trajectory from the start node to the provided node."
 function reconstruct(node_id::UInt, search_tree::Dict{UInt,PathNode{S}}) where S
     plan, trajectory = Term[], S[]
