@@ -51,7 +51,7 @@ best_action(sol::TabularPolicy, state::State) =
 
 function get_value(sol::TabularPolicy, state::State)
     return get(sol.V, hash(state)) do
-        get_value(sol.default, state_id) |> Float64
+        get_value(sol.default, state) |> Float64
     end
 end
 
