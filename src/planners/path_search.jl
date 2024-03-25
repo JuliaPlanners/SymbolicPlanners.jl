@@ -216,6 +216,19 @@ function Base.show(io::IO, m::MIME"text/plain", sol::PathSearchSolution)
     end
 end
 
+"Returns true if the node has been expanded."
+function is_expanded(id::UInt, sol::PathSearchSolution)
+    if keytype(sol.search_frontier) == UInt
+        return haskey(sol.search_tree, id) && !haskey(sol.search_frontier, id)
+    else
+        return haskey(sol.search_tree, id) && !(id in sol.search_frontier)
+    end
+end
+is_expanded(node::PathNode, sol::PathSearchSolution) =
+    is_expanded(node.id, sol)
+is_expanded(state::State, sol::PathSearchSolution) =
+    is_expanded(hash(state), sol)
+
 """
     BiPathSearchSolution(status, plan)
     BiPathSearchSolution(status, plan, trajectory)

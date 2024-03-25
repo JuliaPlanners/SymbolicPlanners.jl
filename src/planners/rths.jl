@@ -18,11 +18,12 @@ export RealTimeHeuristicSearch, RTHS
     )
 
 A real time heuristic search (`RTHS`) algorithm [1] similar to `RTDP`. Instead
-of greedy rollouts, forward heuristic search is performed from each neighbor of
-the current state (up to `max_nodes`), and value estimates are updated for all
-states in the interiors of the resulting search trees. A simulated action
-is then taken to the highest-value neighbor. This repeats for `n_iters`, with
-future searches using the updated value estimates as more informed heuristics.
+of greedy rollouts, forward heuristic search is performed from the current state
+(up to `max_nodes`), and value estimates are updated for all states in the
+interior of the search tree. If any neighboring states are not in the interior
+of this tree, search is performed from these states too. A simulated action is
+then taken to the highest-value neighbor. This repeats for `n_iters`, with
+future searches using the updated value function as a more informed heuristic.
 
 If `reuse_paths` is set to `true`, a [`ReusableTreePolicy`](@ref) is returned,
 otherwise a [`TabularVPolicy`](@ref) is returned. While this planner returns a
@@ -215,22 +216,29 @@ function solve!(sol::Union{<:TabularVPolicy, <:ReusableTreePolicy},
             state = init_state
         end
         state_id = hash(state)
-        # Update values of neighboring states via heuristic search
+        # Run search from current state and update values in search tree
+        search_sol = solve(planner.planner, domain, state, tree_spec)
+        update_values!(planner, sol, search_sol, domain, spec)
+        # Iterate over available actions
         best_q, best_act = -Inf, missing
         for act in available(domain, state)
             next_state = transition(domain, state, act)
             get_value(sol, next_state) == -Inf && continue
-            if is_goal(spec, domain, next_state, act) # Goal reached
+            if is_goal(spec, domain, next_state, act)
+                # Goal reached, set value of next state to 0
                 next_v = 0.0
-                if !has_action_goal(spec)
-                    set_value!(sol, next_state, 0.0)
-                end
-            else # Run heuristic search
-                search_sol = solve(planner.planner, domain,
-                                   next_state, tree_spec)
-                update_values!(planner, sol, search_sol, domain, spec)
+                !has_action_goal(spec) && set_value!(sol, next_state, next_v)
+            elseif !is_expanded(next_state, search_sol)
+                # Run new search if neighbor is not expanded in search tree
+                next_search_sol = solve(planner.planner, domain,
+                                        next_state, tree_spec)
+                update_values!(planner, sol, next_search_sol, domain, spec)
+                next_v = get_value(sol, next_state)
+            else
+                # Look up existing value in search tree
                 next_v = get_value(sol, next_state)
             end
+            # Update best action and Q-value
             r = get_reward(spec, domain, state, act, next_state)
             q = get_discount(spec) * next_v + r
             if q > best_q
