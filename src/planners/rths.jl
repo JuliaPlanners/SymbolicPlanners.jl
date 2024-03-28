@@ -6,6 +6,7 @@ export RealTimeHeuristicSearch, RTHS
         n_iters::Int = 1,
         max_nodes::Int = 50,
         update_method::Symbol = :costdiff,
+        search_neighbors::Symbol = :unexpanded,
         reuse_paths::Bool = true,
         kwargs...
     )
@@ -14,14 +15,15 @@ export RealTimeHeuristicSearch, RTHS
         planner::ForwardPlanner,
         n_iters::Int = 1,
         update_method::Symbol = :costdiff,
+        search_neighbors::Symbol = :unexpanded,
         reuse_paths::Bool = true,
     )
 
 A real time heuristic search (`RTHS`) algorithm [1] similar to `RTDP`. Instead
 of greedy rollouts, forward heuristic search is performed from the current state
 (up to `max_nodes`), and value estimates are updated for all states in the
-interior of the search tree. If any neighboring states are not in the interior
-of this tree, search is performed from these states too. A simulated action is
+interior of the search tree. Depending on the value of `search_neighbors`,
+search may also be performed from neighboring states. A simulated action is
 then taken to the highest-value neighbor. This repeats for `n_iters`, with
 future searches using the updated value function as a more informed heuristic.
 
@@ -41,11 +43,14 @@ policy, it expects a deterministic domain as input.
   cost differencing from the terminal node (`:costdiff`), or via Dijkstra's
   algorithm (`:dijkstra`).
 
-- `reuse_paths`: If set to `true` (the default), then every time a path to the
-  goal is found, it is stored in a reusable tree data structure. Following
-  Tree Adaptive A* [2], subsequent searches will terminate once a path in
-  the tree is encoutered, reducing the number of node expansions. Requires a
-  consistent `heuristic` to preserve path optimality.
+- `search_neighbors`: Controls whether search is additionally performed from all
+  neighbors of the current state (`:all`), from neighbors unexpanded by the
+  initial search (`:unexpanded`), or none of them (`:none`).
+
+- `reuse_paths`: If `true`, then every time a path to the goal is found, it is
+  stored in a reusable tree of goal paths, as in Tree Adaptive A* [2]. Future
+  searches will terminate once a previous path is encountered, reducing the cost
+  of search. A consistent `heuristic` is required to ensure path optimality.
 
 # Update Methods
 
@@ -96,6 +101,7 @@ search for real-time situated agents", AAMAS (2009), pp. 313–341.
     planner::P
     n_iters::Int
     update_method::Symbol
+    search_neighbors::Symbol
     reuse_paths::Bool
     callback::Union{Nothing, Function}
 end
@@ -107,6 +113,7 @@ function RealTimeHeuristicSearch(
     planner::ForwardPlanner;
     n_iters::Int = 1,
     update_method::Symbol = :costdiff,
+    search_neighbors::Symbol = :unexpanded,
     reuse_paths::Bool = true,
     verbose::Bool = false,
     callback = verbose ? LoggerCallback() : nothing,
@@ -116,14 +123,17 @@ function RealTimeHeuristicSearch(
     if update_method == :dijkstra
         planner.save_parents = true
     end
-    return RealTimeHeuristicSearch(planner, n_iters, update_method,
-                                   reuse_paths, callback)
+    return RealTimeHeuristicSearch(
+        planner, n_iters, update_method, search_neighbors,
+        reuse_paths, callback
+    )
 end
 
 function RealTimeHeuristicSearch(;
     n_iters::Int = 1,
     max_nodes::Int = 50,
     update_method::Symbol = :costdiff,
+    search_neighbors::Symbol = :unexpanded,
     reuse_paths::Bool = true,
     verbose::Bool = false,
     callback = verbose ? LoggerCallback() : nothing,
@@ -133,8 +143,10 @@ function RealTimeHeuristicSearch(;
         max_nodes = max_nodes, save_search = true, 
         save_parents = update_method == :dijkstra, kwargs...
     )
-    return RealTimeHeuristicSearch(planner, n_iters, update_method, 
-                                   reuse_paths, callback)
+    return RealTimeHeuristicSearch(
+        planner, n_iters, update_method, search_neighbors,
+        reuse_paths, callback
+    )
 end
 
 function RealTimeHeuristicSearch(
@@ -142,6 +154,7 @@ function RealTimeHeuristicSearch(
     n_iters::Int = 1,
     max_nodes::Int = 50,
     update_method::Symbol = :costdiff,
+    search_neighbors::Symbol = :unexpanded,
     reuse_paths::Bool = true,
     verbose::Bool = false,
     callback = verbose ? LoggerCallback() : nothing,
@@ -151,23 +164,27 @@ function RealTimeHeuristicSearch(
         heuristic=heuristic, max_nodes=max_nodes, save_search=true,
         save_parents = update_method == :dijkstra, kwargs...
     )
-    return RealTimeHeuristicSearch(planner, n_iters, update_method,
-                                   reuse_paths, callback)
+    return RealTimeHeuristicSearch(
+        planner, n_iters, update_method, search_neighbors,
+        reuse_paths, callback
+    )
 end
 
 function Base.getproperty(planner::RealTimeHeuristicSearch, name::Symbol)
-    name in (:planner, :n_iters, :update_method, :reuse_paths, :callback) ?
+    hasfield(RealTimeHeuristicSearch, name) ?
         getfield(planner, name) : getproperty(planner.planner, name)
 end
 
 function Base.setproperty!(planner::RealTimeHeuristicSearch, name::Symbol, val)
-    name in (:planner, :n_iters, :update_method, :reuse_paths, :callback) ?
+    hasfield(RealTimeHeuristicSearch, name) ?
         setfield!(planner, name, val) : setproperty!(planner.planner, name, val)
 end
 
 function Base.copy(p::RealTimeHeuristicSearch)
-    return RealTimeHeuristicSearch(copy(p.planner), p.n_iters, p.update_method,
-                                   p.reuse_paths, p.callback)
+    return RealTimeHeuristicSearch(
+        copy(p.planner), p.n_iters, p.update_method, p.search_neighbors,
+        p.reuse_paths, p.callback
+    )
 end
 
 function solve(planner::RealTimeHeuristicSearch,
@@ -195,7 +212,7 @@ end
 function solve!(sol::Union{<:TabularVPolicy, <:ReusableTreePolicy},
                 planner::RealTimeHeuristicSearch,
                 domain::Domain, state::State, spec::Specification)
-    @unpack n_iters, heuristic = planner
+    @unpack n_iters, heuristic, search_neighbors = planner
     # Use previously computed policy values to guide search
     h = PruningHeuristic(PolicyValueHeuristic(sol), heuristic)
     planner.heuristic = h
@@ -228,8 +245,10 @@ function solve!(sol::Union{<:TabularVPolicy, <:ReusableTreePolicy},
                 # Goal reached, set value of next state to 0
                 next_v = 0.0
                 !has_action_goal(spec) && set_value!(sol, next_state, next_v)
-            elseif !is_expanded(next_state, search_sol)
-                # Run new search if neighbor is not expanded in search tree
+            elseif (search_neighbors == :all ||
+                    search_neighbors == :unexpanded &&
+                    !is_expanded(next_state, search_sol))
+                # Run new search from next state
                 next_search_sol = solve(planner.planner, domain,
                                         next_state, tree_spec)
                 update_values!(planner, sol, next_search_sol, domain, spec)
