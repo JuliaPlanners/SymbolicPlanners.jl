@@ -176,7 +176,7 @@ function Base.getproperty(planner::P, name::Symbol) where {P <: RTHS}
 end
 
 function Base.setproperty!(planner::P, name::Symbol, val) where {P <: RTHS}
-    hasfield(RealTimeHeuristicSearch, name) ?
+    hasfield(P, name) ?
         setfield!(planner, name, val) : setproperty!(planner.planner, name, val)
 end
 
