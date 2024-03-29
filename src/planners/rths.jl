@@ -170,14 +170,18 @@ function RealTimeHeuristicSearch(
     )
 end
 
-function Base.getproperty(planner::RealTimeHeuristicSearch, name::Symbol)
-    hasfield(RealTimeHeuristicSearch, name) ?
+function Base.getproperty(planner::P, name::Symbol) where {P <: RTHS}
+    hasfield(P, name) ?
         getfield(planner, name) : getproperty(planner.planner, name)
 end
 
-function Base.setproperty!(planner::RealTimeHeuristicSearch, name::Symbol, val)
+function Base.setproperty!(planner::P, name::Symbol, val) where {P <: RTHS}
     hasfield(RealTimeHeuristicSearch, name) ?
         setfield!(planner, name, val) : setproperty!(planner.planner, name, val)
+end
+
+function Base.hasproperty(planner::P, name::Symbol) where {P <: RTHS}
+    hasfield(P, name) || hasproperty(planner.planner, name)
 end
 
 function Base.copy(p::RealTimeHeuristicSearch)
