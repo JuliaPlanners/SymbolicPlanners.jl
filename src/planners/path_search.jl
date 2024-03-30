@@ -45,13 +45,13 @@ get_action(sol::AbstractPathSearchSolution, t::Int) = sol.plan[t]
 
 function get_action(sol::AbstractPathSearchSolution, state::State)
     if sol.status == :failure # Return no-op if goal is unreachable
-        return convert(Term, PDDL.no_op)
+        return PDDL.no_op
     end
     idx = findfirst(==(state), sol.trajectory)
     if isnothing(idx) # Return missing if no corresponding state found
         return missing
     elseif idx == length(sol.trajectory) # Return no-op if goal is reached
-        return sol.status == :success ? convert(Term, PDDL.no_op) : missing
+        return sol.status == :success ? PDDL.no_op : missing
     else # Return action corresponding to state
         return sol.plan[idx]
     end
@@ -69,7 +69,7 @@ rand_action(sol::AbstractPathSearchSolution, state::State) =
 
 function get_action_probs(sol::AbstractPathSearchSolution, state::State)
     act = get_action(sol, state)
-    return ismissing(act) ? Dict() : Dict(act => 1.0)
+    return ismissing(act) ? Dict{Compound,Float64}() : Dict(act => 1.0)
 end
 
 get_action_prob(sol::AbstractPathSearchSolution, state::State, action::Term) =
@@ -228,6 +228,14 @@ is_expanded(node::PathNode, sol::PathSearchSolution) =
     is_expanded(node.id, sol)
 is_expanded(state::State, sol::PathSearchSolution) =
     is_expanded(hash(state), sol)
+
+"Returns true if the node has been reached (evaluated or expanded)."
+is_reached(id::UInt, sol::PathSearchSolution) =
+    haskey(sol.search_tree, id)
+is_reached(node::PathNode, sol::PathSearchSolution) =
+    is_reached(node.id, sol)
+is_reached(state::State, sol::PathSearchSolution) =
+    is_reached(hash(state), sol)
 
 """
     BiPathSearchSolution(status, plan)

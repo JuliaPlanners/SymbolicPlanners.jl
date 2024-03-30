@@ -246,7 +246,8 @@ refine!(sol, planner, blocksworld, bw_state, bw_spec)
 @test collect(sol) == @pddl("(pick-up a)", "(stack a b)",
                             "(pick-up c)", "(stack c a)")
 
-planner = AStarPlanner(GoalCountHeuristic(), max_nodes=10, refine_method=:reroot)
+planner = AStarPlanner(GoalCountHeuristic(), max_nodes=10,
+                       refine_method=:reroot)
 sol = planner(doors_keys_gems, dkg_state, dkg_spec)
 @test sol.status == :max_nodes
 planner.max_nodes = typemax(Int)
@@ -295,7 +296,7 @@ sol2 = planner(doors_keys_gems, dkg_state, dkg_spec)
 
 # Test solution refinement
 Random.seed!(0)
-planner = ProbAStarPlanner(HAdd(), max_nodes=2, save_search=true)
+planner = ProbAStarPlanner(HAdd(), max_nodes=2, refine_method=:continue)
 sol = planner(blocksworld, bw_state, bw_spec)
 @test sol.status == :max_nodes
 planner.max_nodes = typemax(Int)
@@ -306,7 +307,8 @@ refine!(sol, planner, blocksworld, bw_state, bw_spec)
                             "(pick-up c)", "(stack c a)")
 
 Random.seed!(0)
-planner = ProbAStarPlanner(GoalCountHeuristic(), max_nodes=10, refine_method=:reroot)
+planner = ProbAStarPlanner(GoalCountHeuristic(), max_nodes=10, 
+                           refine_method=:reroot)
 sol = planner(doors_keys_gems, dkg_state, dkg_spec)
 @test sol.status == :max_nodes
 planner.max_nodes = typemax(Int)
@@ -503,7 +505,7 @@ actions, trajectory = simulator(sol, gridworld, gw_state, gw_spec)
 @test actions == @pddl("down", "down", "right", "right", "up", "up")
 @test get_value(sol, gw_state) == -6.0
 
-planner = RTHS(GoalCountHeuristic(), n_iters=10, max_nodes=20,
+planner = RTHS(GoalCountHeuristic(), n_iters=1, max_nodes=20,
                update_method=:costdiff, reuse_paths=false)
 sol = planner(doors_keys_gems, dkg_state, dkg_spec)
 actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
@@ -513,7 +515,7 @@ actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
                        "(up)", "(up)", "(pickup gem1)")
 @test get_value(sol, dkg_state) == -9.0
 
-planner = RTHS(HMax(), n_iters=5, max_nodes=10,
+planner = RTHS(HMax(), n_iters=1, max_nodes=10,
                update_method=:costdiff, reuse_paths=false)
 sol = planner(blocksworld, bw_state, bw_spec)
 actions, trajectory = simulator(sol, blocksworld, bw_state, bw_spec)
@@ -584,12 +586,12 @@ actions, trajectory = simulator(sol, blocksworld, trajectory[end], bw_act_spec)
 @test get_value(sol, trajectory[end]) == -2.0
 
 # Test solution refinement
-planner = RTHS(GoalCountHeuristic(), n_iters=1, max_nodes=20, 
+planner = RTHS(GoalCountHeuristic(), n_iters=1, max_nodes=10, 
                update_method=:costdiff, reuse_paths=false)
 sol = planner(doors_keys_gems, dkg_state, dkg_spec)
 actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
 @test !is_goal(dkg_spec, doors_keys_gems, trajectory[end])
-planner.n_iters = 9
+planner.max_nodes = 20
 refine!(sol, planner, doors_keys_gems, dkg_state, dkg_spec)
 actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
 @test is_goal(dkg_spec, doors_keys_gems, trajectory[end])
@@ -598,13 +600,40 @@ actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
                        "(up)", "(up)", "(pickup gem1)")
 @test get_value(sol, dkg_state) == -9.0
 
-planner = RTHS(GoalCountHeuristic(), n_iters=0, max_nodes=20, 
+planner = RTHS(GoalCountHeuristic(), n_iters=1, max_nodes=10, 
                update_method=:dijkstra, reuse_paths=false)
 sol = planner(doors_keys_gems, dkg_state, dkg_spec)
 actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
 @test !is_goal(dkg_spec, doors_keys_gems, trajectory[end])
-planner.n_iters = 1
+planner.max_nodes = 20
 refine!(sol, planner, doors_keys_gems, dkg_state, dkg_spec)
+actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
+@test is_goal(dkg_spec, doors_keys_gems, trajectory[end])
+@test actions == @pddl("(down)", "(pickup key1)", "(down)",
+                       "(unlock key1 door1)", "(right)", "(right)",
+                       "(up)", "(up)", "(pickup gem1)")
+@test get_value(sol, dkg_state) == -9.0
+
+# Test solution refinement with search tree reuse
+planner = RTHS(GoalCountHeuristic(), n_iters=1, max_nodes=10, 
+               update_method=:costdiff, reuse_paths=false, reuse_search=true)
+sol = planner(doors_keys_gems, dkg_state, dkg_spec)
+actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
+@test !is_goal(dkg_spec, doors_keys_gems, trajectory[end])
+refine!(sol, planner, doors_keys_gems, trajectory[2], dkg_spec)
+actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
+@test is_goal(dkg_spec, doors_keys_gems, trajectory[end])
+@test actions == @pddl("(down)", "(pickup key1)", "(down)",
+                       "(unlock key1 door1)", "(right)", "(right)",
+                       "(up)", "(up)", "(pickup gem1)")
+@test get_value(sol, dkg_state) == -9.0
+
+planner = RTHS(GoalCountHeuristic(), n_iters=1, max_nodes=10, 
+               update_method=:dijkstra, reuse_paths=false, reuse_search=true)
+sol = planner(doors_keys_gems, dkg_state, dkg_spec)
+actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
+@test !is_goal(dkg_spec, doors_keys_gems, trajectory[end])
+refine!(sol, planner, doors_keys_gems, trajectory[2], dkg_spec)
 actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
 @test is_goal(dkg_spec, doors_keys_gems, trajectory[end])
 @test actions == @pddl("(down)", "(pickup key1)", "(down)",
@@ -712,12 +741,12 @@ actions, trajectory = simulator(sol, blocksworld, trajectory[end], bw_act_spec)
 @test get_value(sol, trajectory[end]) == -2.0
 
 # Test solution refinement
-planner = RTHS(GoalCountHeuristic(), n_iters=0, max_nodes=20,
+planner = RTHS(GoalCountHeuristic(), n_iters=1, max_nodes=10,
                update_method=:costdiff, reuse_paths=true)
 sol = planner(doors_keys_gems, dkg_state, dkg_spec)
 actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
 @test !is_goal(dkg_spec, doors_keys_gems, trajectory[end])
-planner.n_iters = 1
+planner.max_nodes = 20
 refine!(sol, planner, doors_keys_gems, dkg_state, dkg_spec)
 actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
 @test is_goal(dkg_spec, doors_keys_gems, trajectory[end])
@@ -726,13 +755,40 @@ actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
                        "(up)", "(up)", "(pickup gem1)")
 @test get_value(sol, dkg_state) == -9.0
 
-planner = RTHS(GoalCountHeuristic(), n_iters=0, max_nodes=20, 
+planner = RTHS(GoalCountHeuristic(), n_iters=1, max_nodes=10, 
                update_method=:dijkstra, reuse_paths=false)
 sol = planner(doors_keys_gems, dkg_state, dkg_spec)
 actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
 @test !is_goal(dkg_spec, doors_keys_gems, trajectory[end])
-planner.n_iters = 1
+planner.max_nodes = 20
 refine!(sol, planner, doors_keys_gems, dkg_state, dkg_spec)
+actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
+@test is_goal(dkg_spec, doors_keys_gems, trajectory[end])
+@test actions == @pddl("(down)", "(pickup key1)", "(down)",
+                       "(unlock key1 door1)", "(right)", "(right)",
+                       "(up)", "(up)", "(pickup gem1)")
+@test get_value(sol, dkg_state) == -9.0
+
+# Test solution refinement with search tree reuse
+planner = RTHS(GoalCountHeuristic(), n_iters=1, max_nodes=10, 
+               update_method=:costdiff, reuse_paths=true, reuse_search=true)
+sol = planner(doors_keys_gems, dkg_state, dkg_spec)
+actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
+@test !is_goal(dkg_spec, doors_keys_gems, trajectory[end])
+refine!(sol, planner, doors_keys_gems, trajectory[2], dkg_spec)
+actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
+@test is_goal(dkg_spec, doors_keys_gems, trajectory[end])
+@test actions == @pddl("(down)", "(pickup key1)", "(down)",
+                       "(unlock key1 door1)", "(right)", "(right)",
+                       "(up)", "(up)", "(pickup gem1)")
+@test get_value(sol, dkg_state) == -9.0
+
+planner = RTHS(GoalCountHeuristic(), n_iters=1, max_nodes=10,
+               update_method=:dijkstra, reuse_paths=true, reuse_search=true)
+sol = planner(doors_keys_gems, dkg_state, dkg_spec)
+actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
+@test !is_goal(dkg_spec, doors_keys_gems, trajectory[end])
+refine!(sol, planner, doors_keys_gems, trajectory[2], dkg_spec)
 actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
 @test is_goal(dkg_spec, doors_keys_gems, trajectory[end])
 @test actions == @pddl("(down)", "(pickup key1)", "(down)",

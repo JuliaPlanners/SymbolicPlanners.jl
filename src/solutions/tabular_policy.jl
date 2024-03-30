@@ -46,8 +46,11 @@ get_action(sol::TabularPolicy, state::State) =
     best_action(sol, state)
 rand_action(sol::TabularPolicy, state::State) =
     best_action(sol, state)
-best_action(sol::TabularPolicy, state::State) =
-    argmax(get_action_values(sol, state))
+
+function best_action(sol::TabularPolicy, state::State)
+    q_values = get_action_values(sol, state)
+    return isempty(q_values) ? missing : argmax(q_values)
+end
 
 function get_value(sol::TabularPolicy, state::State)
     return get(sol.V, hash(state)) do

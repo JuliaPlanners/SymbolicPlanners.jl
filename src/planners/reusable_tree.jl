@@ -1,36 +1,49 @@
 export ReusableTreePolicy
 
 """
-    ReusableTreePolicy(value_policy::PolicySolution,
-                       tree::Dict{UInt, PathNode})
+    ReusableTreePolicy(
+        value_policy::PolicySolution,
+        search_sol::PathSearchSolution,
+        [goal_tree::Dict{UInt, PathNode}]
+    )
 
-Policy solution which stores both a value table in the nested `value_policy`,
-and a reusable `tree` of cost-optimal paths to the goal, as in Tree Adaptive A*
-search [1]. This policy is returned by [`RealTimeHeuristicSearch`](@ref) when 
-`reuse_paths` is true.
+The policy returned by [`RealTimeHeuristicSearch`](@ref), which stores a value
+table in the nested `value_policy`, a forward search tree in `search_sol`, and
+(when `reuse_paths` is `true`) a reusable `goal_tree` of cost-optimal paths
+to the goal.
 
 When taking actions at states along some stored cost-optimal path, actions
-along that path are followed. Otherwise the `value_policy` is used to
-determine the best action.
+along that path are followed, as in Tree-Adaptive A* [1]. Otherwise, the highest
+value action according to `value_policy` is returned, with ties broken by 
+the (possibly incomplete) plan in `search_sol`.
 
 [1] C. Hernández, X. Sun, S. Koenig, and P. Meseguer, "Tree Adaptive A*," 
 AAMAS (2011), pp. 123–130. <https://dl.acm.org/doi/abs/10.5555/2030470.2030488>.
 """
 @auto_hash_equals struct ReusableTreePolicy{
-    S <: State, P <: PolicySolution,
+    S <: State, P <: PolicySolution, Q
 } <: PolicySolution
     value_policy::P # Nested value policy
-    tree::Dict{UInt, PathNode{S}} # Reusable tree of cost-optimal paths
+    search_sol::PathSearchSolution{S,Q} # Forward search solution
+    goal_tree::Dict{UInt, PathNode{S}} # Reusable tree of cost-optimal paths
 end
 
-ReusableTreePolicy{S}(policy::P) where {S <: State, P <: PolicySolution} =
-    ReusableTreePolicy{S, P}(policy, Dict{UInt, PathNode{S}}())
+function ReusableTreePolicy{S}(
+    policy::P, search_sol::PathSearchSolution{S, Q} 
+) where {S <: State, P <: PolicySolution, Q}
+    ReusableTreePolicy{S, P, Q}(policy, search_sol, Dict{UInt, PathNode{S}}())
+end
 
-ReusableTreePolicy{S, P}(policy::P) where {S <: State, P <: PolicySolution} =
-    ReusableTreePolicy{S, P}(policy, Dict{UInt, PathNode{S}}())
+function ReusableTreePolicy{S, P}(
+    policy::P, search_sol::PathSearchSolution{S, Q}
+) where {S <: State, P <: PolicySolution, Q}
+    ReusableTreePolicy{S, P, Q}(policy, search_sol, Dict{UInt, PathNode{S}}())
+end
 
 function Base.copy(sol::ReusableTreePolicy)
-    return ReusableTreePolicy(copy(sol.value_policy), copy(sol.tree))
+    return ReusableTreePolicy(
+        copy(sol.value_policy), copy(sol.search_sol), copy(sol.goal_tree)
+    )
 end
 
 get_action(sol::ReusableTreePolicy, state::State) =
@@ -39,11 +52,24 @@ rand_action(sol::ReusableTreePolicy, state::State) =
     best_action(sol, state)
 
 function best_action(sol::ReusableTreePolicy, state::State)
-    node = get(sol.tree, hash(state), nothing)
-    if isnothing(node) || isnothing(node.parent) || isnothing(node.parent.action)
-        return best_action(sol.value_policy, state)
-    else
+    node = isempty(sol.goal_tree) ?
+        nothing : get(sol.goal_tree, hash(state), nothing)
+    if (!isnothing(node) && !isnothing(node.parent) &&
+        !isnothing(node.parent.action))
+        # Reuse cost-optimal path if it exists
         return node.parent.action
+    else
+        # Look up best action according to value policy
+        best_act = best_action(sol.value_policy, state)
+        ismissing(best_act) && return missing
+        # Return if search solution agrees on best action
+        search_act = get_action(sol.search_sol, state)
+        (ismissing(search_act) || search_act === PDDL.no_op) && return best_act
+        search_act == best_act && return best_act
+        # Otherwise tie-break equally good actions in favor of search solution
+        best_val = get_value(sol.value_policy, state, best_act)
+        search_val = get_value(sol.value_policy, state, search_act)
+        return best_val > search_val ? best_act : search_act
     end
 end
 
@@ -107,24 +133,24 @@ function insert_path!(
     sol::ReusableTreePolicy{S}, search_tree::Dict{UInt, PathNode{S}},
     node_id::UInt, terminal_h_val::Float32
 ) where {S <: State} 
-    insert_path!(sol.tree, search_tree, node_id, terminal_h_val)
+    insert_path!(sol.goal_tree, search_tree, node_id, terminal_h_val)
 end
 
 """
-    ReusableTreeGoal(spec::Specification, tree::Dict{UInt, PathNode})
+    ReusableTreeGoal(spec::Specification, goal_tree::Dict{UInt, PathNode})
 
 Wrapper goal specification that returns `true` if the undelying `spec` is 
-satisfied, or if a node in the reusable `tree` has been reached.
+satisfied, or if a node in the reusable `goal_tree` has been reached.
 """
 struct ReusableTreeGoal{T <: Specification, U <: State} <: Specification
     spec::T
-    tree::Dict{UInt, PathNode{U}}
+    goal_tree::Dict{UInt, PathNode{U}}
 end
 
 Base.hash(spec::ReusableTreeGoal, h::UInt) =
-    hash(spec.tree, hash(spec.spec, h))
+    hash(spec.goal_tree, hash(spec.spec, h))
 Base.:(==)(s1::ReusableTreeGoal, s2::ReusableTreeGoal) =
-    s1.tree == s2.tree && s1.spec == s2.spec
+    s1.goal_tree == s2.goal_tree && s1.spec == s2.spec
 
 """
     on_goal_path(spec, domain, state)
@@ -135,7 +161,7 @@ has been reached. Otherwise, returns `false`.
 on_goal_path(spec::Specification, domain::Domain, state::State) =
     false
 on_goal_path(spec::ReusableTreeGoal, domain::Domain, state::State) =
-    (!isempty(spec.tree) && haskey(spec.tree, hash(state)))
+    (!isempty(spec.goal_tree) && haskey(spec.goal_tree, hash(state)))
 
 is_goal(spec::ReusableTreeGoal, domain::Domain, state::State) =
     is_goal(spec.spec, domain, state)
@@ -155,7 +181,7 @@ get_goal_terms(spec::ReusableTreeGoal) =
     get_goal_terms(spec.spec)
 
 set_goal_terms(spec::ReusableTreeGoal, terms) =
-    ReusableTreeGoal(set_goal_terms(spec.spec, terms), spec.tree)
+    ReusableTreeGoal(set_goal_terms(spec.spec, terms), spec.goal_tree)
 
 has_action_goal(spec::ReusableTreeGoal) = has_action_goal(spec.spec)
 has_action_cost(spec::ReusableTreeGoal) = has_action_cost(spec.spec)

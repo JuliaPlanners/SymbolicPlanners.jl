@@ -107,7 +107,7 @@ function solve!(sol::TabularPolicy, planner::RealTimeDynamicPlanner,
                 stop_reason = :goal_reached
                 break
             end
-            update_values!(planner, sol, domain, state, stop_reason, spec)
+            update_values!(sol, planner, domain, state, spec, stop_reason)
             act = get_action(ro_policy, state)
             if ismissing(act) # Stop if we hit a dead-end
                 stop_reason = :dead_end
@@ -122,7 +122,7 @@ function solve!(sol::TabularPolicy, planner::RealTimeDynamicPlanner,
         # Post-rollout update
         while length(state_history) > 0
             state = pop!(state_history)
-            update_values!(planner, sol, domain, state, stop_reason, spec)
+            update_values!(sol, planner, domain, state, spec, stop_reason)
             stop_reason = :none
         end
     end
@@ -136,9 +136,10 @@ function solve!(sol::BoltzmannPolicy{TabularPolicy},
     return BoltzmannPolicy(sol, planner.action_noise)
 end
 
-function update_values!(planner::RealTimeDynamicPlanner, sol::TabularPolicy,
-                        domain::Domain, state::State,
-                        stop_reason::Symbol, spec::Specification)
+function update_values!(
+    sol::TabularPolicy, planner::RealTimeDynamicPlanner,
+    domain::Domain, state::State, spec::Specification, stop_reason::Symbol
+)
     @unpack action_noise = planner
     state_id = hash(state)
     qs = get!(Dict{Term,Float64}, sol.Q, state_id)
@@ -164,7 +165,7 @@ function update_values!(planner::RealTimeDynamicPlanner, sol::TabularPolicy,
         qvals = collect(values(qs))
         sol.V[state_id] = sum(softmax(qvals ./ action_noise) .* qvals)
     end
-    return nothing
+    return sol
 end
 
 function refine!(sol::PolicySolution, planner::RealTimeDynamicPlanner,

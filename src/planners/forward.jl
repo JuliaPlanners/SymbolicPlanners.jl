@@ -60,7 +60,7 @@ Setting the `refine_method` keyword argument controls the behavior of
   `save_search`, `save_parents`, and `save_children` will default to `true`
   if this method is used.
 
-- `:restart`: Restarts the search from scratch, throwing away the 
+- `:restart`: Restarts the search from the new starting state, throwing away the 
   previous search tree and frontier. This is the only valid refinement method
   when `save_search` is `false`.
 
@@ -370,19 +370,19 @@ function refine!(
     domain::Domain, state::State, spec::Specification
 ) where {S, T <: PriorityQueue}
     @unpack heuristic, refine_method, reset_node_count = planner
-    # Immmediately return if solution is already complete
-    sol.status == :success && return sol
-    sol.status == :failure && return sol
-    sol.status = :in_progress
     # Resimplify goal specification and ensure heuristic is precomputed
     spec = simplify_goal(spec, domain, state)
     ensure_precomputed!(heuristic, domain, state, spec)
     # Decide between restarting, rerooting, or continuing the search
     if refine_method == :restart
-        init_state = sol.trajectory[1]
-        sol = reinit_sol!(sol, planner, heuristic, domain, init_state, spec)
+        (sol.status == :failure && is_reached(state, sol)) && return sol
+        reinit_sol!(sol, planner, heuristic, domain, state, spec)
     elseif refine_method == :reroot
         reroot!(sol, planner, heuristic, domain, state, spec)
+        sol.status = :in_progress
+    elseif refine_method == :continue
+        (sol.status == :success || sol.status == :failure) && return sol
+        sol.status = :in_progress
     end
     planner.reset_node_count && (sol.expanded = 0)
     # Run search and return solution
@@ -393,14 +393,21 @@ function reroot!(
     sol::PathSearchSolution{S}, planner::ForwardPlanner, heuristic::Heuristic,
     domain::Domain, state::S, spec::Specification
 ) where {S <: State}
-    @unpack h_mult, g_mult = planner
+    @unpack h_mult, g_mult, callback = planner
     queue, search_tree = sol.search_frontier, sol.search_tree
-    cb = planner.callback
-    verbose = cb isa LoggerCallback
+    verbose, cb = callback isa LoggerCallback, callback
+    root_id = hash(state)
+    # Return existing solution if new state is in an exhausted search space
+    if sol.status == :failure && is_reached(root_id, sol)
+        return sol
+    end
+    # Return existing solution if state is already on path to goal
+    if sol.status == :success && state in sol.trajectory
+        return sol
+    end
     verbose && @logmsg cb.loglevel "Rerooting search tree..."
     # Restart search if initial state is not in tree interior
-    root_id = hash(state)
-    if !haskey(search_tree, root_id) || haskey(queue, root_id) 
+    if !is_expanded(root_id, sol) 
         return reinit_sol!(sol, planner, heuristic, domain, state, spec)
     end
     # Detach new root node from parents

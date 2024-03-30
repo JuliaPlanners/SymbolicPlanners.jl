@@ -196,8 +196,9 @@ path_nodes = map(enumerate(trajectory)) do (i, state)
     return PathNode(id, state, path_cost, parent_ref)
 end
 search_tree = Dict(node.id => node for node in path_nodes)
+search_sol = PathSearchSolution(:success, collect(Term, plan), trajectory)
 
-sol = ReusableTreePolicy{GenericState}(sol)
+sol = ReusableTreePolicy{GenericState}(sol, search_sol)
 SymbolicPlanners.insert_path!(sol, search_tree, hash(trajectory[end]), 4.0f0)
 
 @test get_action(sol, bw_state) == pddl"(pick-up a)"
