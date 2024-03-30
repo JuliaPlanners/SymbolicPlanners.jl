@@ -121,9 +121,9 @@ end
 
 "Pretty printing for data structures, adapted from `Base.dump`."
 function show_struct(
-    io::IOContext, @nospecialize(x);
+    io::IO, @nospecialize(x);
     indent = "", show_fields = (), show_fields_compact = (),
-    show_list = (), show_pddl_list = (),
+    show_list = (), show_pddl_list = (), show_pddl = (),
     max_type_param_length::Int = (displaysize(io)[2]*3)÷4 -length(indent)
 )
     T = typeof(x)
@@ -145,8 +145,12 @@ function show_struct(
             end
             val = getfield(x, field)
             if fname in show_fields
-                io_ctx = IOContext(io, :indent => indent * "  ") 
-                show(io_ctx, MIME"text/plain"(), val)
+                if isa(val, NamedTuple)
+                    show_struct(io, val; indent = indent * "  ")
+                else
+                    io_ctx = IOContext(io, :indent => indent * "  ")
+                    show(io_ctx, MIME"text/plain"(), val)
+                end
             elseif fname in show_fields_compact
                 io_ctx = IOContext(io, :compact => true)
                 show(io_ctx, val)
@@ -157,7 +161,9 @@ function show_struct(
             elseif fname in show_pddl_list && isa(val, AbstractArray)
                 summary(io, val)
                 io_ctx = IOContext(io, :indent => indent * "  ") 
-                print_list(io_ctx, val, nf+1, write_pddl)   
+                print_list(io_ctx, val, nf+1, write_pddl)
+            elseif fname in show_pddl && isa(val, Term)
+                print(io, write_pddl(val))
             elseif isbits(val) || isa(val, Symbol) || isa(val, String)
                 show(io, val)
             else

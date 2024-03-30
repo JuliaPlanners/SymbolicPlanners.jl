@@ -26,6 +26,12 @@ end
 MinMetricGoal(goal::Term, metric::Term) =
     MinMetricGoal(PDDL.flatten_conjs(goal), metric)
 
+function Base.show(io::IO, ::MIME"text/plain", spec::MinMetricGoal)
+    indent = get(io, :indent, "")
+    show_struct(io, spec; indent = indent,
+                show_pddl_list=(:terms,), show_pddl=(:metric,))
+end
+
 Base.hash(spec::MinMetricGoal, h::UInt) =
     hash(spec.metric, hash(Set(spec.terms), h))
 Base.:(==)(s1::MinMetricGoal, s2::MinMetricGoal) =

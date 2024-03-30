@@ -28,6 +28,12 @@ ActionGoal(action::Term, constraints) = ActionGoal(action, constraints, 1.0)
 ActionGoal(action::Term, constraints::Term, step_cost) =
     ActionGoal(action, PDDL.flatten_conjs(constraints), step_cost)
 
+function Base.show(io::IO, ::MIME"text/plain", spec::ActionGoal)
+    indent = get(io, :indent, "")
+    show_struct(io, spec; indent = indent, show_pddl=(:action,),
+                show_pddl_list=(:constraints,))
+end
+
 Base.hash(spec::ActionGoal, h::UInt) =
     hash(spec.step_cost, hash(Set(spec.constraints), hash(spec.action, h)))
 Base.:(==)(s1::ActionGoal, s2::ActionGoal) =
