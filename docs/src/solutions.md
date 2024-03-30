@@ -94,7 +94,7 @@ NullPolicy
 
 ## Deterministic Policies
 
-SymbolicPlanners.jl provides the following deterministic policies, i.e., 
+**SymbolicPlanners.jl** provides the following deterministic policies, i.e., 
 policies that always return the estimated best action for a given state:
 
 ```@docs
@@ -107,7 +107,7 @@ ReusableTreePolicy
 
 ## Stochastic Policies
 
-SymbolicPlanners.jl also provides stochastic policies, some of which are 
+**SymbolicPlanners.jl** also provides stochastic policies, some of which are 
 intended for use as wrappers around deterministic policies:
 
 ```@docs

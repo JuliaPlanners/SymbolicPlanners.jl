@@ -4,8 +4,8 @@
 CurrentModule = SymbolicPlanners
 ```
 
-SymbolicPlanners.jl provides a library of search heuristics which estimate the 
-distance between a state and the goal.
+**SymbolicPlanners.jl** provides a library of search heuristics which estimate
+the distance between a state and the goal.
 
 ```@docs
 Heuristic
@@ -55,7 +55,7 @@ EuclideanHeuristic
 
 ## Relaxed Planning Graph Heuristics
 
-Several relaxed planning graph heuristics are provided by SymbolicPlanners.jl.
+Several relaxed planning graph heuristics are provided by **SymbolicPlanners.jl**.
 In contrast to most other planning systems, these implementations also support 
 domains with non-Boolean fluents.
 
