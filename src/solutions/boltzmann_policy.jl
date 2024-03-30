@@ -33,6 +33,11 @@ BoltzmannPolicy(policy::BoltzmannPolicy, temperature, rng) =
 BoltzmannPolicy(policy, temperature) =
     BoltzmannPolicy(policy, temperature, Random.GLOBAL_RNG)
 
+function Base.show(io::IO, ::MIME"text/plain", sol::BoltzmannPolicy)
+    indent = get(io, :indent, "")
+    show_struct(io, sol; indent = indent, show_fields=(:policy,))
+end
+    
 Base.copy(sol::BoltzmannPolicy) =
     BoltzmannPolicy(copy(sol.policy), sol.temperature, sol.rng)
 
@@ -135,6 +140,12 @@ end
 function BoltzmannMixturePolicy(policy, temperatures, rng::AbstractRNG)
     weights = ones(length(temperatures)) ./ length(temperatures)
     return BoltzmannMixturePolicy(policy, temperatures, weights, rng)
+end
+
+function Base.show(io::IO, ::MIME"text/plain", sol::BoltzmannMixturePolicy)
+    indent = get(io, :indent, "")
+    show_struct(io, sol; indent = indent, show_fields=(:policy,),
+                show_fields_compact=(:temperatures, :weights))
 end
 
 Base.copy(sol::BoltzmannMixturePolicy) =

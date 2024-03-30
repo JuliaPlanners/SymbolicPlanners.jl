@@ -43,6 +43,11 @@ function MixturePolicy(policies, rng::AbstractRNG)
     return MixturePolicy(policies, weights, rng)
 end
 
+function Base.show(io::IO, ::MIME"text/plain", sol::MixturePolicy)
+    indent = get(io, :indent, "")
+    show_struct(io, sol; indent = indent, show_fields_compact=(:weights,))
+end
+
 Base.copy(sol::MixturePolicy) =
     MixturePolicy(copy.(sol.policies), sol.weights, sol.rng)
 

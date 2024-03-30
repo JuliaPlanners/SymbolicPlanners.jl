@@ -46,6 +46,12 @@ function Base.copy(sol::ReusableTreePolicy)
     )
 end
 
+function Base.show(io::IO, ::MIME"text/plain", sol::ReusableTreePolicy)
+    indent = get(io, :indent, "")
+    show_struct(io, sol; indent = indent,
+                show_fields = (:value_policy, :search_sol))
+end
+
 get_action(sol::ReusableTreePolicy, state::State) =
     best_action(sol, state)
 rand_action(sol::ReusableTreePolicy, state::State) =

@@ -10,6 +10,11 @@ particular `state`, by implementing [`get_action`](@ref).
 """
 abstract type Solution end
 
+function Base.show(io::IO, ::MIME"text/plain", sol::Solution)
+    indent = get(io, :indent, "")
+    show_struct(io, sol; indent = indent)
+end
+
 """
 $(SIGNATURES)
 

@@ -13,27 +13,8 @@ function Base.show(io::IO, sol::AbstractPathSearchSolution)
 end
 
 function Base.show(io::IO, ::MIME"text/plain", sol::AbstractPathSearchSolution)
-    println(io, typeof(sol))
-    println(io, "  status: ", sol.status)
-    println(io, "  plan: ", summary(sol.plan))
-    n_lines, _ = displaysize(io)
-    n_lines -= 5
-    if length(sol.plan) > n_lines
-        for act in sol.plan[1:(n_lines÷2-1)]
-            println(io, "    ", write_pddl(act))
-        end
-        println(io, "    ", "⋮")
-        for act in sol.plan[end-(n_lines÷2)+1:end]
-            println(io, "    ", write_pddl(act))
-        end
-    else
-        for act in sol.plan
-            println(io, "    ", write_pddl(act))
-        end
-    end
-    if !isnothing(sol.trajectory) && !isempty(sol.trajectory)
-        print(io, "  trajectory: ", summary(sol.trajectory))
-    end
+    indent = get(io, :indent, "")
+    show_struct(io, sol; indent = indent, show_pddl_list=(:plan,))
 end
 
 Base.iterate(sol::AbstractPathSearchSolution) = iterate(sol.plan)
@@ -202,20 +183,6 @@ function Base.copy(sol::PathSearchSolution)
                               search_tree, search_frontier, search_order)
 end
 
-function Base.show(io::IO, m::MIME"text/plain", sol::PathSearchSolution)
-    # Invoke call to Base.show for AbstractPathSearchSolution
-    invoke(show, Tuple{IO, typeof(m), AbstractPathSearchSolution}, io, m, sol)
-    # Print search information if present
-    if !isnothing(sol.search_tree)
-        print(io, "\n  expanded: ", sol.expanded)
-        print(io, "\n  search_tree: ", summary(sol.search_tree))
-        print(io, "\n  search_frontier: ", summary(sol.search_frontier))
-        if !isempty(sol.search_order)
-            print(io, "\n  search_order: ", summary(sol.search_order))
-        end
-    end
-end
-
 "Returns true if the node has been expanded."
 function is_expanded(id::UInt, sol::PathSearchSolution)
     if keytype(sol.search_frontier) == UInt
@@ -292,29 +259,6 @@ function Base.copy(sol::BiPathSearchSolution)
         (x isa Symbol || isnothing(x)) ? x : copy(x)
     end
     return BiPathSearchSolution(fields...)
-end
-
-function Base.show(io::IO, m::MIME"text/plain", sol::BiPathSearchSolution)
-    # Invoke call to Base.show for AbstractPathSearchSolution
-    invoke(show, Tuple{IO, typeof(m), AbstractPathSearchSolution}, io, m, sol)
-    # Print nodes expanded if present
-    if sol.expanded >= 0
-        print(io, "\n  expanded: ", sol.expanded)
-    end
-    # Print forward search information if present
-    if !isnothing(sol.f_search_tree)
-        print(io, "\n  f_search_tree: ", summary(sol.f_search_tree))
-        print(io, "\n  f_frontier: ", summary(sol.f_frontier))
-        print(io, "\n  f_expanded: ", sol.f_expanded)
-        print(io, "\n  f_trajectory: ", summary(sol.f_trajectory))
-    end
-    # Print backward search information if present
-    if !isnothing(sol.b_search_tree)
-        print(io, "\n  b_search_tree: ", summary(sol.b_search_tree))
-        print(io, "\n  b_frontier: ", summary(sol.b_frontier))
-        print(io, "\n  b_expanded: ", sol.b_expanded)
-        print(io, "\n  b_trajectory: ", summary(sol.b_trajectory))
-    end
 end
 
 "Dequeue a key according to a Boltzmann distribution over priority values."

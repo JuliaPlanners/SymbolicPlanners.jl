@@ -34,6 +34,11 @@ function PlannerHeuristic(
                             s_transform=s_transform)
 end
 
+function Base.show(io::IO, ::MIME"text/plain", h::PlannerHeuristic)
+    indent = get(io, :indent, "")
+    show_struct(io, h; indent = indent, show_fields = (:planner,))
+end
+
 function compute(h::PlannerHeuristic,
                  domain::Domain, state::State, spec::Specification)
     domain = h.d_transform(domain)

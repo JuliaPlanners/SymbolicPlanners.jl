@@ -30,6 +30,21 @@ sol = OrderedPlan(@pddl("(pick-up a)", "(stack a b)",
 
 end
 
+@testset "External Plan" begin
+
+sol = ExternalPlan(@pddl("(pick-up a)", "(stack a b)",
+                         "(pick-up c)", "(stack c a)"))
+@test collect(sol) == @pddl("(pick-up a)", "(stack a b)",
+                            "(pick-up c)", "(stack c a)")
+@test sol[1] == pddl"(pick-up a)"
+@test get_action(sol, 1) == pddl"(pick-up a)"
+@test length(sol) == 4
+@test eltype(sol) == Term
+
+@test copy(sol) == sol
+
+end
+
 @testset "Path Search Solution" begin
 
 plan = @pddl("(pick-up a)", "(stack a b)", "(pick-up c)", "(stack c a)")

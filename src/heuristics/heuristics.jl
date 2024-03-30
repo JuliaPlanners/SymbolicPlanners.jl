@@ -22,6 +22,11 @@ is called to perform the heuristic evaluation.
 """
 abstract type Heuristic end
 
+function Base.show(io::IO, ::MIME"text/plain", h::Heuristic)
+    indent = get(io, :indent, "")
+    show_struct(io, h; indent = indent)
+end
+
 """
 $(SIGNATURES)
 

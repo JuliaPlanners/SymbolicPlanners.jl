@@ -17,6 +17,11 @@ end
 EpsilonGreedyPolicy(domain, policy, epsilon) =
     EpsilonGreedyPolicy(domain, policy, epsilon, Random.GLOBAL_RNG)
 
+function Base.show(io::IO, ::MIME"text/plain", sol::EpsilonGreedyPolicy)
+    indent = get(io, :indent, "")
+    show_struct(io, sol; indent = indent, show_fields=(:policy,))
+end
+
 Base.copy(sol::EpsilonGreedyPolicy) =
     EpsilonGreedyPolicy(sol.domain, copy(sol.policy), sol.epsilon, sol.rng)
 

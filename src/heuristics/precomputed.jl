@@ -20,6 +20,11 @@ function PrecomputedHeuristic(h::PrecomputedHeuristic, args...)
     return PrecomputedHeuristic(h)
 end
 
+function Base.show(io::IO, ::MIME"text/plain", h::PrecomputedHeuristic)
+    indent = get(io, :indent, "")
+    show_struct(io, h; indent = indent, show_fields = (:heuristic,))
+end
+
 is_precomputed(h::PrecomputedHeuristic) = true
 
 precompute!(h::PrecomputedHeuristic, ::Domain, ::State, ::Specification) = h
