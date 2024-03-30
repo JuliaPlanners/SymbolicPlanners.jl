@@ -219,7 +219,7 @@ function solve(planner::RealTimeHeuristicSearch,
     planner = copy(planner)
     planner.heuristic = precomputed(planner.heuristic, domain, state, spec)
     # Initialize then refine solution
-    default = FunctionalVPolicy(planner.heuristic, domain, spec)
+    default = HeuristicVPolicy(planner.heuristic, domain, spec)
     value_policy = TabularVPolicy(domain, spec, default)
     search_sol = init_sol(planner.planner, planner.heuristic,
                           domain, state, spec)

@@ -101,6 +101,7 @@ policies that always return the estimated best action for a given state:
 TabularPolicy
 TabularVPolicy
 FunctionalVPolicy
+HeuristicVPolicy
 ReusableTreePolicy
 ```
 

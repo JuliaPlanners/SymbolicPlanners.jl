@@ -156,7 +156,31 @@ end
 
 planner = AStarPlanner(HMax())
 heuristic = PlannerHeuristic(planner)
-sol = FunctionalVPolicy(heuristic, blocksworld, bw_spec)
+h_function(state::State) = -compute(heuristic, blocksworld, state, bw_spec)
+sol = FunctionalVPolicy(h_function, blocksworld, bw_spec)
+
+@test get_action(sol, bw_state) == pddl"(pick-up a)"
+@test rand_action(sol, bw_state) == pddl"(pick-up a)"
+@test best_action(sol, bw_state) == pddl"(pick-up a)"
+
+@test get_value(sol, bw_state) == -4.0
+@test get_value(sol, bw_state, pddl"(pick-up b)") == -6.0
+@test Dict(get_action_values(sol, bw_state)) == bw_init_q
+
+probs = Dict(a => a == pddl"(pick-up a)" ? 1.0 : 0.0 for a in bw_init_actions)
+@test get_action_probs(sol, bw_state) == probs
+@test get_action_prob(sol, bw_state, pddl"(pick-up a)") == 1.0
+@test get_action_prob(sol, bw_state, pddl"(pick-up b)") == 0.0 
+
+@test copy(sol) == sol
+
+end
+
+@testset "Heuristic Value Policy" begin
+
+planner = AStarPlanner(HMax())
+heuristic = PlannerHeuristic(planner)
+sol = HeuristicVPolicy(heuristic, blocksworld, bw_spec)
 
 @test get_action(sol, bw_state) == pddl"(pick-up a)"
 @test rand_action(sol, bw_state) == pddl"(pick-up a)"
@@ -228,7 +252,7 @@ end
 
 planner = AStarPlanner(HMax())
 heuristic = PlannerHeuristic(planner)
-sol = FunctionalVPolicy(heuristic, blocksworld, bw_spec)
+sol = HeuristicVPolicy(heuristic, blocksworld, bw_spec)
 sol = BoltzmannPolicy(sol, 1.0)
 
 @test get_action(sol, bw_state) in bw_init_actions
@@ -254,7 +278,7 @@ end
 
 planner = AStarPlanner(HMax())
 heuristic = PlannerHeuristic(planner)
-sol = FunctionalVPolicy(heuristic, blocksworld, bw_spec)
+sol = HeuristicVPolicy(heuristic, blocksworld, bw_spec)
 
 sol = BoltzmannMixturePolicy(sol, [1.0, 2.0])
 @test sol.weights == [0.5, 0.5]
@@ -286,7 +310,7 @@ end
 
 planner = AStarPlanner(HMax())
 heuristic = PlannerHeuristic(planner)
-sol = FunctionalVPolicy(heuristic, blocksworld, bw_spec)
+sol = HeuristicVPolicy(heuristic, blocksworld, bw_spec)
 sol = EpsilonGreedyPolicy(blocksworld, sol, 0.1)
 
 @test get_action(sol, bw_state) in bw_init_actions
@@ -312,7 +336,7 @@ end
 
 planner = AStarPlanner(HMax())
 heuristic = PlannerHeuristic(planner)
-sol = FunctionalVPolicy(heuristic, blocksworld, bw_spec)
+sol = HeuristicVPolicy(heuristic, blocksworld, bw_spec)
 sol_1 = EpsilonGreedyPolicy(blocksworld, sol, 0.1)
 sol_2 = BoltzmannPolicy(sol, 1.0)
 
