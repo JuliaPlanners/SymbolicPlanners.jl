@@ -5,7 +5,7 @@ export RealTimeHeuristicSearch, RTHS
         heuristic::Heuristic = GoalCountHeuristic(),
         n_iters::Int = 1,
         max_nodes::Int = 50,
-        update_method::Symbol = :costdiff,
+        update_method::Symbol = :dijkstra,
         search_neighbors::Symbol = :unexpanded,
         save_search::Bool = true,
         reuse_search::Bool = false,
@@ -16,7 +16,7 @@ export RealTimeHeuristicSearch, RTHS
     RealTimeHeuristicSearch(
         planner::ForwardPlanner,
         n_iters::Int = 1,
-        update_method::Symbol = :costdiff,
+        update_method::Symbol = :dijkstra,
         search_neighbors::Symbol = :unexpanded,
         reuse_search::Bool = true,
         reuse_paths::Bool = true,
@@ -68,7 +68,7 @@ reusable tree of goal paths if `reuse_paths` is `true`.
 Setting the `update_method` keyword argument controls how value estimates
 ``V(s)`` (or equivalently, cost-to-goal estimates ``h(s) = -V(s)``) are updated:
 
-- `:costdiff` (default): Value estimates are updated by cost differencing from
+- `:costdiff`: Value estimates are updated by cost differencing from
   the terminal node ``t``. For each node ``s`` in the search tree's interior, we
   estimate the cost-to-goal ``h(s)`` by adding a lower bound on the cost from
   ``s`` to ``t`` to the cost-to-goal of ``t``:
@@ -79,7 +79,7 @@ Setting the `update_method` keyword argument controls how value estimates
   the update used by Real-Time Adaptive A* [3]. Takes ``O(N)`` time, where ``N``
   is the size of the tree's interior.
 
-- `:dijkstra`: Value estimates are backpropagated from the search frontier via
+- `:dijkstra` : Value estimates are backpropagated from the search frontier via
   Dijkstra's algorithm. For each node ``s`` in tree's interior, we update the
   cost-to-goal ``h(s)`` by minimizing over all paths to the frontier:
   ```math
@@ -125,7 +125,7 @@ const RTHS = RealTimeHeuristicSearch
 function RealTimeHeuristicSearch(
     planner::ForwardPlanner;
     n_iters::Int = 1,
-    update_method::Symbol = :costdiff,
+    update_method::Symbol = :dijkstra,
     search_neighbors::Symbol = :unexpanded,
     reuse_search::Bool = false,
     reuse_paths::Bool = true,
@@ -155,7 +155,7 @@ end
 function RealTimeHeuristicSearch(;
     n_iters::Int = 1,
     max_nodes::Int = 50,
-    update_method::Symbol = :costdiff,
+    update_method::Symbol = :dijkstra,
     search_neighbors::Symbol = :unexpanded,
     save_search::Bool = true,
     reuse_search::Bool = false,
