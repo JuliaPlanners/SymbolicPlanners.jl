@@ -22,7 +22,8 @@ Base.iterate(sol::AbstractPathSearchSolution, istate) = iterate(sol.plan, istate
 Base.getindex(sol::AbstractPathSearchSolution, i::Int) = getindex(sol.plan, i)
 Base.length(sol::AbstractPathSearchSolution) = length(sol.plan)
 
-get_action(sol::AbstractPathSearchSolution, t::Int) = sol.plan[t]
+get_action(sol::AbstractPathSearchSolution, t::Int) =
+    get(sol.plan, t, missing)
 
 function get_action(sol::AbstractPathSearchSolution, state::State)
     if sol.status == :failure # Return no-op if goal is unreachable
@@ -39,6 +40,7 @@ function get_action(sol::AbstractPathSearchSolution, state::State)
 end
 
 function get_action(sol::AbstractPathSearchSolution, t::Int, state::State)
+    !(1 <= t <= length(sol.plan)) && return missing
     return isnothing(sol.trajectory) || sol.trajectory[t] == state ?
         get_action(sol, t) : get_action(sol, state)
 end
