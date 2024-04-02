@@ -74,16 +74,16 @@ function solve(planner::RealTimeDynamicPlanner,
     default = HeuristicVPolicy(planner.heuristic, domain, spec)
     sol = TabularPolicy(default)
     sol.V[hash(state)] = -compute(planner.heuristic, domain, state, spec)
-    sol = solve!(sol, planner, domain, state, spec)
+    sol = solve!(sol, planner, planner.heuristic, domain, state, spec)
     # Wrap in Boltzmann policy if needed
     return planner.action_noise == 0 ?
         sol : BoltzmannPolicy(sol, planner.action_noise)
 end
 
-function solve!(sol::TabularPolicy, planner::RealTimeDynamicPlanner,
+function solve!(sol::TabularPolicy,
+                planner::RealTimeDynamicPlanner, heuristic::Heuristic,
                 domain::Domain, state::State, spec::Specification)
-    @unpack heuristic, action_noise = planner
-    @unpack n_rollouts, max_depth, rollout_noise = planner
+    @unpack n_rollouts, max_depth, action_noise, rollout_noise = planner
     # Simplify goal specification
     spec = simplify_goal(spec, domain, state)
     # Precompute heuristic information
@@ -107,7 +107,8 @@ function solve!(sol::TabularPolicy, planner::RealTimeDynamicPlanner,
                 stop_reason = :goal_reached
                 break
             end
-            update_values!(sol, planner, domain, state, spec, stop_reason)
+            update_values!(sol, planner, heuristic,
+                           domain, state, spec, stop_reason)
             act = get_action(ro_policy, state)
             if ismissing(act) # Stop if we hit a dead-end
                 stop_reason = :dead_end
@@ -120,34 +121,35 @@ function solve!(sol::TabularPolicy, planner::RealTimeDynamicPlanner,
             planner.callback(planner, sol, n, state_history, stop_reason)
         end
         # Post-rollout update
-        while length(state_history) > 0
-            state = pop!(state_history)
-            update_values!(sol, planner, domain, state, spec, stop_reason)
-            stop_reason = :none
-        end
+        update_values!(sol, planner, heuristic,
+                       domain, state_history, spec, stop_reason)
+        empty!(state_history)
     end
     return sol
 end
 
 function solve!(sol::BoltzmannPolicy{TabularPolicy},
-                planner::RealTimeDynamicPlanner,
+                planner::RealTimeDynamicPlanner, heuristic::Heuristic,
                 domain::Domain, state::State, spec::Specification)
-    sol = solve!(planner, sol.policy, domain, state, spec)
+    sol = solve!(sol.policy, planner, heuristic, domain, state, spec)
     return BoltzmannPolicy(sol, planner.action_noise)
 end
 
 function update_values!(
-    sol::TabularPolicy, planner::RealTimeDynamicPlanner,
-    domain::Domain, state::State, spec::Specification, stop_reason::Symbol
+    sol::TabularPolicy,
+    planner::RealTimeDynamicPlanner, heuristic::Heuristic,
+    domain::Domain, state::State, spec::Specification, stop_reason::Symbol;
+    update_v::Bool = true, update_q::Bool = true
 )
     @unpack action_noise = planner
     state_id = hash(state)
-    qs = get!(Dict{Term,Float64}, sol.Q, state_id)
+    qs = update_q ?
+        get!(Dict{Term,Float64}, sol.Q, state_id) : Dict{Term,Float64}()
     # Back-propagate values from successor states
     for act in available(domain, state)
         next_state = transition(domain, state, act)
         next_v = get!(sol.V, hash(next_state)) do
-            -compute(planner.heuristic, domain, next_state, spec)
+            -compute(heuristic, domain, next_state, spec)
         end
         if has_action_goal(spec) && is_goal(spec, domain, next_state, act)
             next_v = 0.0
@@ -155,22 +157,42 @@ function update_values!(
         r = get_reward(spec, domain, state, act, next_state)
         qs[act] =  get_discount(spec) * next_v + r
     end
-    if stop_reason == :goal_reached && !has_action_goal(spec)
-        sol.V[state_id] = 0.0
-    elseif stop_reason == :dead_end
-        sol.V[state_id] = -Inf
-    elseif action_noise == 0
-        sol.V[state_id] = maximum(values(qs))
-    else
-        qvals = collect(values(qs))
-        sol.V[state_id] = sum(softmax(qvals ./ action_noise) .* qvals)
+    if update_v
+        if stop_reason == :goal_reached && !has_action_goal(spec)
+            sol.V[state_id] = 0.0
+        elseif stop_reason == :dead_end
+            sol.V[state_id] = -Inf
+        elseif action_noise == 0
+            sol.V[state_id] = maximum(values(qs))
+        else
+            qvals = collect(values(qs))
+            sol.V[state_id] = sum(softmax(qvals ./ action_noise) .* qvals)
+        end
     end
     return sol
 end
 
+function update_values!(
+    sol::TabularPolicy,
+    planner::RealTimeDynamicPlanner, heuristic::Heuristic,
+    domain::Domain, state_history::AbstractVector{<:State},
+    spec::Specification, stop_reason::Symbol
+)
+    for state in Iterators.reverse(state_history)
+        update_values!(sol, planner, heuristic, domain, state, spec, stop_reason)
+        stop_reason = :none
+    end
+    for state in state_history
+        update_values!(sol, planner, heuristic, domain, state, spec, stop_reason;
+                       update_v=false)
+    end
+    return sol
+
+end
+
 function refine!(sol::PolicySolution, planner::RealTimeDynamicPlanner,
                  domain::Domain, state::State, spec::Specification)
-    return solve!(sol, planner, domain, state, spec)
+    return solve!(sol, planner, planner.heuristic, domain, state, spec)
 end
 
 function (cb::LoggerCallback)(
