@@ -416,10 +416,12 @@ function update_values_dijkstra!(
             parent_h_val = haskey(queue, parent_id) ?
                 queue[parent_id] : (-get_value(policy, parent_id) |> Float32)
             parent_h_val > h_val || continue
-            parent = search_tree[parent_id]
+            # Skip parents that were deleted by rerooting etc.
+            parent = get(search_tree, parent_id, nothing)
+            isnothing(parent) && continue
+            # Skip if parent node's h-value can't be decreased
             act_cost = get_cost(spec, domain, parent.state,
                                 parent_act, node.state)
-            # Skip if parent node's h-value can't be decreased
             parent_h_val > h_val + act_cost || continue
             parent_h_val = (h_val + act_cost) |> Float32
             # Update parent's h-value and insert into priority queue
