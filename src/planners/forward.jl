@@ -224,6 +224,7 @@ function init_sol(planner::ForwardPlanner, heuristic::Heuristic,
     node_id = hash(state)
     node = PathNode(node_id, state, 0.0, LinkedNodeRef(node_id))
     search_tree = Dict(node_id => node)
+    ensure_precomputed!(heuristic, domain, state, spec)
     h_val::Float32 = compute(heuristic, domain, state, spec)
     priority = (planner.h_mult * h_val, h_val, 0)
     queue = PriorityQueue(node_id => priority)
@@ -251,6 +252,7 @@ function reinit_sol!(
     search_tree[node_id] = node
     # Reinitialize priority queue
     empty!(queue)
+    ensure_precomputed!(heuristic, domain, state, spec)
     h_val::Float32 = compute(heuristic, domain, state, spec)
     priority = (planner.h_mult * h_val, h_val, 0)
     queue[node_id] = priority
