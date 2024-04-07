@@ -413,8 +413,8 @@ function update_values_dijkstra!(
             parent_act = parent_ref.action
             parent_ref = parent_ref.next
             # Skip if parent node already has a lower h-value
-            parent_h_val = haskey(queue, parent_id) ?
-                queue[parent_id] : (-get_value(policy, parent_id) |> Float32)
+            parent_h_val = haskey(queue, parent_id) ? queue[parent_id] :
+                (-get_value(policy, parent_id, -Inf32) |> Float32)
             parent_h_val > h_val || continue
             # Skip parents that were deleted by rerooting etc.
             parent = get(search_tree, parent_id, nothing)
