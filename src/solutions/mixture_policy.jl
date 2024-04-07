@@ -77,3 +77,27 @@ function get_action_prob(sol::MixturePolicy, state::State, action::Term)
     end
     return prob
 end
+
+"""
+    get_mixture_weights(sol)
+
+Returns the mixture weights for a mixture policy.
+
+    get_mixture_weights(sol, state, action)
+
+Returns the posterior mixture weights for a mixture policy after an `action`
+has been taken at `state`.
+"""
+function get_mixture_weights end
+
+function get_mixture_weights(sol::MixturePolicy)
+    return sol.weights
+end
+
+function get_mixture_weights(sol::MixturePolicy, state::State, action::Term)
+    joint_probs = map(zip(sol.policies, sol.weights)) do (policy, weight)
+        return get_action_prob(policy, state, action) * weight
+    end
+    new_weights = joint_probs ./ sum(joint_probs)
+    return new_weights
+end

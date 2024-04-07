@@ -204,21 +204,44 @@ end
 function get_action_prob(sol::BoltzmannMixturePolicy,
                          state::State, action::Term)
     action_values = get_action_values(sol, state)
-    if isempty(action_values) || !(action in keys(action_values))
+    if isempty(action_values) || !haskey(action_values, action)
         return 0.0
     end
     actions, q_values = unzip_pairs(action_values)
-    p = 0.0
+    act_idx = findfirst(==(action), actions)
+    act_prob = 0.0
     for (temp, weight) in zip(sol.temperatures, sol.weights)
         if temp == 0
-            p += (action == actions[argmax(q_values)]) * weight
+            act_prob += (action == actions[argmax(q_values)]) * weight
         else
             probs = softmax(q_values ./ temp)
-            for (a, prob) in zip(actions, probs)
-                a == action || continue
-                p += prob * weight
-            end
+            act_prob += probs[act_idx] * weight
         end
     end
-    return p
+    return act_prob
+end
+
+function get_mixture_weights(sol::BoltzmannMixturePolicy)
+    return sol.weights
+end
+
+function get_mixture_weights(sol::BoltzmannMixturePolicy,
+                             state::State, action::Term)
+    action_values = get_action_values(sol, state)
+    if isempty(action_values) || !haskey(action_values, action)
+        return sol.weights
+    end
+    actions, q_values = unzip_pairs(action_values)
+    act_idx = findfirst(==(action), actions)
+    joint_probs = zeros(length(sol.weights))
+    joint_probs = map(zip(sol.temperatures, sol.weights)) do (temp, weight)
+        if temp == 0
+            return act_idx == argmax(q_values) ? weight : 0.0
+        else
+            probs = softmax(q_values ./ temp)
+            return probs[act_idx] * weight
+        end
+    end
+    new_weights = joint_probs ./ sum(joint_probs)
+    return new_weights
 end
