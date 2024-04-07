@@ -155,7 +155,9 @@ next_next_bw_state = transition(blocksworld, next_bw_state, pddl"(stack a b)")
 @test has_cached_value(sol, bw_state)
 @test has_cached_value(sol, next_bw_state)
 @test !has_cached_value(sol, next_next_bw_state)
-@test !has_cached_value(sol, bw_state, pddl"(pick-up a)")
+@test has_cached_value(sol, bw_state, pddl"(pick-up a)")
+@test !has_cached_value(sol, bw_state, pddl"(pick-up z)")
+@test !has_cached_value(sol, next_bw_state, pddl"(stack a b)")
 
 probs = Dict(a => a == pddl"(pick-up a)" ? 1.0 : 0.0 for a in bw_init_actions)
 @test get_action_probs(sol, bw_state) == probs

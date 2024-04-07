@@ -109,6 +109,9 @@ has_cached_value(sol::ReusableTreePolicy, state::State, action::Term) =
 has_cached_value(sol::ReusableTreePolicy, state_id::UInt, action::Term) =
     has_cached_value(sol.value_policy, state_id, action)
 
+has_cached_action_values(sol::ReusableTreePolicy, state::State) =
+    has_cached_value(sol.value_policy, state)
+
 "Insert path that terminates at `node_id` from search tree into reusable tree."
 function insert_path!(
     goal_tree::Dict{UInt, PathNode{S}}, search_tree::Dict{UInt, PathNode{S}},

@@ -11,6 +11,14 @@ has_cached_value(sol::Solution, state::State) = false
 has_cached_value(sol::Solution, state::State, action::Term) = false
 
 """
+    has_cached_action_values(sol, state)
+
+Returns true if all actions that are available at `state` have cached values
+associated with them.
+"""
+has_cached_action_values(sol::Solution, state::State) = false
+
+"""
     TabularPolicy(V::Dict, Q::Dict, default)
     TabularPolicy(default = NullPolicy())
 
@@ -118,6 +126,10 @@ function has_cached_value(sol::TabularPolicy, state_id::UInt, action::Term)
     return !isnothing(qs) && haskey(qs, action)
 end
 
+function has_cached_action_values(sol::TabularPolicy, state::State)
+    return haskey(sol.Q, hash(state))
+end
+
 """
     TabularVPolicy(V::Dict, domain, spec, default)
     TabularVPolicy(domain, spec, default = NullPolicy())
@@ -210,6 +222,13 @@ function has_cached_value(sol::TabularVPolicy, state_id::UInt)
     return haskey(sol.V, state_id)
 end
 
-function has_cached_value(sol::TabularVPolicy, state_id::UInt, action::Term)
-    return false
+function has_cached_value(sol::TabularVPolicy, state::State, action::Term)
+    available(sol.domain, state, action) || return false
+    next_state = transition(sol.domain, state, action)
+    return has_cached_value(sol, next_state)
+end
+
+function has_cached_action_values(sol::TabularVPolicy, state::State)
+    return all(has_cached_value(sol, transition(sol.domain, state, act))
+               for act in available(sol.domain, state))
 end

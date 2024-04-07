@@ -55,6 +55,8 @@ has_cached_value(sol::BoltzmannPolicy, state::State) =
     has_cached_value(sol.policy, state)
 has_cached_value(sol::BoltzmannPolicy, state::State, action::Term) =
     has_cached_value(sol.policy, state, action)
+has_cached_action_values(sol::BoltzmannPolicy, state::State) =
+    has_cached_value(sol.policy, state)
 
 function rand_action(sol::BoltzmannPolicy, state::State)
     if sol.temperature == 0
@@ -166,6 +168,8 @@ has_cached_value(sol::BoltzmannMixturePolicy, state::State) =
     has_cached_value(sol.policy, state)
 has_cached_value(sol::BoltzmannMixturePolicy, state::State, action::Term) =
     has_cached_value(sol.policy, state, action)
+has_cached_action_values(sol::BoltzmannMixturePolicy, state::State) =
+    has_cached_value(sol.policy, state)
 
 function rand_action(sol::BoltzmannMixturePolicy, state::State)
     temperature = sample(sol.rng, sol.temperatures, Weights(sol.weights))
