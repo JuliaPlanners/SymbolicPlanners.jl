@@ -2,7 +2,7 @@
 
 using SymbolicPlanners:
     get_value, get_action_values, get_action_probs, get_action_prob,
-    has_cached_value, PathNode, LinkedNodeRef
+    has_cached_value, has_cached_action_values, PathNode, LinkedNodeRef
 
 # Available actions in initial Blocksworld state
 bw_init_actions = collect(available(blocksworld, bw_state))
@@ -122,6 +122,8 @@ next_bw_state = transition(blocksworld, bw_state, pddl"(pick-up a)")
 @test has_cached_value(sol, bw_state, pddl"(pick-up a)")
 @test !has_cached_value(sol, bw_state, pddl"(pick-up z)")
 @test !has_cached_value(sol, next_bw_state, pddl"(put-down a)")
+@test has_cached_action_values(sol, bw_state)
+@test !has_cached_action_values(sol, next_bw_state)
 
 probs = Dict(a => a == pddl"(pick-up a)" ? 1.0 : 0.0 for a in bw_init_actions)
 @test get_action_probs(sol, bw_state) == probs
@@ -158,6 +160,8 @@ next_next_bw_state = transition(blocksworld, next_bw_state, pddl"(stack a b)")
 @test has_cached_value(sol, bw_state, pddl"(pick-up a)")
 @test !has_cached_value(sol, bw_state, pddl"(pick-up z)")
 @test !has_cached_value(sol, next_bw_state, pddl"(stack a b)")
+@test has_cached_action_values(sol, bw_state)
+@test !has_cached_action_values(sol, next_bw_state)
 
 probs = Dict(a => a == pddl"(pick-up a)" ? 1.0 : 0.0 for a in bw_init_actions)
 @test get_action_probs(sol, bw_state) == probs
@@ -254,6 +258,17 @@ SymbolicPlanners.insert_path!(sol, search_tree, hash(trajectory[end]), 4.0f0)
 @test get_value(sol, bw_state) == -4.0
 @test get_value(sol, bw_state, pddl"(pick-up b)") == -6.0
 @test get_action_values(sol, bw_state) == bw_init_q
+
+next_bw_state = transition(blocksworld, bw_state, pddl"(pick-up a)")
+next_next_bw_state = transition(blocksworld, next_bw_state, pddl"(stack a b)")
+@test has_cached_value(sol, bw_state)
+@test has_cached_value(sol, next_bw_state)
+@test !has_cached_value(sol, next_next_bw_state)
+@test has_cached_value(sol, bw_state, pddl"(pick-up a)")
+@test !has_cached_value(sol, bw_state, pddl"(pick-up z)")
+@test !has_cached_value(sol, next_bw_state, pddl"(stack a b)")
+@test has_cached_action_values(sol, bw_state)
+@test !has_cached_action_values(sol, next_bw_state)
 
 probs = Dict(a => a == pddl"(pick-up a)" ? 1.0 : 0.0 for a in bw_init_actions)
 @test get_action_probs(sol, bw_state) == probs
