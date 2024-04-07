@@ -80,10 +80,18 @@ The following methods constitute the interface for [`PolicySolution`](@ref)s:
 get_action(::PolicySolution, ::State)
 best_action
 rand_action
-get_value
-get_action_values
 get_action_probs
 get_action_prob
+```
+
+Some policies also store the value function (or equivalently, the negative 
+cost-to-go) associated with states and actions:
+
+```@docs
+get_value
+get_action_values
+has_cached_value
+has_cached_action_values
 ```
 
 A [`NullPolicy`](@ref) can be used as a default when no information is known.
@@ -95,7 +103,7 @@ NullPolicy
 ## Deterministic Policies
 
 **SymbolicPlanners.jl** provides the following deterministic policies, i.e., 
-policies that always return the estimated best action for a given state:
+policies that always return the (estimated) best action for a given state:
 
 ```@docs
 TabularPolicy
@@ -114,6 +122,22 @@ intended for use as wrappers around deterministic policies:
 RandomPolicy
 EpsilonGreedyPolicy
 BoltzmannPolicy
-BoltzmannMixturePolicy
+```
+
+## Mixture Policies
+
+A subclass of stochastic policies are *mixture* policies, which randomly select
+one of their underlying policies to sample an action from:
+
+```@docs
 MixturePolicy
+EpsilonMixturePolicy
+BoltzmannMixturePolicy
+```
+
+Mixture policies are associated with a set of mixture weights. These can be
+accessed with [`get_mixture_weights`](@ref)
+
+```@docs
+get_mixture_weights
 ```
