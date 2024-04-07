@@ -151,8 +151,8 @@ function Base.show(io::IO, ::MIME"text/plain", sol::BoltzmannMixturePolicy)
 end
 
 Base.copy(sol::BoltzmannMixturePolicy) =
-    BoltzmannMixturePolicy(copy(sol.policy), sol.temperatures,
-                           sol.weights, sol.rng)
+    BoltzmannMixturePolicy(copy(sol.policy), copy(sol.temperatures),
+                           copy(sol.weights), sol.rng)
 
 get_action(sol::BoltzmannMixturePolicy, state::State) =
     rand_action(sol, state)

@@ -49,7 +49,7 @@ function Base.show(io::IO, ::MIME"text/plain", sol::MixturePolicy)
 end
 
 Base.copy(sol::MixturePolicy) =
-    MixturePolicy(copy.(sol.policies), sol.weights, sol.rng)
+    MixturePolicy(copy.(sol.policies), copy(sol.weights), sol.rng)
 
 get_action(sol::MixturePolicy, state::State) =
     rand_action(sol, state)

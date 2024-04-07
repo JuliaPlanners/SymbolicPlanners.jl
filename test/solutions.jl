@@ -2,7 +2,8 @@
 
 using SymbolicPlanners:
     get_value, get_action_values, get_action_probs, get_action_prob,
-    has_cached_value, has_cached_action_values, PathNode, LinkedNodeRef
+    has_cached_value, has_cached_action_values, get_mixture_weights,
+    PathNode, LinkedNodeRef
 
 # Available actions in initial Blocksworld state
 bw_init_actions = collect(available(blocksworld, bw_state))
@@ -297,7 +298,7 @@ sol = BoltzmannPolicy(sol, 1.0)
 
 probs = SymbolicPlanners.softmax(collect(values(bw_init_q)))
 probs = Dict(zip(keys(bw_init_q), probs))
-@test get_action_probs(sol, bw_state) == probs
+@test all(probs[a] ≈ p for (a, p) in get_action_probs(sol, bw_state))
 act_prob = probs[pddl"(pick-up a)"]
 @test get_action_prob(sol, bw_state, pddl"(pick-up a)") ≈ act_prob
 @test get_action_prob(sol, bw_state, pddl"(pick-up z)") == 0.0
@@ -313,9 +314,9 @@ heuristic = PlannerHeuristic(planner)
 sol = HeuristicVPolicy(heuristic, blocksworld, bw_spec)
 
 sol = BoltzmannMixturePolicy(sol, [1.0, 2.0])
-@test sol.weights == [0.5, 0.5]
+@test get_mixture_weights(sol) == [0.5, 0.5]
 sol = BoltzmannMixturePolicy(sol, [1.0, 2.0], [0.4, 0.6])
-@test sol.weights == [0.4, 0.6]
+@test get_mixture_weights(sol) == [0.4, 0.6]
 
 @test get_action(sol, bw_state) in bw_init_actions
 @test rand_action(sol, bw_state) in bw_init_actions
@@ -329,16 +330,23 @@ probs_1 = SymbolicPlanners.softmax(collect(values(bw_init_q)))
 probs_2 = SymbolicPlanners.softmax(collect(values(bw_init_q)) ./ 2.0)
 probs = probs_1 * 0.4 + probs_2 * 0.6
 probs = Dict(zip(keys(bw_init_q), probs))
-@test get_action_probs(sol, bw_state) == probs
+@test all(probs[a] ≈ p for (a, p) in get_action_probs(sol, bw_state))
 act_prob = probs[pddl"(pick-up a)"]
 @test get_action_prob(sol, bw_state, pddl"(pick-up a)") ≈ act_prob
 @test get_action_prob(sol, bw_state, pddl"(pick-up z)") == 0.0
+
+act = pddl"(pick-up a)"
+probs_1 = Dict(zip(keys(bw_init_q), probs_1))
+probs_2 = Dict(zip(keys(bw_init_q), probs_2))
+new_weights = [0.4 * probs_1[act], 0.6 * probs_2[act]]
+new_weights = new_weights ./ sum(new_weights)
+@test get_mixture_weights(sol, bw_state, act) ≈ new_weights
 
 @test copy(sol) == sol
 
 end
 
-@testset "Epsilon-Greedy Policy" begin
+@testset "Epsilon Greedy Policy" begin
 
 planner = AStarPlanner(HMax())
 heuristic = PlannerHeuristic(planner)
@@ -355,10 +363,48 @@ sol = EpsilonGreedyPolicy(blocksworld, sol, 0.1)
 
 probs = Dict(a => 0.1 / length(bw_init_actions) for a in bw_init_actions)
 probs[pddl"(pick-up a)"] += 0.9
-@test get_action_probs(sol, bw_state) == probs
+@test all(probs[a] ≈ p for (a, p) in get_action_probs(sol, bw_state))
 act_prob = probs[pddl"(pick-up a)"]
 @test get_action_prob(sol, bw_state, pddl"(pick-up a)") ≈ act_prob
 @test get_action_prob(sol, bw_state, pddl"(pick-up z)") == 0.0
+
+@test copy(sol) == sol
+
+end
+
+@testset "Epsilon Mixture Policy" begin
+
+planner = AStarPlanner(HMax())
+heuristic = PlannerHeuristic(planner)
+sol = HeuristicVPolicy(heuristic, blocksworld, bw_spec)
+
+sol = EpsilonMixturePolicy(blocksworld, sol, [0.1, 0.2])
+@test get_mixture_weights(sol) == [0.5, 0.5]
+sol = EpsilonMixturePolicy(blocksworld, sol, [0.1, 0.2], [0.4, 0.6])
+@test get_mixture_weights(sol) == [0.4, 0.6]
+
+@test get_action(sol, bw_state) in bw_init_actions
+@test rand_action(sol, bw_state) in bw_init_actions
+@test best_action(sol, bw_state) == pddl"(pick-up a)"
+
+@test get_value(sol, bw_state) == -4.0
+@test get_value(sol, bw_state, pddl"(pick-up b)") == -6.0
+@test Dict(get_action_values(sol, bw_state)) == bw_init_q
+
+probs_1 = Dict(a => 0.1 / length(bw_init_actions) for a in bw_init_actions)
+probs_1[pddl"(pick-up a)"] += 0.9
+probs_2 = Dict(a => 0.2 / length(bw_init_actions) for a in bw_init_actions)
+probs_2[pddl"(pick-up a)"] += 0.8
+probs = Dict(a => 0.4 * probs_1[a] + 0.6 * probs_2[a] for a in bw_init_actions)
+@test all(probs[a] ≈ p for (a, p) in get_action_probs(sol, bw_state))
+act_prob = probs[pddl"(pick-up a)"]
+@test get_action_prob(sol, bw_state, pddl"(pick-up a)") ≈ act_prob
+@test get_action_prob(sol, bw_state, pddl"(pick-up z)") == 0.0
+
+act = pddl"(pick-up a)"
+new_weights = [0.4 * probs_1[act], 0.6 * probs_2[act]]
+new_weights = new_weights ./ sum(new_weights)
+@test get_mixture_weights(sol, bw_state, act) ≈ new_weights
 
 @test copy(sol) == sol
 
@@ -373,9 +419,9 @@ sol_1 = EpsilonGreedyPolicy(blocksworld, sol, 0.1)
 sol_2 = BoltzmannPolicy(sol, 1.0)
 
 sol = MixturePolicy([sol_1, sol_2])
-@test sol.weights == [0.5, 0.5]
+@test get_mixture_weights(sol) == [0.5, 0.5]
 sol = MixturePolicy((sol_1, sol_2), [0.4, 0.6])
-@test sol.weights == [0.4, 0.6]
+@test get_mixture_weights(sol) == [0.4, 0.6]
 
 @test get_action(sol, bw_state) in bw_init_actions
 @test rand_action(sol, bw_state) in bw_init_actions
@@ -384,12 +430,16 @@ e_probs = Dict(a => 0.1 / length(bw_init_actions) for a in bw_init_actions)
 e_probs[pddl"(pick-up a)"] += 0.9
 b_probs = SymbolicPlanners.softmax(collect(values(bw_init_q)))
 b_probs = Dict(zip(keys(bw_init_q), b_probs))
-probs = Dict(act => (e_probs[act] * 0.4 + b_probs[act] * 0.6)
-              for act in bw_init_actions)
-@test get_action_probs(sol, bw_state) == probs
+probs = Dict(a => e_probs[a] * 0.4 + b_probs[a] * 0.6 for a in bw_init_actions)
+@test all(probs[a] ≈ p for (a, p) in get_action_probs(sol, bw_state))
 act_prob = probs[pddl"(pick-up a)"]
 @test get_action_prob(sol, bw_state, pddl"(pick-up a)") ≈ act_prob
 @test get_action_prob(sol, bw_state, pddl"(pick-up z)") == 0.0
+
+act = pddl"(pick-up a)"
+new_weights = [0.4 * e_probs[act], 0.6 * b_probs[act]]
+new_weights = new_weights ./ sum(new_weights)
+@test get_mixture_weights(sol, bw_state, act) ≈ new_weights
 
 @test copy(sol) == sol
 
