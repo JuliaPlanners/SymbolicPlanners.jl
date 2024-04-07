@@ -63,8 +63,6 @@ Base.length(sol::OrderedSolution) = error("Not implemented.")
 Base.eltype(::Type{<:OrderedSolution}) = Term
 Base.eltype(::T) where {T <: OrderedSolution} = eltype(T)
 
-include("ordered_plan.jl")
-
 ## Policy-based solutions ##
 
 """
@@ -154,9 +152,14 @@ rand_action(sol::NullPolicy, state::State) = missing
 get_action_probs(sol::NullPolicy, state::State) = Dict{Term,Float64}()
 get_action_prob(sol::NullPolicy, state::State, action::Term) = 0.0
 
+## Solution library ##
+
+include("ordered_plan.jl")
+include("path_search.jl")
 include("random_policy.jl")
 include("tabular_policy.jl")
 include("functional_policy.jl")
 include("boltzmann_policy.jl")
 include("epsilon_greedy.jl")
 include("mixture_policy.jl")
+include("reusable_tree.jl")

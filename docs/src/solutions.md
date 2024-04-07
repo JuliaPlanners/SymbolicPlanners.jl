@@ -136,7 +136,7 @@ BoltzmannMixturePolicy
 ```
 
 Mixture policies are associated with a set of mixture weights. These can be
-accessed with [`get_mixture_weights`](@ref)
+accessed with [`get_mixture_weights`](@ref):
 
 ```@docs
 get_mixture_weights

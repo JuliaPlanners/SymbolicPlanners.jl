@@ -77,8 +77,6 @@ LoggerCallback(loglevel::Logging.LogLevel = Logging.Info; options...) =
     LoggerCallback(loglevel, Dict{Symbol, Any}(options))
 
 # Path-search planning algorithms
-include("path_search.jl")
-include("reusable_tree.jl")
 include("bfs.jl")
 include("forward.jl")
 include("backward.jl")
