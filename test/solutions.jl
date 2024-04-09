@@ -2,8 +2,8 @@
 
 using SymbolicPlanners:
     get_value, get_action_values, get_action_probs, get_action_prob,
-    has_cached_value, has_cached_action_values, get_mixture_weights,
-    PathNode, LinkedNodeRef
+    has_values, has_cached_value, has_cached_action_values,
+    get_mixture_weights, PathNode, LinkedNodeRef
 
 # Available actions in initial Blocksworld state
 bw_init_actions = collect(available(blocksworld, bw_state))
@@ -27,6 +27,8 @@ sol = OrderedPlan(@pddl("(pick-up a)", "(stack a b)",
 @test length(sol) == 4
 @test eltype(sol) == Term
 
+@test has_values(sol) == false
+
 @test copy(sol) == sol
 
 end
@@ -41,6 +43,8 @@ sol = ExternalPlan(@pddl("(pick-up a)", "(stack a b)",
 @test get_action(sol, 1) == pddl"(pick-up a)"
 @test length(sol) == 4
 @test eltype(sol) == Term
+
+@test has_values(sol) == false
 
 @test copy(sol) == sol
 
@@ -83,6 +87,8 @@ no_op = convert(Term, PDDL.no_op)
 @test get_action_prob(sol, trajectory[1], pddl"(pick-up b)") == 0.0
 @test get_action_prob(sol, trajectory[1], pddl"(pick-up z)") == 0.0
 
+@test has_values(sol) == false
+
 @test copy(sol) == sol
 
 end
@@ -98,6 +104,8 @@ probs = Dict(a => 1.0 / n_actions for a in bw_init_actions)
 @test get_action_probs(sol, bw_state) == probs
 @test get_action_prob(sol, bw_state, pddl"(pick-up a)") == 1.0 / n_actions
 @test get_action_prob(sol, bw_state, pddl"(pick-up z)") == 0.0
+
+@test has_values(sol) == false
 
 @test copy(sol) == sol
 
@@ -131,6 +139,8 @@ probs = Dict(a => a == pddl"(pick-up a)" ? 1.0 : 0.0 for a in bw_init_actions)
 @test get_action_prob(sol, bw_state, pddl"(pick-up a)") == 1.0
 @test get_action_prob(sol, bw_state, pddl"(pick-up b)") == 0.0
 @test get_action_prob(sol, bw_state, pddl"(pick-up z)") == 0.0
+
+@test has_values(sol) == true
 
 @test copy(sol) == sol
 
@@ -170,6 +180,8 @@ probs = Dict(a => a == pddl"(pick-up a)" ? 1.0 : 0.0 for a in bw_init_actions)
 @test get_action_prob(sol, bw_state, pddl"(pick-up b)") == 0.0
 @test get_action_prob(sol, bw_state, pddl"(pick-up z)") == 0.0
 
+@test has_values(sol) == true
+
 @test copy(sol) == sol
 
 end
@@ -194,6 +206,8 @@ probs = Dict(a => a == pddl"(pick-up a)" ? 1.0 : 0.0 for a in bw_init_actions)
 @test get_action_prob(sol, bw_state, pddl"(pick-up a)") == 1.0
 @test get_action_prob(sol, bw_state, pddl"(pick-up b)") == 0.0 
 
+@test has_values(sol) == true
+
 @test copy(sol) == sol
 
 end
@@ -216,6 +230,8 @@ probs = Dict(a => a == pddl"(pick-up a)" ? 1.0 : 0.0 for a in bw_init_actions)
 @test get_action_probs(sol, bw_state) == probs
 @test get_action_prob(sol, bw_state, pddl"(pick-up a)") == 1.0
 @test get_action_prob(sol, bw_state, pddl"(pick-up b)") == 0.0 
+
+@test has_values(sol) == true
 
 @test copy(sol) == sol
 
@@ -277,6 +293,8 @@ probs = Dict(a => a == pddl"(pick-up a)" ? 1.0 : 0.0 for a in bw_init_actions)
 @test get_action_prob(sol, bw_state, pddl"(pick-up b)") == 0.0
 @test get_action_prob(sol, bw_state, pddl"(pick-up z)") == 0.0
 
+@test has_values(sol) == true
+
 @test copy(sol) == sol
 
 end
@@ -302,6 +320,8 @@ probs = Dict(zip(keys(bw_init_q), probs))
 act_prob = probs[pddl"(pick-up a)"]
 @test get_action_prob(sol, bw_state, pddl"(pick-up a)") ≈ act_prob
 @test get_action_prob(sol, bw_state, pddl"(pick-up z)") == 0.0
+
+@test has_values(sol) == true
 
 @test copy(sol) == sol
 
@@ -342,6 +362,8 @@ new_weights = [0.4 * probs_1[act], 0.6 * probs_2[act]]
 new_weights = new_weights ./ sum(new_weights)
 @test get_mixture_weights(sol, bw_state, act) ≈ new_weights
 
+@test has_values(sol) == true
+
 @test copy(sol) == sol
 
 end
@@ -367,6 +389,8 @@ probs[pddl"(pick-up a)"] += 0.9
 act_prob = probs[pddl"(pick-up a)"]
 @test get_action_prob(sol, bw_state, pddl"(pick-up a)") ≈ act_prob
 @test get_action_prob(sol, bw_state, pddl"(pick-up z)") == 0.0
+
+@test has_values(sol) == true
 
 @test copy(sol) == sol
 
@@ -406,6 +430,8 @@ new_weights = [0.4 * probs_1[act], 0.6 * probs_2[act]]
 new_weights = new_weights ./ sum(new_weights)
 @test get_mixture_weights(sol, bw_state, act) ≈ new_weights
 
+@test has_values(sol) == true
+
 @test copy(sol) == sol
 
 end
@@ -440,6 +466,8 @@ act = pddl"(pick-up a)"
 new_weights = [0.4 * e_probs[act], 0.6 * b_probs[act]]
 new_weights = new_weights ./ sum(new_weights)
 @test get_mixture_weights(sol, bw_state, act) ≈ new_weights
+
+@test has_values(sol) == false
 
 @test copy(sol) == sol
 

@@ -99,6 +99,14 @@ available, return `missing`.
 rand_action(sol::PolicySolution, state::State) = error("Not implemented.")
 
 """
+$(SIGNATURES)
+
+Trait that denotes whether the solution stores a value function.
+"""
+has_values(sol::PolicySolution) = false
+has_values(sol::Solution) = false
+
+"""
     get_value(sol, state)
     get_value(sol, state, action)
 

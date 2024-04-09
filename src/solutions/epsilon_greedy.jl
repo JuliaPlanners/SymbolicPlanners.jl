@@ -31,6 +31,8 @@ get_action(sol::EpsilonGreedyPolicy, state::State) =
     rand_action(sol, state)
 best_action(sol::EpsilonGreedyPolicy, state::State) =
     best_action(sol.policy, state)
+has_values(sol::EpsilonGreedyPolicy) =
+    has_values(sol.policy)
 get_value(sol::EpsilonGreedyPolicy, state::State) =
     get_value(sol.policy, state)
 get_value(sol::EpsilonGreedyPolicy, state::State, action::Term) =
@@ -135,6 +137,8 @@ get_action(sol::EpsilonMixturePolicy, state::State) =
     rand_action(sol, state)
 best_action(sol::EpsilonMixturePolicy, state::State) =
     best_action(sol.policy, state)
+has_values(sol::EpsilonMixturePolicy) =
+    has_values(sol.policy)
 get_value(sol::EpsilonMixturePolicy, state::State) =
     get_value(sol.policy, state)
 get_value(sol::EpsilonMixturePolicy, state::State, action::Term) =

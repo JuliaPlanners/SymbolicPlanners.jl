@@ -90,6 +90,7 @@ cost-to-go) associated with states and actions:
 ```@docs
 get_value
 get_action_values
+has_values
 has_cached_value
 has_cached_action_values
 ```

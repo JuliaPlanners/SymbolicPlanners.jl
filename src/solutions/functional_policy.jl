@@ -37,6 +37,8 @@ function best_action(sol::FunctionalVPolicy, state::State)
     return best_act
 end
 
+has_values(sol::FunctionalVPolicy) = true
+
 get_value(sol::FunctionalVPolicy, state::State) =
     sol.evaluator(state)
 get_action_values(sol::FunctionalVPolicy, state::State) =
@@ -83,6 +85,8 @@ function best_action(sol::HeuristicVPolicy, state::State)
     end
     return best_act
 end
+
+has_values(sol::HeuristicVPolicy) = true
 
 get_value(sol::HeuristicVPolicy, state::State) =
     -compute(sol.heuristic, sol.domain, state, sol.spec)

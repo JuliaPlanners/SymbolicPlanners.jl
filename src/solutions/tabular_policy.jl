@@ -60,6 +60,8 @@ function best_action(sol::TabularPolicy, state::State)
     return isempty(q_values) ? missing : argmax(q_values)
 end
 
+has_values(sol::TabularPolicy) = true
+
 function get_value(sol::TabularPolicy, state::State)
     return get(sol.V, hash(state)) do
         get_value(sol.default, state) |> Float64
@@ -180,6 +182,8 @@ function best_action(sol::TabularVPolicy, state::State)
     end
     return best_act
 end
+
+has_values(sol::TabularVPolicy) = true
 
 function get_value(sol::TabularVPolicy, state::State)
     return get(sol.V, hash(state)) do

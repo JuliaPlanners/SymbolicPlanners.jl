@@ -45,6 +45,8 @@ get_action(sol::BoltzmannPolicy, state::State) =
     rand_action(sol, state)
 best_action(sol::BoltzmannPolicy, state::State) =
     best_action(sol.policy, state)
+has_values(sol::BoltzmannPolicy) =
+    has_values(sol.policy)
 get_value(sol::BoltzmannPolicy, state::State) =
     get_value(sol.policy, state)
 get_value(sol::BoltzmannPolicy, state::State, action::Term) =
@@ -158,6 +160,8 @@ get_action(sol::BoltzmannMixturePolicy, state::State) =
     rand_action(sol, state)
 best_action(sol::BoltzmannMixturePolicy, state::State) =
     best_action(sol.policy, state)
+has_values(sol::BoltzmannMixturePolicy) = 
+    has_values(sol.policy)
 get_value(sol::BoltzmannMixturePolicy, state::State) =
     get_value(sol.policy, state)
 get_value(sol::BoltzmannMixturePolicy, state::State, action::Term) =

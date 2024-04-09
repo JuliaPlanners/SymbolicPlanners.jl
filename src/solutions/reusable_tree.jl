@@ -79,6 +79,9 @@ function best_action(sol::ReusableTreePolicy, state::State)
     end
 end
 
+has_values(sol::ReusableTreePolicy) =
+    has_values(sol.value_policy)
+
 get_value(sol::ReusableTreePolicy, state::State) =
     get_value(sol.value_policy, state)
 
