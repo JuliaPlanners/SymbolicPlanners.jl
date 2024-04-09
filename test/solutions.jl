@@ -321,6 +321,17 @@ act_prob = probs[pddl"(pick-up a)"]
 @test get_action_prob(sol, bw_state, pddl"(pick-up a)") ≈ act_prob
 @test get_action_prob(sol, bw_state, pddl"(pick-up z)") == 0.0
 
+sol = TabularPolicy()
+sol.V[hash(bw_state)] = bw_init_v
+sol.Q[hash(bw_state)] = copy(bw_init_q)
+sol.Q[hash(bw_state)][pddl"(pick-up a)"] = -Inf
+sol = BoltzmannPolicy(sol, 0.0)
+probs = Dict(a => a == pddl"(pick-up a)" ? 0.0 : 0.5 for a in bw_init_actions)
+@test all(probs[a] ≈ p for (a, p) in get_action_probs(sol, bw_state))
+@test get_action_prob(sol, bw_state, pddl"(pick-up a)") == 0.0
+@test get_action_prob(sol, bw_state, pddl"(pick-up b)") == 0.5
+@test get_action_prob(sol, bw_state, pddl"(pick-up c)") == 0.5
+
 @test has_values(sol) == true
 
 @test copy(sol) == sol
@@ -362,6 +373,20 @@ new_weights = [0.4 * probs_1[act], 0.6 * probs_2[act]]
 new_weights = new_weights ./ sum(new_weights)
 @test get_mixture_weights(sol, bw_state, act) ≈ new_weights
 
+sol = TabularPolicy()
+sol.V[hash(bw_state)] = bw_init_v
+sol.Q[hash(bw_state)] = copy(bw_init_q)
+sol.Q[hash(bw_state)][pddl"(pick-up a)"] = -6.0 - log(2)
+sol = BoltzmannMixturePolicy(sol, [0.0, 1.0])
+probs = Dict(a => a == pddl"(pick-up a)" ? 0.1 : 0.45 for a in bw_init_actions)
+@test all(probs[a] ≈ p for (a, p) in get_action_probs(sol, bw_state))
+@test get_action_prob(sol, bw_state, pddl"(pick-up a)") ≈ 0.1
+@test get_action_prob(sol, bw_state, pddl"(pick-up b)") ≈ 0.45
+@test get_action_prob(sol, bw_state, pddl"(pick-up c)") ≈ 0.45
+new_weights = [0.5, 0.4] .* get_mixture_weights(sol)
+new_weights = new_weights ./ sum(new_weights)
+@test get_mixture_weights(sol, bw_state, pddl"(pick-up b)") ≈ new_weights
+
 @test has_values(sol) == true
 
 @test copy(sol) == sol
@@ -390,7 +415,37 @@ act_prob = probs[pddl"(pick-up a)"]
 @test get_action_prob(sol, bw_state, pddl"(pick-up a)") ≈ act_prob
 @test get_action_prob(sol, bw_state, pddl"(pick-up z)") == 0.0
 
+sol = TabularPolicy()
+sol.V[hash(bw_state)] = bw_init_v
+sol.Q[hash(bw_state)] = copy(bw_init_q)
+sol.Q[hash(bw_state)][pddl"(pick-up a)"] = -8.0
+sol = EpsilonGreedyPolicy(blocksworld, sol, 0.1)
+probs = Dict(a => a == pddl"(pick-up a)" ? 0.1 / 3 : 0.45 + 0.1 / 3
+             for a in bw_init_actions)
+@test all(probs[a] ≈ p for (a, p) in get_action_probs(sol, bw_state))
+@test get_action_prob(sol, bw_state, pddl"(pick-up a)") ≈ 0.1 / 3
+@test get_action_prob(sol, bw_state, pddl"(pick-up b)") ≈ 0.45 + 0.1 / 3
+@test get_action_prob(sol, bw_state, pddl"(pick-up c)") ≈ 0.45 + 0.1 / 3
+
 @test has_values(sol) == true
+
+plan = @pddl("(pick-up a)", "(stack a b)", "(pick-up c)", "(stack c a)")
+trajectory = PDDL.simulate(blocksworld, bw_state, plan)
+sol = PathSearchSolution(:success, plan, trajectory)
+sol = EpsilonGreedyPolicy(blocksworld, sol, 0.1)
+
+@test get_action(sol, bw_state) in bw_init_actions
+@test rand_action(sol, bw_state) in bw_init_actions
+@test best_action(sol, bw_state) == pddl"(pick-up a)"
+
+probs = Dict(a => 0.1 / length(bw_init_actions) for a in bw_init_actions)
+probs[pddl"(pick-up a)"] += 0.9
+@test all(probs[a] ≈ p for (a, p) in get_action_probs(sol, bw_state))
+act_prob = probs[pddl"(pick-up a)"]
+@test get_action_prob(sol, bw_state, pddl"(pick-up a)") ≈ act_prob
+@test get_action_prob(sol, bw_state, pddl"(pick-up z)") == 0.0
+
+@test has_values(sol) == false
 
 @test copy(sol) == sol
 
@@ -430,7 +485,48 @@ new_weights = [0.4 * probs_1[act], 0.6 * probs_2[act]]
 new_weights = new_weights ./ sum(new_weights)
 @test get_mixture_weights(sol, bw_state, act) ≈ new_weights
 
+sol = TabularPolicy()
+sol.V[hash(bw_state)] = bw_init_v
+sol.Q[hash(bw_state)] = copy(bw_init_q)
+sol.Q[hash(bw_state)][pddl"(pick-up a)"] = -8.0
+sol = EpsilonMixturePolicy(blocksworld, sol, [0.0, 0.2])
+probs = Dict(a => a == pddl"(pick-up a)" ? 0.1 / 3 : 0.45 + 0.1 / 3
+             for a in bw_init_actions)
+@test all(probs[a] ≈ p for (a, p) in get_action_probs(sol, bw_state))
+@test get_action_prob(sol, bw_state, pddl"(pick-up a)") ≈ 0.1 / 3
+@test get_action_prob(sol, bw_state, pddl"(pick-up b)") ≈ 0.45 + 0.1 / 3
+@test get_action_prob(sol, bw_state, pddl"(pick-up c)") ≈ 0.45 + 0.1 / 3
+new_weights = [0.5, (0.4 + 0.2 / 3)]
+new_weights = new_weights ./ sum(new_weights)
+@test get_mixture_weights(sol, bw_state, pddl"(pick-up b)") ≈ new_weights
+
 @test has_values(sol) == true
+
+plan = @pddl("(pick-up a)", "(stack a b)", "(pick-up c)", "(stack c a)")
+trajectory = PDDL.simulate(blocksworld, bw_state, plan)
+sol = PathSearchSolution(:success, plan, trajectory)
+sol = EpsilonMixturePolicy(blocksworld, sol, [0.0, 0.2])
+
+@test get_action(sol, bw_state) in bw_init_actions
+@test rand_action(sol, bw_state) in bw_init_actions
+@test best_action(sol, bw_state) == pddl"(pick-up a)"
+
+probs_1 = Dict(a => 0.0 / length(bw_init_actions) for a in bw_init_actions)
+probs_1[pddl"(pick-up a)"] += 1.0
+probs_2 = Dict(a => 0.2 / length(bw_init_actions) for a in bw_init_actions)
+probs_2[pddl"(pick-up a)"] += 0.8
+probs = Dict(a => 0.5 * probs_1[a] + 0.5 * probs_2[a] for a in bw_init_actions)
+@test all(probs[a] ≈ p for (a, p) in get_action_probs(sol, bw_state))
+act_prob = probs[pddl"(pick-up a)"]
+@test get_action_prob(sol, bw_state, pddl"(pick-up a)") ≈ act_prob
+@test get_action_prob(sol, bw_state, pddl"(pick-up z)") == 0.0
+
+act = pddl"(pick-up a)"
+new_weights = [0.5 * probs_1[act], 0.5 * probs_2[act]]
+new_weights = new_weights ./ sum(new_weights)
+@test get_mixture_weights(sol, bw_state, act) ≈ new_weights
+
+@test has_values(sol) == false
 
 @test copy(sol) == sol
 
