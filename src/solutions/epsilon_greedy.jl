@@ -201,19 +201,19 @@ has_cached_action_values(sol::EpsilonMixturePolicy, state::State) =
 function rand_action(sol::EpsilonMixturePolicy, state::State)
     epsilon = sample(sol.rng, sol.epsilons, Weights(sol.weights))
     policy = EpsilonGreedyPolicy(sol.domain, sol.policy, epsilon, sol.rng)
-    @inline return rand_action(policy, state)
+    return @inline rand_action(policy, state)
 end
 
 function get_action_probs(sol::EpsilonMixturePolicy, state::State)
     epsilon = (sol.epsilons' * sol.weights) # Marginal epsilon
     policy = EpsilonGreedyPolicy(sol.domain, sol.policy, epsilon, sol.rng)
-    @inline return get_action_probs(policy, state)
+    return @inline get_action_probs(policy, state)
 end
 
 function get_action_prob(sol::EpsilonMixturePolicy, state::State, action::Term)
     epsilon = (sol.epsilons' * sol.weights) # Marginal epsilon
     policy = EpsilonGreedyPolicy(sol.domain, sol.policy, epsilon, sol.rng)
-    @inline return get_action_prob(policy, state, action)
+    return @inline get_action_prob(policy, state, action)
 end
 
 function get_mixture_weights(sol::EpsilonMixturePolicy)

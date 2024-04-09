@@ -197,7 +197,7 @@ has_cached_action_values(sol::BoltzmannMixturePolicy, state::State) =
 function rand_action(sol::BoltzmannMixturePolicy, state::State)
     temperature = sample(sol.rng, sol.temperatures, Weights(sol.weights))
     policy = BoltzmannPolicy(sol.policy, temperature, sol.rng)
-    @inline return rand_action(policy, state)
+    return @inline rand_action(policy, state)
 end
 
 function get_action_probs(sol::BoltzmannMixturePolicy, state::State)
