@@ -1,7 +1,7 @@
 name = "SymbolicPlanners"
 uuid = "b6fe5377-9711-4fad-95b0-be4eed71ecbb"
 authors = ["Xuan <tanqazx@gmail.com>"]
-version = "0.1.23"
+version = "0.1.24"
 
 [deps]
 AutoHashEquals = "15f4f7f2-30c1-5605-9d31-71845cf9641f"
