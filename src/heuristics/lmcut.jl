@@ -8,15 +8,6 @@ A landmark based heuristic, which builds on top of the existing
 relaxed planning graph heuristic HMax. It functions by finding sets of actions
 through which an optimal plan must pass (the landmarks), and then choosing the lowest cost one.
 The heuristic is the sum of these minima across all the sets of landmarks.
-
-The landmarks themselves are found by first building a justification graph (JG), and then finding
-the N* and N0 partitions of the graph. The JG is a set of all the possible edges in the format:
-(suppₐ, addₐ, a), where a is an action, addₐ is one of the facts from the add effect of a,
-and suppₐ is the supporter of a, meaning the precondition of a with the highest cost in the 
-relaxed planning graph constructed by HMax. The landmarks are then the actions that have edges 
-leading from N0 to N*.
-
-
 """
 mutable struct LM_CutHeuristic <: Heuristic 
     graph::PlanningGraph
@@ -50,8 +41,10 @@ function compute(h::LM_CutHeuristic, domain::Domain, state::State, spec::Specifi
     init_compound = Compound(:init, Term[])
     c[init_compound] = 0
 
+    #Fetch idxs to use later on
     init_idxs = findall(SymbolicPlanners.pgraph_init_idxs(h.graph, domain, state))
-
+    #idx of the new goal fact (simply an used idx)
+    #the idx of the new init fact is then goal_fact_idx + 1
     goal_fact_idx = length(h.graph.conditions) + 1
 
     #Calculate relaxed costs of facts (delta) and the hmax value (goal_cost)
