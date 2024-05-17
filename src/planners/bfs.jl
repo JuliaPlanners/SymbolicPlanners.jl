@@ -51,7 +51,8 @@ function solve(planner::BreadthFirstPlanner,
     spec = simplify_goal(spec, domain, state)
     # Initialize backpointers and queue
     node_id = hash(state)
-    search_tree = Dict(node_id => PathNode(node_id, state, 0.0))
+    node = PathNode(node_id, state, 0.0, LinkedNodeRef(node_id))
+    search_tree = Dict(node_id => node)
     queue = [node_id]
     search_order = UInt[]
     sol = PathSearchSolution(:in_progress, Term[], Vector{typeof(state)}(),
@@ -78,7 +79,7 @@ function search!(sol::PathSearchSolution, planner::BreadthFirstPlanner,
         node_id = first(queue)
         node = search_tree[node_id]
         # Check search termination criteria
-        if is_goal(spec, domain, node.state, node.parent_action)
+        if is_goal(spec, domain, node.state, node.parent.action)
             sol.status = :success # Goal reached
         elseif sol.expanded >= planner.max_nodes
             sol.status = :max_nodes # Node budget reached
@@ -107,9 +108,11 @@ function search!(sol::PathSearchSolution, planner::BreadthFirstPlanner,
     return sol
 end
 
-function expand!(planner::BreadthFirstPlanner, node::PathNode,
-                 search_tree::Dict{UInt,<:PathNode}, queue::Vector{UInt},
-                 domain::Domain, spec::Specification)
+function expand!(
+    planner::BreadthFirstPlanner, node::PathNode{S},
+    search_tree::Dict{UInt,PathNode{S}}, queue::Vector{UInt},
+    domain::Domain, spec::Specification
+) where {S <: State}
     state = node.state
     # Iterate over available actions
     for act in available(domain, state)
@@ -126,8 +129,8 @@ function expand!(planner::BreadthFirstPlanner, node::PathNode,
         if is_violated(spec, domain, state) continue end
         # Update backpointer and add next state to queue
         path_cost = node.path_cost + 1
-        search_tree[next_id] =
-            PathNode(next_id, next_state, path_cost, node.id, act)
+        search_tree[next_id] = PathNode(next_id, next_state, path_cost,
+                                        LinkedNodeRef(node.id, act))
         push!(queue, next_id)
     end
 end

@@ -7,7 +7,7 @@ A goal specification used for backward search (e.g. [`BackwardPlanner`](@ref)),
 constructed from the original `goal` specification, and the `start` state to
 be reached via backward search from the goal.
 """
-struct BackwardSearchGoal{G <: Goal,C} <: Goal
+struct BackwardSearchGoal{G <: Goal, C} <: Goal
     goal::G # Original goal specification
     start::State # Start state to be reached via backward search
     constraint_diff::C # State constraints as a diff, if any
@@ -23,6 +23,11 @@ function BackwardSearchGoal(goal::StateConstrainedGoal,
     constraint = Compound(:and, goal.constraints)
     constraint_diff = PDDL.precond_diff(domain, start, constraint)
     BackwardSearchGoal(goal, start, constraint_diff)
+end
+
+function Base.show(io::IO, ::MIME"text/plain", spec::BackwardSearchGoal)
+    indent = get(io, :indent, "")
+    show_struct(io, spec; indent = indent, show_fields=(:goal,))
 end
 
 Base.hash(spec::BackwardSearchGoal, h::UInt) =

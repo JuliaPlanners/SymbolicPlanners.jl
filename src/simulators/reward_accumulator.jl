@@ -34,6 +34,7 @@ function simulate(sim::RewardAccumulator, sol::Solution,
     for t in steps
 		if is_goal(spec, domain, state, act) break end
         act = get_action(sol, t, state)
+        ismissing(act) && break
         next_state = transition(domain, state, act)
 		reward += discount * get_reward(spec, domain, state, act, next_state)
 		discount *= get_discount(spec)

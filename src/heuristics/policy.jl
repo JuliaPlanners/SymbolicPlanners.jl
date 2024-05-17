@@ -10,6 +10,11 @@ struct PolicyValueHeuristic{P <: PolicySolution} <: Heuristic
     policy::P
 end
 
+function Base.show(io::IO, ::MIME"text/plain", h::PolicyValueHeuristic)
+    indent = get(io, :indent, "")
+    show_struct(io, h; indent = indent, show_fields = (:policy,))
+end
+
 compute(h::PolicyValueHeuristic, ::Domain, state::State, ::Specification) =
     -get_value(h.policy, state)
 

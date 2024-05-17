@@ -9,6 +9,11 @@ Generic solution type for fully ordered plans.
     plan::Vector{Term}
 end
 
+function Base.show(io::IO, ::MIME"text/plain", sol::OrderedPlan)
+    indent = get(io, :indent, "")
+    show_struct(io, sol; indent = indent, show_pddl_list=(:plan,))
+end
+
 Base.copy(sol::OrderedPlan) =
     OrderedPlan(copy(sol.plan))
 

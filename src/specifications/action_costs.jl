@@ -90,6 +90,17 @@ function MinActionCosts(domain::Domain, problem::Problem)
     return MinActionCosts(PDDL.get_goal(problem), costs)
 end
 
+function Base.show(io::IO, ::MIME"text/plain", spec::MinActionCosts)
+    indent = get(io, :indent, "")
+    show_struct(io, spec; indent = indent, show_pddl_list=(:terms,))
+end
+
+function Base.show(io::IO, ::MIME"text/plain", spec::MinActionCosts{<:NamedTuple})
+    indent = get(io, :indent, "")
+    show_struct(io, spec; indent = indent, show_fields=(:costs,),
+                show_pddl_list=(:terms,))
+end
+
 Base.hash(spec::MinActionCosts, h::UInt) =
     hash(spec.costs, hash(Set(spec.terms), h))
 Base.:(==)(s1::MinActionCosts, s2::MinActionCosts) =
@@ -155,6 +166,17 @@ function ExtraActionCosts(spec::Specification; costs...)
     return ExtraActionCosts(spec, actions, costs)
 end
 
+function Base.show(io::IO, ::MIME"text/plain", spec::ExtraActionCosts)
+    indent = get(io, :indent, "")
+    show_struct(io, spec; indent = indent, show_fields=(:spec,))
+end
+
+function Base.show(io::IO, ::MIME"text/plain",
+                   spec::ExtraActionCosts{<:Specification, <:NamedTuple})
+    indent = get(io, :indent, "")
+    show_struct(io, spec; indent = indent, show_fields=(:spec, :costs))
+end
+
 Base.hash(spec::ExtraActionCosts, h::UInt) =
     hash(spec.costs, hash(spec.spec, h))
 Base.:(==)(s1::ExtraActionCosts, s2::ExtraActionCosts) =
@@ -211,6 +233,18 @@ MinPerAgentActionCosts(term::Term, costs, agent_arg_idx=1) =
 MinPerAgentActionCosts(terms::AbstractVector{<:Term}, costs, agent_arg_idx=1) =
     MinPerAgentActionCosts(collect(Term, terms), costs, agent_arg_idx)
  
+function Base.show(io::IO, ::MIME"text/plain", spec::MinPerAgentActionCosts)
+    indent = get(io, :indent, "")
+    show_struct(io, spec; indent = indent, show_pddl_list=(:terms,))
+end
+
+function Base.show(io::IO, ::MIME"text/plain",
+                   spec::MinPerAgentActionCosts{<:NamedTuple})
+    indent = get(io, :indent, "")
+    show_struct(io, spec; indent = indent, show_fields=(:costs,),
+                show_pddl_list=(:terms,))
+end
+
 Base.hash(spec::MinPerAgentActionCosts, h::UInt) =
     hash(spec.agent_arg_idx, hash(spec.costs, hash(Set(spec.terms), h)))
 Base.:(==)(s1::MinPerAgentActionCosts, s2::MinPerAgentActionCosts) =
@@ -255,6 +289,17 @@ end
 
 ExtraPerAgentActionCosts(spec::Specification, costs) =
     ExtraPerAgentActionCosts(spec, costs, 1)
+
+function Base.show(io::IO, ::MIME"text/plain", spec::ExtraPerAgentActionCosts)
+    indent = get(io, :indent, "")
+    show_struct(io, spec; indent = indent, show_fields=(:spec,))
+end
+
+function Base.show(io::IO, ::MIME"text/plain",
+                   spec::ExtraPerAgentActionCosts{<:Specification, <:NamedTuple})
+    indent = get(io, :indent, "")
+    show_struct(io, spec; indent = indent, show_fields=(:spec, :costs))
+end
 
 Base.hash(spec::ExtraPerAgentActionCosts, h::UInt) =
     hash(spec.agent_arg_idx, hash(spec.costs, hash(spec.spec, h)))

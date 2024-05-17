@@ -4,7 +4,7 @@
 CurrentModule = SymbolicPlanners
 ```
 
-SymbolicPlanners.jl extends the `PDDL.Simulator` interface to enable
+**SymbolicPlanners.jl** extends the `PDDL.Simulator` interface to enable
 simulation of plan or policy [`Solution`](@ref)s:
 
 ```@docs

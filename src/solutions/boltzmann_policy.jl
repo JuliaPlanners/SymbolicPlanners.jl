@@ -33,6 +33,11 @@ BoltzmannPolicy(policy::BoltzmannPolicy, temperature, rng) =
 BoltzmannPolicy(policy, temperature) =
     BoltzmannPolicy(policy, temperature, Random.GLOBAL_RNG)
 
+function Base.show(io::IO, ::MIME"text/plain", sol::BoltzmannPolicy)
+    indent = get(io, :indent, "")
+    show_struct(io, sol; indent = indent, show_fields=(:policy,))
+end
+    
 Base.copy(sol::BoltzmannPolicy) =
     BoltzmannPolicy(copy(sol.policy), sol.temperature, sol.rng)
 
@@ -40,26 +45,48 @@ get_action(sol::BoltzmannPolicy, state::State) =
     rand_action(sol, state)
 best_action(sol::BoltzmannPolicy, state::State) =
     best_action(sol.policy, state)
+has_values(sol::BoltzmannPolicy) =
+    has_values(sol.policy)
 get_value(sol::BoltzmannPolicy, state::State) =
     get_value(sol.policy, state)
 get_value(sol::BoltzmannPolicy, state::State, action::Term) =
     get_value(sol.policy, state, action)
 get_action_values(sol::BoltzmannPolicy, state::State) =
     get_action_values(sol.policy, state)
+has_cached_value(sol::BoltzmannPolicy, state::State) =
+    has_cached_value(sol.policy, state)
+has_cached_value(sol::BoltzmannPolicy, state::State, action::Term) =
+    has_cached_value(sol.policy, state, action)
+has_cached_action_values(sol::BoltzmannPolicy, state::State) =
+    has_cached_action_values(sol.policy, state)
 
 function rand_action(sol::BoltzmannPolicy, state::State)
     if sol.temperature == 0
-        return best_action(sol, state)
-    end
-    chosen_act, chosen_score = missing, -Inf
-    for (act, q) in get_action_values(sol, state)
-        score = q / sol.temperature + randgumbel()
-        if score > chosen_score
-            chosen_act = act
-            chosen_score = score
+        # Reservoir sampling among maximal elements
+        qs = get_action_values(sol.policy, state)
+        if isempty(qs) return missing end
+        q_max = maximum(values(qs))
+        n_max = 0
+        chosen_act = missing
+        for (act, q) in qs 
+            q < q_max && continue
+            n_max += 1
+            j = rand(sol.rng, 1:n_max)
+            j == 1 && (chosen_act = act)
         end
+        return chosen_act
+    else
+        # Reservoir sampling via Gumbel-max trick
+        chosen_act, chosen_score = missing, -Inf
+        for (act, q) in get_action_values(sol, state)
+            score = q / sol.temperature + randgumbel()
+            if score > chosen_score
+                chosen_act = act
+                chosen_score = score
+            end
+        end
+        return chosen_act
     end
-    return chosen_act
 end
 
 function get_action_probs(sol::BoltzmannPolicy, state::State)
@@ -69,8 +96,9 @@ function get_action_probs(sol::BoltzmannPolicy, state::State)
     end
     actions, q_values = unzip_pairs(action_values)
     if sol.temperature == 0
-        probs = zeros(length(actions))
-        probs[argmax(q_values)] = 1.0
+        q_max = maximum(q_values)
+        n_max = sum(q >= q_max for q in q_values)
+        probs = [q >= q_max ? 1.0 / n_max : 0.0 for q in q_values]
     else
         probs = softmax(q_values ./ sol.temperature)
     end 
@@ -79,19 +107,23 @@ function get_action_probs(sol::BoltzmannPolicy, state::State)
 end
 
 function get_action_prob(sol::BoltzmannPolicy, state::State, action::Term)
-    if sol.temperature == 0.0
-        return action == best_action(sol, state) ? 1.0 : 0.0
-    end
     action_values = get_action_values(sol, state)
     if isempty(action_values)
         return 0.0
     end
     actions, q_values = unzip_pairs(action_values)
-    probs = softmax(q_values ./ sol.temperature)
-    for (a, p) in zip(actions, probs)
-        a == action && return p
+    if sol.temperature == 0.0
+        q_max = maximum(q_values)
+        n_max = sum(q >= q_max for q in q_values)
+        q_act = get(action_values, action, -Inf)
+        return q_act >= q_max ? 1.0 / n_max : 0.0
+    else
+        probs = softmax(q_values ./ sol.temperature)
+        for (a, p) in zip(actions, probs)
+            a == action && return p
+        end
+        return 0.0
     end
-    return 0.0
 end
 
 """
@@ -133,35 +165,39 @@ function BoltzmannMixturePolicy(policy, temperatures, rng::AbstractRNG)
     return BoltzmannMixturePolicy(policy, temperatures, weights, rng)
 end
 
+function Base.show(io::IO, ::MIME"text/plain", sol::BoltzmannMixturePolicy)
+    indent = get(io, :indent, "")
+    show_struct(io, sol; indent = indent, show_fields=(:policy,),
+                show_fields_compact=(:temperatures, :weights))
+end
+
 Base.copy(sol::BoltzmannMixturePolicy) =
-    BoltzmannMixturePolicy(copy(sol.policy), sol.temperatures,
-                           sol.weights, sol.rng)
+    BoltzmannMixturePolicy(copy(sol.policy), copy(sol.temperatures),
+                           copy(sol.weights), sol.rng)
 
 get_action(sol::BoltzmannMixturePolicy, state::State) =
     rand_action(sol, state)
 best_action(sol::BoltzmannMixturePolicy, state::State) =
     best_action(sol.policy, state)
+has_values(sol::BoltzmannMixturePolicy) = 
+    has_values(sol.policy)
 get_value(sol::BoltzmannMixturePolicy, state::State) =
     get_value(sol.policy, state)
 get_value(sol::BoltzmannMixturePolicy, state::State, action::Term) =
     get_value(sol.policy, state, action)
 get_action_values(sol::BoltzmannMixturePolicy, state::State) =
     get_action_values(sol.policy, state)
+has_cached_value(sol::BoltzmannMixturePolicy, state::State) =
+    has_cached_value(sol.policy, state)
+has_cached_value(sol::BoltzmannMixturePolicy, state::State, action::Term) =
+    has_cached_value(sol.policy, state, action)
+has_cached_action_values(sol::BoltzmannMixturePolicy, state::State) =
+    has_cached_action_values(sol.policy, state)
 
 function rand_action(sol::BoltzmannMixturePolicy, state::State)
     temperature = sample(sol.rng, sol.temperatures, Weights(sol.weights))
-    if temperature == 0
-        return best_action(sol, state)
-    end
-    chosen_act, chosen_score = missing, -Inf
-    for (act, q) in get_action_values(sol, state)
-        score = q / temperature + randgumbel()
-        if score > chosen_score
-            chosen_act = act
-            chosen_score = score
-        end
-    end
-    return chosen_act
+    policy = BoltzmannPolicy(sol.policy, temperature, sol.rng)
+    return rand_action(policy, state)
 end
 
 function get_action_probs(sol::BoltzmannMixturePolicy, state::State)
@@ -173,7 +209,12 @@ function get_action_probs(sol::BoltzmannMixturePolicy, state::State)
     probs = zeros(length(actions))
     for (temp, weight) in zip(sol.temperatures, sol.weights)
         if temp == 0
-            probs[argmax(q_values)] += weight
+            q_max = maximum(q_values)
+            n_max = sum(q >= q_max for q in q_values)
+            for (i, q) in enumerate(q_values)
+                q < q_max && continue
+                probs[i] += weight / n_max
+            end
         else
             probs .+= softmax(q_values ./ temp) .* weight
         end
@@ -185,21 +226,50 @@ end
 function get_action_prob(sol::BoltzmannMixturePolicy,
                          state::State, action::Term)
     action_values = get_action_values(sol, state)
-    if isempty(action_values) || !(action in keys(action_values))
+    if isempty(action_values) || !haskey(action_values, action)
         return 0.0
     end
     actions, q_values = unzip_pairs(action_values)
-    p = 0.0
+    act_idx = findfirst(==(action), actions)
+    act_prob = 0.0
     for (temp, weight) in zip(sol.temperatures, sol.weights)
         if temp == 0
-            p += (action == actions[argmax(q_values)]) * weight
+            q_max = maximum(q_values)
+            n_max = sum(q >= q_max for q in q_values)
+            q_act = q_values[act_idx]
+            act_prob += q_act >= q_max ? weight / n_max : 0.0
         else
             probs = softmax(q_values ./ temp)
-            for (a, prob) in zip(actions, probs)
-                a == action || continue
-                p += prob * weight
-            end
+            act_prob += probs[act_idx] * weight
         end
     end
-    return p
+    return act_prob
+end
+
+function get_mixture_weights(sol::BoltzmannMixturePolicy)
+    return sol.weights
+end
+
+function get_mixture_weights(sol::BoltzmannMixturePolicy,
+                             state::State, action::Term)
+    action_values = get_action_values(sol, state)
+    if isempty(action_values) || !haskey(action_values, action)
+        return sol.weights
+    end
+    actions, q_values = unzip_pairs(action_values)
+    act_idx = findfirst(==(action), actions)
+    joint_probs = zeros(length(sol.weights))
+    joint_probs = map(zip(sol.temperatures, sol.weights)) do (temp, weight)
+        if temp == 0
+            q_max = maximum(q_values)
+            n_max = sum(q >= q_max for q in q_values)
+            q_act = q_values[act_idx]
+            return q_act >= q_max ? weight / n_max : 0.0
+        else
+            probs = softmax(q_values ./ temp)
+            return probs[act_idx] * weight
+        end
+    end
+    new_weights = joint_probs ./ sum(joint_probs)
+    return new_weights
 end
