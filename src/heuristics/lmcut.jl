@@ -1,6 +1,6 @@
 ## The LM-Cut Heuristic ##
 export LM_CutHeuristic
-
+using DataStructures: Queue
 """
     LM_CutHeuristic()
 
