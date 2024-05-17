@@ -32,7 +32,7 @@ function compute(h::LM_CutHeuristic, domain::Domain, state::State, spec::Specifi
     output_val = 0
 
     #Extract all action costs into a dictionary
-    c = _get_action_cost_dict(h.graph.actions, spec)
+    c = get_action_cost_dict(h.graph.actions, spec)
 
     #Redefine the cost of the init and goal actions for later Justification Graph construction
     goal_compound = Compound(:goal, Term[])
@@ -58,16 +58,16 @@ function compute(h::LM_CutHeuristic, domain::Domain, state::State, spec::Specifi
 
     while goal_cost != 0
         #Find the most expenseive precondition - the "supporter" for each action
-        supporters = _find_supporters(h.graph, delta)
+        supporters = find_supporters(h.graph, delta)
 
         #Construct the backward and forward justification graphs
-        forward_JG, backward_JG = _build_JGs(supporters, h.graph, goal_idx, goal_fact_idx, init_idxs, c)
+        forward_JG, backward_JG = build_JGs(supporters, h.graph, goal_idx, goal_fact_idx, init_idxs, c)
 
         #Find the N* partition
-        n_star = _find_nstar(backward_JG, goal_fact_idx)
+        n_star = find_nstar(backward_JG, goal_fact_idx)
 
         #Find N₀ partition and landmarks
-        _, Lm, mi = _find_nzero(forward_JG, n_star, c, goal_fact_idx)
+        _, Lm, mi = find_nzero(forward_JG, n_star, c, goal_fact_idx)
         
         #Update heuristic value and cost function
         output_val += mi
@@ -81,7 +81,7 @@ function compute(h::LM_CutHeuristic, domain::Domain, state::State, spec::Specifi
 end
 
 "Finds the most expenseive precondition - the supporter, for each action"
-function _find_supporters(graph, delta)
+function find_supporters(graph, delta)
     supporters = Int[]
     for (act_idx, act) in enumerate(graph.actions)
         if length(act.preconds) == 1
@@ -96,7 +96,7 @@ function _find_supporters(graph, delta)
 end
 
 "Builds forward and backward justification graphs"
-function _build_JGs(supporters, graph, goal_idx, goal_fact_idx, init_idxs, c)
+function build_JGs(supporters, graph, goal_idx, goal_fact_idx, init_idxs, c)
     forward_JG = [Tuple{Term, Vector{Int}}[] for _ in 1:length(graph.conditions)+2]
     backward_JG = [Int[] for _ in 1:length(graph.conditions)+1]
 
@@ -126,7 +126,7 @@ function _build_JGs(supporters, graph, goal_idx, goal_fact_idx, init_idxs, c)
 end
 
 "Finds the N* partition in the justification graph"
-function _find_nstar(JG, goal_fact_idx)
+function find_nstar(JG, goal_fact_idx)
     n_star = Set{Int}()
     q = Queue{Int}()
     enqueue!(q, goal_fact_idx)
@@ -146,7 +146,7 @@ function _find_nstar(JG, goal_fact_idx)
 end
 
 "Finds the n_zero partition, the landmarks and the minimal landmark"
-function _find_nzero(JG, n_star, c, goal_fact_idx)
+function find_nzero(JG, n_star, c, goal_fact_idx)
     
     n_zero = Set{Int}()
     q = Queue{Int}()
@@ -186,7 +186,7 @@ function _find_nzero(JG, n_star, c, goal_fact_idx)
     return n_zero, Lm, mi
 end
 
-function _get_action_cost_dict(O, spec)
+function get_action_cost_dict(O, spec)
     c = Dict{Term, Float32}()
     if has_action_cost(spec)
         for o in O
