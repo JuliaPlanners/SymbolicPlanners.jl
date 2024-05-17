@@ -243,4 +243,11 @@ hval = h(blocksworld, bw_state, bw_problem.goal)
 
 end
 
+@testset "LM-Cut Heuristic" begin
+    h = LM_CutHeuristic()
+    @test h(blocksworld, bw_problem) == 4
+    @test h(wgc_domain, wgc_problem) == 1
+    @test h(bw_axioms, ba_problem) == 6
+end
+
 end
