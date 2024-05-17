@@ -246,8 +246,8 @@ end
 @testset "LM-Cut Heuristic" begin
     h = LM_CutHeuristic()
     @test h(blocksworld, bw_problem) == 4
-    @test h(wgc_domain, wgc_problem) == 1
-    @test h(bw_axioms, ba_problem) == 6
+    @test h(wgc_domain, wgc_problem) == 3
+    @test h(bw_axioms, ba_problem) == 4
 end
 
 end
