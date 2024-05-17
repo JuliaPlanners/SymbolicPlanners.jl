@@ -16,6 +16,11 @@ DiscountedReward(spec::DiscountedReward, discount::Real) =
 DiscountedReward(spec::DiscountedReward, discount::Float64) =
     DiscountedReward(spec.spec, discount * spec.discount)
 
+function Base.show(io::IO, ::MIME"text/plain", spec::DiscountedReward)
+    indent = get(io, :indent, "")
+    show_struct(io, spec; indent = indent, show_fields=(:spec,))
+end
+
 Base.hash(spec::DiscountedReward, h::UInt) =
     hash(spec.discount, hash(spec.spec, h))
 Base.:(==)(s1::DiscountedReward, s2::DiscountedReward) =

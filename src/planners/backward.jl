@@ -137,11 +137,13 @@ function solve(planner::BackwardPlanner,
     # Convert to backward search goal specification
     spec = BackwardSearchGoal(spec, domain, state)
     state = goalstate(domain, PDDL.get_objtypes(state), get_goal_terms(spec))
-    # Initialize search tree and priority queue
+    # Construct initial search node
     node_id = hash(state)
-    search_tree = Dict(node_id => PathNode(node_id, state, 0.0))
-    est_cost::Float32 = h_mult * compute(heuristic, domain, state, spec)
-    priority = (est_cost, est_cost, 0)
+    node = PathNode(node_id, state, 0.0)
+    # Initialize search tree and priority queue
+    search_tree = Dict(node_id => node)
+    h_val::Float32 = compute(heuristic, domain, state, spec)
+    priority = (h_mult * h_val, h_val, 0)
     queue = PriorityQueue(node_id => priority)
     search_order = UInt[]
     sol = PathSearchSolution(:in_progress, Term[], Vector{typeof(state)}(),
@@ -207,9 +209,11 @@ function search!(sol::PathSearchSolution,
     return sol
 end
 
-function expand!(planner::BackwardPlanner, heuristic::Heuristic, node::PathNode,
-                 search_tree::Dict{UInt,<:PathNode}, queue::PriorityQueue,
-                 domain::Domain, spec::BackwardSearchGoal)
+function expand!(
+    planner::BackwardPlanner, heuristic::Heuristic, node::PathNode{S},
+    search_tree::Dict{UInt, PathNode{S}}, queue::PriorityQueue,
+    domain::Domain, spec::BackwardSearchGoal
+) where {S <: State}
     @unpack g_mult, h_mult = planner
     state = node.state
     # Iterate over relevant actions, filtered by heuristic
@@ -222,14 +226,15 @@ function expand!(planner::BackwardPlanner, heuristic::Heuristic, node::PathNode,
         # Compute path cost
         act_cost = get_cost(spec, domain, state, act, next_state)
         path_cost = node.path_cost + act_cost
-        # Update path costs if new path is shorter
-        next_node = get!(search_tree, next_id,
-                         PathNode(next_id, next_state, Inf32))
+        # Construct or retrieve child node
+        next_node = get!(search_tree, next_id) do
+            PathNode{S}(next_id, next_state, Inf32)
+        end
         cost_diff = next_node.path_cost - path_cost
-        if cost_diff > 0
-            next_node.parent_id = node.id
-            next_node.parent_action = act
+        if cost_diff > 0 # Update path costs if new path is shorter
             next_node.path_cost = path_cost
+            # Update parent pointer
+            next_node.parent = LinkedNodeRef(node.id, act)
             # Update estimated cost from next state to start
             if !(next_id in keys(queue))
                 h_val::Float32 = compute(heuristic, domain, next_state, spec)
@@ -248,7 +253,6 @@ function refine!(
     sol::PathSearchSolution{S, T}, planner::BackwardPlanner,
     domain::Domain, state::State, spec::Specification
 ) where {S, T <: PriorityQueue}
-    # TODO : re-root search tree at new state?
     sol.status == :success && return sol
     sol.status = :in_progress
     spec = simplify_goal(spec, domain, state)

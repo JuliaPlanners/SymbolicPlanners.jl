@@ -26,6 +26,12 @@ end
 MaxMetricGoal(goal::Term, metric::Term) =
     MaxMetricGoal(PDDL.flatten_conjs(goal), metric)
 
+function Base.show(io::IO, ::MIME"text/plain", spec::MaxMetricGoal)
+    indent = get(io, :indent, "")
+    show_struct(io, spec; indent = indent,
+                show_pddl_list=(:terms,), show_pddl=(:metric,))
+end
+
 Base.hash(spec::MaxMetricGoal, h::UInt) =
     hash(spec.metric, hash(Set(spec.terms), h))
 Base.:(==)(s1::MaxMetricGoal, s2::MaxMetricGoal) =

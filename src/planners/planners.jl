@@ -20,6 +20,11 @@ abstract type Planner end
 (planner::Planner)(domain::Domain, problem::Problem) =
     solve(planner, domain, problem)
 
+function Base.show(io::IO, ::MIME"text/plain", planner::Planner)
+    indent = get(io, :indent, "")
+    show_struct(io, planner; indent = indent)
+end
+    
 """
     solve(planner::Planner, domain::Domain, state::State, spec::Specification)
 
@@ -72,7 +77,6 @@ LoggerCallback(loglevel::Logging.LogLevel = Logging.Info; options...) =
     LoggerCallback(loglevel, Dict{Symbol, Any}(options))
 
 # Path-search planning algorithms
-include("path_search.jl")
 include("bfs.jl")
 include("forward.jl")
 include("backward.jl")

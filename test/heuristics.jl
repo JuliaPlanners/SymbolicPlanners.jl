@@ -76,7 +76,7 @@ gw_state_2[pddl"(ypos)"] = 3
 
 manhattan = precompute!(ManhattanHeuristic(@pddl("xpos", "ypos")),
                         gridworld, gw_state, gw_spec)
-policy = FunctionalVPolicy(manhattan, gridworld, gw_spec)
+policy = HeuristicVPolicy(manhattan, gridworld, gw_spec)
 heuristic = PolicyValueHeuristic(policy)
 
 @test heuristic(gridworld, gw_state, gw_spec) == 2
@@ -95,8 +95,8 @@ manhattan_1 = precompute!(ManhattanHeuristic(@pddl("xpos", "ypos")),
 manhattan_2 = precompute!(ManhattanHeuristic(@pddl("xpos", "ypos")),
                           gridworld, gw_state, gw_spec_2)
 policies = Dict(
-    gw_spec => FunctionalVPolicy(manhattan_1, gridworld, gw_spec),
-    gw_spec_2 => FunctionalVPolicy(manhattan_2, gridworld, gw_spec_2)
+    gw_spec => HeuristicVPolicy(manhattan_1, gridworld, gw_spec),
+    gw_spec_2 => HeuristicVPolicy(manhattan_2, gridworld, gw_spec_2)
 )
 heuristic = GoalDependentPolicyHeuristic(policies)
 
@@ -108,10 +108,10 @@ heuristic = GoalDependentPolicyHeuristic(policies)
 function default(domain, state, spec)
     manhattan = precompute!(ManhattanHeuristic(@pddl("xpos", "ypos")),
                             domain, state, spec)
-    return FunctionalVPolicy(manhattan, domain, spec)
+    return HeuristicVPolicy(manhattan, domain, spec)
 end
 
-policies = Dict{MinStepsGoal, FunctionalVPolicy}()
+policies = Dict{MinStepsGoal, HeuristicVPolicy}()
 heuristic = GoalDependentPolicyHeuristic(policies, default)
 
 @test heuristic(gridworld, gw_state, gw_spec) == 2

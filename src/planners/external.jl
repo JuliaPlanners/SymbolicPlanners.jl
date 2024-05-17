@@ -31,6 +31,11 @@ ExternalPlan(plan::AbstractVector{<:Term}) =
 ExternalPlan(plan::AbstractVector{<:Term}, runtime, expanded, evaluated) =
     ExternalPlan(:success, plan, runtime, expanded, evaluated)
 
+function Base.show(io::IO, ::MIME"text/plain", sol::ExternalPlan)
+    indent = get(io, :indent, "")
+    show_struct(io, sol; indent = indent, show_pddl_list=(:plan,))
+end
+    
 Base.copy(sol::ExternalPlan) = 
     ExternalPlan(sol.status, copy(sol.plan),
                  sol.runtime, sol.expanded, sol.evaluated)

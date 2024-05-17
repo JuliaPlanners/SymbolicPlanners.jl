@@ -22,6 +22,12 @@ end
 StateConstrainedGoal(goal::Goal, constraints::Term) =
     StateConstrainedGoal(goal, PDDL.flatten_conjs(constraints))
 
+function Base.show(io::IO, ::MIME"text/plain", spec::StateConstrainedGoal)
+    indent = get(io, :indent, "")
+    show_struct(io, spec; indent = indent, show_fields=(:goal,),
+                show_pddl_list=(:constraints,))
+end
+
 Base.hash(spec::StateConstrainedGoal, h::UInt) =
     hash(Set(spec.constraints), hash(spec.goal, h))
 Base.:(==)(s1::StateConstrainedGoal, s2::StateConstrainedGoal) =

@@ -18,6 +18,11 @@ GoalReward(terms) = GoalReward(terms, 1.0, 0.9)
 GoalReward(term::Term, reward, discount) =
     GoalReward(PDDL.flatten_conjs(term), reward, discount)
 
+function Base.show(io::IO, ::MIME"text/plain", spec::GoalReward)
+    indent = get(io, :indent, "")
+    show_struct(io, spec; indent = indent, show_pddl_list=(:terms,))
+end
+
 Base.hash(spec::GoalReward, h::UInt) =
     hash(spec.reward, hash(spec.discount, hash(Set(spec.terms), h)))
 Base.:(==)(s1::GoalReward, s2::GoalReward) =
@@ -56,6 +61,11 @@ BonusGoalReward(spec::Goal) = BonusGoalReward(spec, 1.0, 1.0)
 BonusGoalReward(spec::Goal, reward) = BonusGoalReward(spec, reward, 1.0)
 BonusGoalReward(spec::BonusGoalReward, reward, discount) =
     BonusGoalReward(spec.goal, reward + spec.reward, discount * spec.discount)
+
+function Base.show(io::IO, ::MIME"text/plain", spec::BonusGoalReward)
+    indent = get(io, :indent, "")
+    show_struct(io, spec; indent = indent, show_fields=(:goal,))
+end
 
 Base.hash(spec::BonusGoalReward, h::UInt) =
     hash(spec.reward, hash(spec.discount, hash(spec.goal, h)))
@@ -100,6 +110,12 @@ Achieving a goal delivers the associated reward. Each action has zero cost.
 end
 
 MultiGoalReward(goals, rewards) = MultiGoalReward(goals, rewards, 1.0)
+
+function Base.show(io::IO, ::MIME"text/plain", spec::MultiGoalReward)
+    indent = get(io, :indent, "")
+    show_struct(io, spec; indent = indent, show_pddl_list=(:goals,),
+                show_fields_compact=(:rewards,))
+end
 
 Base.hash(spec::MultiGoalReward, h::UInt) =
     hash(spec.rewards, hash(spec.discount, hash(spec.goals, h)))

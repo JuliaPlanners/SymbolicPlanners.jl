@@ -29,6 +29,7 @@ function simulate(sim::StateActionRecorder, sol::Solution,
     for t in steps
 		if is_goal(spec, domain, state, act) break end
         act = get_action(sol, t, state)
+        ismissing(act) && break
         state = transition(domain, state, act)
 		push!(actions, act)
         push!(trajectory, state)

@@ -17,6 +17,11 @@ end
 
 MemoizedHeuristic(h::MemoizedHeuristic) = h
 
+function Base.show(io::IO, ::MIME"text/plain", h::MemoizedHeuristic)
+    indent = get(io, :indent, "")
+    show_struct(io, h; indent = indent, show_fields = (:heuristic,))
+end
+
 Base.empty!(h::MemoizedHeuristic) = empty!(h.cache)
 
 is_precomputed(h::MemoizedHeuristic) =

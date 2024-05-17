@@ -4,7 +4,7 @@
 CurrentModule = SymbolicPlanners
 ```
 
-The core of SymbolicPlanners.jl is a library of planning algorithms, or 
+The core of **SymbolicPlanners.jl** is a library of planning algorithms, or 
 [`Planner`](@ref)s:
 
 ```@docs
@@ -28,9 +28,9 @@ As a baseline uninformed planning algorithm, one can use
 BreadthFirstPlanner
 ```
 
-Note that [`BreadthFirstPlanner`] will ignore plan metrics or action costs,
-returning a plan that has the shortest number of steps, but not necessarily 
-the lowest cost.
+Note that [`BreadthFirstPlanner`](@ref) will ignore plan metrics or action
+costs, returning a plan that has the shortest number of steps, but not
+necessarily the lowest cost.
 
 ## Forward Heuristic Search
 
@@ -60,7 +60,7 @@ ProbAStarPlanner
 
 ## Backward Heuristic Search
 
-Due to the flexibility of the PDDL.jl API, SymbolicPlanners.jl supports
+Due to the flexibility of the PDDL.jl API, **SymbolicPlanners.jl** supports
 backward search:
 
 ```@docs
@@ -100,7 +100,7 @@ BiAStarPlanner
 
 ## Policy-Based Planners
 
-Unlike most systems for automated symbolic planning, SymbolicPlanners.jl
+Unlike most systems for automated symbolic planning, **SymbolicPlanners.jl**
 includes several policy-based planners which return [`PolicySolution`](@ref)s.
 
 These planners are especially useful for stochastic environments (even if the
