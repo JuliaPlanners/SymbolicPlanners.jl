@@ -323,7 +323,7 @@ function expand!(
         next_state = transition(domain, state, act; check=false)
         next_id = hash(next_state)
         # Check if next state satisfies trajectory constraints
-        if is_violated(spec, domain, state) continue end
+        if is_violated(spec, domain, next_state) continue end
         # Compute path cost
         act_cost = get_cost(spec, domain, state, act, next_state)
         path_cost = node.path_cost + act_cost

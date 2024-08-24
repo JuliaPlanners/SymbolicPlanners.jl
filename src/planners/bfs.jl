@@ -126,7 +126,7 @@ function expand!(
         # Skip if state has already been encountered
         if haskey(search_tree, next_id) continue end
         # Check if next state satisfies trajectory constraints
-        if is_violated(spec, domain, state) continue end
+        if is_violated(spec, domain, next_state) continue end
         # Update backpointer and add next state to queue
         path_cost = node.path_cost + 1
         search_tree[next_id] = PathNode(next_id, next_state, path_cost,
