@@ -206,8 +206,12 @@ function solve(planner::ForwardPlanner,
     precompute!(heuristic, domain, state, spec)
     # Initialize solution
     sol = init_sol(planner, heuristic, domain, state, spec)
-    # Run the search
-    sol = search!(sol, planner, heuristic, domain, spec)
+    # Check if initial state satisfies trajectory constraints
+    if is_violated(spec, domain, state)
+        sol.status = :failure
+    else # Run the search
+        sol = search!(sol, planner, heuristic, domain, spec)
+    end
     # Return solution
     if save_search
         return sol
@@ -378,6 +382,11 @@ function refine!(
     # Decide between restarting, rerooting, or continuing the search
     if refine_method == :restart
         (sol.status == :failure && is_reached(state, sol)) && return sol
+        # Check if initial state satisfies trajectory constraints
+        if is_violated(spec, domain, state) 
+            sol.status = :failure
+            return sol
+        end
         reinit_sol!(sol, planner, heuristic, domain, state, spec)
     elseif refine_method == :reroot
         reroot!(sol, planner, heuristic, domain, state, spec)

@@ -57,8 +57,12 @@ function solve(planner::BreadthFirstPlanner,
     search_order = UInt[]
     sol = PathSearchSolution(:in_progress, Term[], Vector{typeof(state)}(),
                              0, search_tree, queue, search_order)
-    # Run the search
-    sol = search!(sol, planner, domain, spec)
+    # Check if initial state satisfies trajectory constraints
+    if is_violated(spec, domain, state)
+        sol.status = :failure
+    else # Run the search
+        sol = search!(sol, planner, domain, spec)
+    end
     # Return solution
     if save_search
         return sol
