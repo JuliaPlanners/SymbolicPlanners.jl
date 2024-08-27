@@ -38,7 +38,8 @@ backward search.
 Returns a [`PathSearchSolution`](@ref) or [`NullSolution`](@ref), similar to
 [`ForwardPlanner`](@ref).
 
-This planner does not currently support domains with non-Boolean fluents.
+This planner does not currently support domains with non-Boolean fluents or 
+problems involving constraint specifications.
 
 [1] B. Bonet and H. Geffner, "Planning as Heuristic Search," Artificial
 Intelligence, vol. 129, no. 1, pp. 5–33, Jun. 2001,
