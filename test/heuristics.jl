@@ -206,6 +206,24 @@ bw_act_spec = ActionGoal(pddl"(stack a ?x)", pddl"(on ?x c)")
 
 end
 
+@testset "LM-Cut Heuristic" begin
+
+lmcut = LMCut()
+@test lmcut(blocksworld, bw_state, bw_problem.goal) == 4
+@test lmcut(wgc_domain, wgc_state, wgc_problem.goal) == 3
+@test lmcut(bw_axioms, ba_state, ba_problem.goal) == 2
+
+# Test that LM-Cut always dominates HMax
+hmax = HMax()
+@test lmcut(blocksworld, bw_state, bw_problem.goal) >=
+    hmax(blocksworld, bw_state, bw_problem.goal)
+@test lmcut(wgc_domain, wgc_state, wgc_problem.goal) >=
+    hmax(wgc_domain, wgc_state, wgc_problem.goal)
+@test lmcut(bw_axioms, ba_state, ba_problem.goal) >=
+    hmax(bw_axioms, ba_state, ba_problem.goal)
+
+end
+
 @testset "Reachability Heuristics" begin
 
 reachability = ReachabilityHeuristic()
@@ -241,13 +259,6 @@ hval = h(blocksworld, bw_state, bw_problem.goal)
 @test h.heuristic(blocksworld, bw_state, bw_problem.goal) == hval
 @test h(blocksworld, bw_state, bw_problem.goal) == hval
 
-end
-
-@testset "LM-Cut Heuristic" begin
-    h = LM_CutHeuristic()
-    @test h(blocksworld, bw_problem) == 4
-    @test h(wgc_domain, wgc_problem) == 3
-    @test h(bw_axioms, ba_problem) == 4
 end
 
 end
