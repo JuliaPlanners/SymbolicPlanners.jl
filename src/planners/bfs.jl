@@ -57,8 +57,12 @@ function solve(planner::BreadthFirstPlanner,
     search_order = UInt[]
     sol = PathSearchSolution(:in_progress, Term[], Vector{typeof(state)}(),
                              0, search_tree, queue, search_order)
-    # Run the search
-    sol = search!(sol, planner, domain, spec)
+    # Check if initial state satisfies trajectory constraints
+    if is_violated(spec, domain, state)
+        sol.status = :failure
+    else # Run the search
+        sol = search!(sol, planner, domain, spec)
+    end
     # Return solution
     if save_search
         return sol
@@ -126,7 +130,7 @@ function expand!(
         # Skip if state has already been encountered
         if haskey(search_tree, next_id) continue end
         # Check if next state satisfies trajectory constraints
-        if is_violated(spec, domain, state) continue end
+        if is_violated(spec, domain, next_state) continue end
         # Update backpointer and add next state to queue
         path_cost = node.path_cost + 1
         search_tree[next_id] = PathNode(next_id, next_state, path_cost,

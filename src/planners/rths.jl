@@ -412,6 +412,9 @@ function update_values_dijkstra!(
             parent_id = parent_ref.id
             parent_act = parent_ref.action
             parent_ref = parent_ref.next
+            # Skip self-edges / edges without actions
+            isnothing(parent_act) && continue
+            parent_id == node_id && continue
             # Skip if parent node already has a lower h-value
             parent_h_val = haskey(queue, parent_id) ? queue[parent_id] :
                 (-get_value(policy, parent_id, -Inf32) |> Float32)

@@ -38,7 +38,8 @@ backward search.
 Returns a [`PathSearchSolution`](@ref) or [`NullSolution`](@ref), similar to
 [`ForwardPlanner`](@ref).
 
-This planner does not currently support domains with non-Boolean fluents.
+This planner does not currently support domains with non-Boolean fluents or 
+problems involving constraint specifications.
 
 [1] B. Bonet and H. Geffner, "Planning as Heuristic Search," Artificial
 Intelligence, vol. 129, no. 1, pp. 5–33, Jun. 2001,
@@ -148,8 +149,12 @@ function solve(planner::BackwardPlanner,
     search_order = UInt[]
     sol = PathSearchSolution(:in_progress, Term[], Vector{typeof(state)}(),
                              0, search_tree, queue, search_order)
-    # Run the search
-    sol = search!(sol, planner, planner.heuristic, domain, spec)
+    # Check if initial state satisfies trajectory constraints
+    if is_violated(spec, domain, state)
+        sol.status = :failure
+    else # Run the search
+        sol = search!(sol, planner, planner.heuristic, domain, spec)
+    end
     # Return solution
     if save_search
         return sol
@@ -221,7 +226,7 @@ function expand!(
         # Regress (reverse-execute) the action
         next_state = regress(domain, state, act; check=false)
         # Add constraints to regression state
-        add_constraints!(spec, domain, state)
+        add_constraints!(spec, domain, next_state)
         next_id = hash(next_state)
         # Compute path cost
         act_cost = get_cost(spec, domain, state, act, next_state)
