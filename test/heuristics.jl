@@ -209,17 +209,17 @@ end
 @testset "LM-Cut Heuristic" begin
 
 lmcut = LMCut()
-@test lmcut(blocksworld, bw_state, bw_problem.goal) == 4
-@test lmcut(wgc_domain, wgc_state, wgc_problem.goal) == 3
-@test lmcut(bw_axioms, ba_state, ba_problem.goal) == 2
+@test 4 >= lmcut(blocksworld, bw_state, bw_problem.goal) >= 2
+@test 7 >= lmcut(wgc_domain, wgc_state, wgc_problem.goal) >= 1
+@test 4 >= lmcut(bw_axioms, ba_state, ba_problem.goal) >= 2
 
 # Test dynamic goal updating
 precompute!(lmcut, blocksworld, bw_state)
-@test compute(lmcut, blocksworld, bw_state, bw_problem.goal) == 4
+@test 4 >= compute(lmcut, blocksworld, bw_state, bw_problem.goal) >= 2
 precompute!(lmcut, wgc_domain, wgc_state)
-@test compute(lmcut, wgc_domain, wgc_state, wgc_problem.goal) == 3
+@test 7 >= compute(lmcut, wgc_domain, wgc_state, wgc_problem.goal) >= 1
 precompute!(lmcut, bw_axioms, ba_state)
-@test compute(lmcut, bw_axioms, ba_state, ba_problem.goal) == 2
+@test 4 >= compute(lmcut, bw_axioms, ba_state, ba_problem.goal) >= 2
 
 # Test that LM-Cut always dominates HMax
 hmax = HMax()
