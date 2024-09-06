@@ -124,25 +124,25 @@ end
 "Finds the most costly precondition (i.e. supporter) of each action."
 function find_supporters(pgraph::PlanningGraph, cond_costs::Vector{T}) where {T <: Real}
     supporters = map(eachindex(pgraph.actions)) do act_idx
-        max_cond_idx = 0
+        max_cond_idx = nothing
         max_precond_val = typemin(T)
         # Find most costly precondition clause
         for precond_idxs in pgraph.act_parents[act_idx]
-            min_cond_idx = 0
+            min_cond_idx = nothing
             min_cond_val = typemax(T)
             # Find least costly condition in the disjunctive clause
             for cond_idx in precond_idxs
-                if cond_costs[cond_idx] < min_cond_val
+                if isnothing(min_cond_idx) || cond_costs[cond_idx] < min_cond_val
                     min_cond_idx = cond_idx
                     min_cond_val = cond_costs[cond_idx]
                 end
             end
-            if min_cond_val > max_precond_val
+            if isnothing(max_cond_idx) || min_cond_val > max_precond_val
                 max_cond_idx = min_cond_idx
                 max_precond_val = min_cond_val
             end
         end
-        return max_cond_idx
+        return max_cond_idx::Int
     end
     return supporters
 end
