@@ -4,10 +4,13 @@ export LMCut
 """
     LMCut()
 
-A landmark based heuristic, which builds on top of the existing 
-relaxed planning graph heuristic HMax. It functions by finding sets of actions
-through which an optimal plan must pass (the landmarks), and then choosing the lowest cost one.
-The heuristic is the sum of these minima across all the sets of landmarks.
+A landmark-based heuristic, which builds on top of the relaxed planning graph 
+heuristic [`HMax`](@ref). This heuristic iteratively finds sets of actions
+through which any relaxed plan must pass (action landmarks), adding the cost of 
+the least costly landmark to the total heuristic value. This cost is then
+subtracted from the cost of each landmark, and the process is repeated until the
+cost of the relaxed plan is driven to zero. The value of the heuristic is thus
+the sum of the minimum cost actions across all sets of landmarks.
 """
 mutable struct LMCut <: Heuristic 
     statics::Vector{Symbol}
