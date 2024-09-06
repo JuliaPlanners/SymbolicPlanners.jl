@@ -213,6 +213,14 @@ lmcut = LMCut()
 @test lmcut(wgc_domain, wgc_state, wgc_problem.goal) == 3
 @test lmcut(bw_axioms, ba_state, ba_problem.goal) == 2
 
+# Test dynamic goal updating
+precompute!(lmcut, blocksworld, bw_state)
+@test compute(lmcut, blocksworld, bw_state, bw_problem.goal) == 4
+precompute!(lmcut, wgc_domain, wgc_state)
+@test compute(lmcut, wgc_domain, wgc_state, wgc_problem.goal) == 3
+precompute!(lmcut, bw_axioms, ba_state)
+@test compute(lmcut, bw_axioms, ba_state, ba_problem.goal) == 2
+
 # Test that LM-Cut always dominates HMax
 hmax = HMax()
 @test lmcut(blocksworld, bw_state, bw_problem.goal) >=

@@ -12,10 +12,12 @@ subtracted from the cost of each landmark, and the process is repeated until the
 cost of the relaxed plan is driven to zero. The value of the heuristic is thus
 the sum of the minimum cost actions across all sets of landmarks.
 """
-mutable struct LMCut <: Heuristic 
-    statics::Vector{Symbol}
-    graph::PlanningGraph
-    action_costs::Vector{Float32}
+mutable struct LMCut <: Heuristic
+    dynamic_goal::Bool # Flag whether goal-relevant information is dynamic
+    goal_hash::Union{Nothing,UInt} # Hash of most recently pre-computed goal
+    statics::Vector{Symbol} # Static domain fluents
+    graph::PlanningGraph # Precomputed planning graph
+    action_costs::Vector{Float32} # Precomputed action costs
     LMCut() = new()
 end
 
@@ -26,7 +28,29 @@ function Base.show(io::IO, h::LMCut)
     print(io, summary(h), "(",  "", is_precomputed_str, ")")
 end
 
+function precompute!(h::LMCut, domain::Domain, state::State)
+    # If goal specification is not provided, assume dynamic goal
+    h.dynamic_goal = true
+    h.goal_hash = nothing
+    # Precompute static domain fluents and planning graph
+    h.statics = infer_static_fluents(domain)
+    h.graph = build_planning_graph(domain, state; statics=h.statics)
+    # Precompute cost of each action
+    n_actions = length(h.graph.actions)
+    h.action_costs = map(eachindex(h.graph.actions)) do act_idx
+        if h.graph.n_axioms < act_idx <= n_actions - h.graph.n_goals
+            return 1.0f0
+        else
+            return 0.0f0
+        end
+    end
+    return h
+end
+
 function precompute!(h::LMCut, domain::Domain, state::State, spec::Specification)
+    # If goal specification is provided, assume non-dynamic goal
+    h.dynamic_goal = false
+    h.goal_hash = hash(get_goal_terms(spec))
     # Precompute static domain fluents and planning graph
     h.statics = infer_static_fluents(domain)
     h.graph = build_planning_graph(domain, state, spec; statics=h.statics)
@@ -44,6 +68,22 @@ function precompute!(h::LMCut, domain::Domain, state::State, spec::Specification
 end
 
 function compute(h::LMCut, domain::Domain, state::State, spec::Specification)
+    # If necessary, update planning graph with new goal
+    if h.dynamic_goal && hash(get_goal_terms(spec)) != h.goal_hash
+        h.graph = update_pgraph_goal!(h.graph, domain, state, spec;
+                                      statics=h.statics)
+        h.goal_hash = hash(get_goal_terms(spec))
+        n_actions = length(h.graph.actions)
+        resize!(h.action_costs, n_actions)
+        for (act_idx, act) in enumerate(h.graph.actions)
+            if h.graph.n_axioms < act_idx <= n_actions - h.graph.n_goals
+                h.action_costs[act_idx] = has_action_cost(spec) ?
+                    Float32(get_action_cost(spec, act.term)) : 1.0f0
+            else
+                h.action_costs[act_idx] = 0.0f0
+            end
+        end
+    end
     # Compute set of initial facts
     init_idxs = pgraph_init_idxs(h.graph, domain, state)
     # Calculate relaxed costs of facts and the h-max value
