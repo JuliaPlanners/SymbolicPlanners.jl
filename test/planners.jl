@@ -147,7 +147,7 @@ sol = planner(doors_keys_gems, dkg_state, dkg_spec)
                             "(unlock key1 door1)", "(right)", "(right)",
                             "(up)", "(up)", "(pickup gem1)")
 
-planner = GreedyPlanner(HAdd())
+planner = GreedyPlanner(LMCut())
 sol = planner(blocksworld, bw_state, bw_spec)
 @test is_goal(bw_spec, blocksworld, sol.trajectory[end])
 @test collect(sol) == @pddl("(pick-up a)", "(stack a b)",
@@ -188,7 +188,7 @@ sol = planner(doors_keys_gems, dkg_state, dkg_spec)
                             "(unlock key1 door1)", "(right)", "(right)",
                             "(up)", "(up)", "(pickup gem1)")
 
-planner = AStarPlanner(HAdd())
+planner = AStarPlanner(LMCut())
 sol = planner(blocksworld, bw_state, bw_spec)
 @test is_goal(bw_spec, blocksworld, sol.trajectory[end])
 @test collect(sol) == @pddl("(pick-up a)", "(stack a b)",
@@ -432,7 +432,7 @@ actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
                        "(up)", "(up)", "(pickup gem1)")
 @test get_value(sol, dkg_state) == -9.0
 
-planner = RTDP(heuristic=HAdd(), rollout_noise=1.0, n_rollouts=10)
+planner = RTDP(heuristic=LMCut(), rollout_noise=1.0, n_rollouts=10)
 sol = planner(blocksworld, bw_state, bw_spec)
 actions, trajectory = simulator(sol, blocksworld, bw_state, bw_spec)
 @test is_goal(bw_spec, blocksworld, trajectory[end])

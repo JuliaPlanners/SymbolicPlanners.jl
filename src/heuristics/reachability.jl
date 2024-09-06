@@ -26,7 +26,7 @@ is_precomputed(h::ReachabilityHeuristic) = isdefined(h, :absdom)
 function precompute!(h::ReachabilityHeuristic,
                      domain::Domain, state::State, spec::Specification)
     # Store abstracted domain
-    h.absdom, _ = abstracted(domain, state)
+    h.absdom, _ = abstracted(domain, state; autowiden=true)
     return h
 end
 

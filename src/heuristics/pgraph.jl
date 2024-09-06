@@ -298,7 +298,8 @@ end
 
 "Compute relaxed costs and paths to each fact node of a planning graph."
 function relaxed_pgraph_search(domain::Domain, state::State, spec::Specification,
-                               accum_op::Function, graph::PlanningGraph)
+                               accum_op::Function, graph::PlanningGraph;
+                               action_costs = nothing)
     # Initialize fact costs, precondition flags,  etc.
     n_actions = length(graph.actions)
     n_conds = length(graph.conditions)
@@ -315,14 +316,14 @@ function relaxed_pgraph_search(domain::Domain, state::State, spec::Specification
 
     # Perform Djikstra / uniform-cost search until goals are reached
     goal_idx, goal_cost = nothing, Inf32
-    first_goal_idx = n_actions - graph.n_goals
+    last_nongoal_idx = n_actions - graph.n_goals
     while !isempty(queue) && isnothing(goal_idx)
         # Dequeue nearest fact/condition
         cond_idx = dequeue!(queue)
         # Iterate over child actions
         for (act_idx, precond_idx) in graph.cond_children[cond_idx]
             # Check if goal action is reached
-            is_goal = act_idx > first_goal_idx
+            is_goal = act_idx > last_nongoal_idx
             # Skip actions with no children
             !is_goal && isempty(graph.act_children[act_idx]) && continue
             # Skip actions already achieved
@@ -347,8 +348,12 @@ function relaxed_pgraph_search(domain::Domain, state::State, spec::Specification
                 path_cost = accum_op(act_parents) do precond_parents
                     minimum(costs[p] for p in precond_parents)
                 end
-                act_cost = has_action_cost(spec) ?
-                    get_action_cost(spec, graph.actions[act_idx].term) : 1
+                if isnothing(action_costs)
+                    act_cost = has_action_cost(spec) ?
+                        get_action_cost(spec, graph.actions[act_idx].term) : 1
+                else
+                    act_cost = action_costs[act_idx]
+                end
                 next_cost = path_cost + act_cost
                 next_dist = accum_op === maximum && !has_action_cost(spec) ?
                     next_cost : dists[cond_idx] + 1
