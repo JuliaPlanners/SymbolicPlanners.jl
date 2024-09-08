@@ -310,16 +310,19 @@ function relaxed_pgraph_search(domain::Domain, state::State, spec::Specification
 
     # Set up initial facts and priority queue
     init_idxs = pgraph_init_idxs(graph, domain, state)
-    dists[init_idxs] .= 0
-    costs[init_idxs] .= 0
-    queue = PriorityQueue{Int,Float32}(i => 0 for i in findall(init_idxs))
+    dists[init_idxs] .= 0.0f0
+    costs[init_idxs] .= 0.0f0
+    queue = FastPriorityQueue{Int,Float32}()
+    append!(queue, (i => 0.0f0 for i in findall(init_idxs)))
 
     # Perform Djikstra / uniform-cost search until goals are reached
     goal_idx, goal_cost = nothing, Inf32
     last_nongoal_idx = n_actions - graph.n_goals
     while !isempty(queue) && isnothing(goal_idx)
         # Dequeue nearest fact/condition
-        cond_idx = dequeue!(queue)
+        cond_idx, cond_dist = dequeue_pair!(queue)
+        # Skip if distance greater than stored value
+        cond_dist > dists[cond_idx] && continue
         # Iterate over child actions
         for (act_idx, precond_idx) in graph.cond_children[cond_idx]
             # Check if goal action is reached
@@ -373,10 +376,8 @@ function relaxed_pgraph_search(domain::Domain, state::State, spec::Specification
                     costs[c_idx] = next_cost
                     achievers[c_idx] = act_idx
                 end
-                if !(c_idx in keys(queue)) # Enqueue new conditions
+                if less_dist # Adjust distances and place on queue
                     enqueue!(queue, c_idx, next_dist)
-                elseif less_dist # Adjust distances
-                    queue[c_idx] = next_dist
                     dists[c_idx] = next_dist
                 end
             end
