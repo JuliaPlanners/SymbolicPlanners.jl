@@ -1,6 +1,24 @@
 export TabularPolicy, TabularVPolicy
 
 """
+    has_cached_value(sol, state)
+    has_cached_value(sol, state, action)
+
+Returns true if the value of `state` (and `action`) is cached in the state
+value or action value table of `sol`.
+"""
+has_cached_value(sol::Solution, state::State) = false
+has_cached_value(sol::Solution, state::State, action::Term) = false
+
+"""
+    has_cached_action_values(sol, state)
+
+Returns true if all actions that are available at `state` have cached values
+associated with them.
+"""
+has_cached_action_values(sol::Solution, state::State) = false
+
+"""
     TabularPolicy(V::Dict, Q::Dict, default)
     TabularPolicy(default = NullPolicy())
 
@@ -36,22 +54,31 @@ get_action(sol::TabularPolicy, state::State) =
     best_action(sol, state)
 rand_action(sol::TabularPolicy, state::State) =
     best_action(sol, state)
-best_action(sol::TabularPolicy, state::State) =
-    argmax(get_action_values(sol, state))
+
+function best_action(sol::TabularPolicy, state::State)
+    q_values = get_action_values(sol, state)
+    return isempty(q_values) ? missing : argmax(q_values)
+end
+
+has_values(sol::TabularPolicy) = true
 
 function get_value(sol::TabularPolicy, state::State)
     return get(sol.V, hash(state)) do
-        get_value(sol.default, state)
+        get_value(sol.default, state) |> Float64
     end
+end
+
+function get_value(sol::TabularPolicy, state_id::UInt, default=nothing)
+    return get(sol.V, state_id, nothing)
 end
 
 function get_value(sol::TabularPolicy, state::State, action::Term)
     qs = get(sol.Q, hash(state), nothing)
     if qs === nothing
-        return get_value(sol.default, state, action)
+        return get_value(sol.default, state, action) |> Float64
     else
         return get(qs, action) do
-            get_value(sol.default, state, action)
+            get_value(sol.default, state, action) |> Float64
         end
     end
 end
@@ -66,7 +93,7 @@ function get_action_values(sol::TabularPolicy, state::State)
 end
 
 function set_value!(sol::TabularPolicy, state::State, val::Real)
-    sol.V[hash(state)] = val
+    set_value!(sol, hash(state), val)
 end
 
 function set_value!(sol::TabularPolicy, state_id::UInt, val::Real)
@@ -74,10 +101,7 @@ function set_value!(sol::TabularPolicy, state_id::UInt, val::Real)
 end
 
 function set_value!(sol::TabularPolicy, state::State, action::Term, val::Real)
-    qs = get!(sol.Q, hash(state)) do
-        Dict{Term,Float64}()
-    end
-    qs[action] = val
+    set_value!(sol, hash(state), action, val)
 end
 
 function set_value!(sol::TabularPolicy, state_id::UInt, action::Term, val::Real)
@@ -85,6 +109,27 @@ function set_value!(sol::TabularPolicy, state_id::UInt, action::Term, val::Real)
         Dict{Term,Float64}()
     end
     qs[action] = val
+end
+
+function has_cached_value(sol::TabularPolicy, state::State)
+    return has_cached_value(sol, hash(state))
+end
+
+function has_cached_value(sol::TabularPolicy, state_id::UInt)
+    return haskey(sol.V, state_id)
+end
+
+function has_cached_value(sol::TabularPolicy, state::State, action::Term)
+    return has_cached_value(sol, hash(state), action)
+end
+
+function has_cached_value(sol::TabularPolicy, state_id::UInt, action::Term)
+    qs = get(sol.Q, state_id, nothing)
+    return !isnothing(qs) && haskey(qs, action)
+end
+
+function has_cached_action_values(sol::TabularPolicy, state::State)
+    return haskey(sol.Q, hash(state))
 end
 
 """
@@ -138,10 +183,16 @@ function best_action(sol::TabularVPolicy, state::State)
     return best_act
 end
 
+has_values(sol::TabularVPolicy) = true
+
 function get_value(sol::TabularVPolicy, state::State)
     return get(sol.V, hash(state)) do
-        get_value(sol.default, state)
+        get_value(sol.default, state) |> Float64
     end
+end
+
+function get_value(sol::TabularVPolicy, state_id::UInt, default=nothing)
+    return get(sol.V, state_id, default)
 end
 
 function get_value(sol::TabularVPolicy, state::State, action::Term)
@@ -150,7 +201,7 @@ function get_value(sol::TabularVPolicy, state::State, action::Term)
         is_goal(sol.spec, sol.domain, next_state, action))
         next_v = 0.0
     else
-        next_v = get_value(sol, next_state)
+        next_v = get_value(sol, next_state) |> Float64
     end
     r = get_reward(sol.spec, sol.domain, state, action, next_state)
     return get_discount(sol.spec) * next_v + r
@@ -165,4 +216,23 @@ end
 
 function set_value!(sol::TabularVPolicy, state_id::UInt, val::Real)
     sol.V[state_id] = val
+end
+
+function has_cached_value(sol::TabularVPolicy, state::State)
+    return has_cached_value(sol, hash(state))
+end
+
+function has_cached_value(sol::TabularVPolicy, state_id::UInt)
+    return haskey(sol.V, state_id)
+end
+
+function has_cached_value(sol::TabularVPolicy, state::State, action::Term)
+    available(sol.domain, state, action) || return false
+    next_state = transition(sol.domain, state, action)
+    return has_cached_value(sol, next_state)
+end
+
+function has_cached_action_values(sol::TabularVPolicy, state::State)
+    return all(has_cached_value(sol, transition(sol.domain, state, act))
+               for act in available(sol.domain, state))
 end

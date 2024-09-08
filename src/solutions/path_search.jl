@@ -13,27 +13,8 @@ function Base.show(io::IO, sol::AbstractPathSearchSolution)
 end
 
 function Base.show(io::IO, ::MIME"text/plain", sol::AbstractPathSearchSolution)
-    println(io, typeof(sol))
-    println(io, "  status: ", sol.status)
-    println(io, "  plan: ", summary(sol.plan))
-    n_lines, _ = displaysize(io)
-    n_lines -= 5
-    if length(sol.plan) > n_lines
-        for act in sol.plan[1:(n_lines÷2-1)]
-            println(io, "    ", write_pddl(act))
-        end
-        println(io, "    ", "⋮")
-        for act in sol.plan[end-(n_lines÷2)+1:end]
-            println(io, "    ", write_pddl(act))
-        end
-    else
-        for act in sol.plan
-            println(io, "    ", write_pddl(act))
-        end
-    end
-    if !isnothing(sol.trajectory) && !isempty(sol.trajectory)
-        print(io, "  trajectory: ", summary(sol.trajectory))
-    end
+    indent = get(io, :indent, "")
+    show_struct(io, sol; indent = indent, show_pddl_list=(:plan,))
 end
 
 Base.iterate(sol::AbstractPathSearchSolution) = iterate(sol.plan)
@@ -41,23 +22,25 @@ Base.iterate(sol::AbstractPathSearchSolution, istate) = iterate(sol.plan, istate
 Base.getindex(sol::AbstractPathSearchSolution, i::Int) = getindex(sol.plan, i)
 Base.length(sol::AbstractPathSearchSolution) = length(sol.plan)
 
-get_action(sol::AbstractPathSearchSolution, t::Int) = sol.plan[t]
+get_action(sol::AbstractPathSearchSolution, t::Int) =
+    get(sol.plan, t, missing)
 
 function get_action(sol::AbstractPathSearchSolution, state::State)
     if sol.status == :failure # Return no-op if goal is unreachable
-        return convert(Term, PDDL.no_op)
+        return PDDL.no_op
     end
     idx = findfirst(==(state), sol.trajectory)
     if isnothing(idx) # Return missing if no corresponding state found
         return missing
     elseif idx == length(sol.trajectory) # Return no-op if goal is reached
-        return sol.status == :success ? convert(Term, PDDL.no_op) : missing
+        return sol.status == :success ? PDDL.no_op : missing
     else # Return action corresponding to state
         return sol.plan[idx]
     end
 end
 
 function get_action(sol::AbstractPathSearchSolution, t::Int, state::State)
+    !(1 <= t <= length(sol.plan)) && return missing
     return isnothing(sol.trajectory) || sol.trajectory[t] == state ?
         get_action(sol, t) : get_action(sol, state)
 end
@@ -69,7 +52,7 @@ rand_action(sol::AbstractPathSearchSolution, state::State) =
 
 function get_action_probs(sol::AbstractPathSearchSolution, state::State)
     act = get_action(sol, state)
-    return ismissing(act) ? Dict() : Dict(act => 1.0)
+    return ismissing(act) ? Dict{Compound,Float64}() : Dict(act => 1.0)
 end
 
 get_action_prob(sol::AbstractPathSearchSolution, state::State, action::Term) =
@@ -138,54 +121,6 @@ function Base.copy(node::PathNode{S}) where {S}
     return PathNode{S}(node.id, node.state, node.path_cost, parent, child)
 end
 
-# function Base.hash(node::PathNode, h::UInt)
-#     h = hash(node.id, h)
-#     h = hash(node.state, h)
-#     h = hash(node.path_cost, h)
-#     h = isnothing(node.parent) ? h : hash(node.parent, h)
-#     h = isnothing(node.child) ? h : hash(node.child, h)
-#     return h
-# end
-
-# # Avoid recursive hashing and equality checking for `LinkedNodeRef`s
-# function Base.hash(ref::LinkedNodeRef{T}, h::UInt) where {T <: PathNode}
-#     h = hash(ref.node.id, h)
-#     h = hash(ref.action, h)
-#     h = isnothing(ref.next) ? h : hash(ref.next, h)
-#     return h
-# end
-
-# function Base.:(==)(
-#     ref1::LinkedNodeRef{T}, ref2::LinkedNodeRef{U}
-# ) where {T <: PathNode, U <: PathNode}
-#     T == U || return false
-#     ref1.node.id == ref2.node.id || return false
-#     typeof(ref1.action) == typeof(ref2.action) || return false
-#     ref1.action == ref2.action || return false
-#     typeof(ref1.next) == typeof(ref2.next) || return false
-#     isnothing(ref1.next) && isnothing(ref2.next) && return true
-#     return ref1.next == ref2.next
-# end
-
-# function Base.show(io::IO, ref::LinkedNodeRef{T}) where {T <: PathNode}
-#     if isnothing(ref.next)
-#         print(io, typeof(ref), "(", repr(ref.node.id), ", ", repr(ref.action), ")")
-#     else
-#         print(io, typeof(ref), "(", repr(ref.node.id), ", ", repr(ref.action), ", ", "...")
-#     end
-# end
-
-# "Reconstructs a plan and trajectory from the start node to the provided node."
-# function reconstruct(node::PathNode{S}) where {S}
-#     plan, traj = Term[], S[node.state]
-#     while !isnothing(node.parent) && !isnothing(node.parent.action)
-#         pushfirst!(plan, node.parent.action)
-#         node = node.parent.node
-#         pushfirst!(traj, node.state)
-#     end
-#     return plan, traj
-# end
-
 "Reconstructs a plan and trajectory from the start node to the provided node."
 function reconstruct(node_id::UInt, search_tree::Dict{UInt,PathNode{S}}) where S
     plan, trajectory = Term[], S[]
@@ -250,19 +185,26 @@ function Base.copy(sol::PathSearchSolution)
                               search_tree, search_frontier, search_order)
 end
 
-function Base.show(io::IO, m::MIME"text/plain", sol::PathSearchSolution)
-    # Invoke call to Base.show for AbstractPathSearchSolution
-    invoke(show, Tuple{IO, typeof(m), AbstractPathSearchSolution}, io, m, sol)
-    # Print search information if present
-    if !isnothing(sol.search_tree)
-        print(io, "\n  expanded: ", sol.expanded)
-        print(io, "\n  search_tree: ", summary(sol.search_tree))
-        print(io, "\n  search_frontier: ", summary(sol.search_frontier))
-        if !isempty(sol.search_order)
-            print(io, "\n  search_order: ", summary(sol.search_order))
-        end
+"Returns true if the node has been expanded."
+function is_expanded(id::UInt, sol::PathSearchSolution)
+    if keytype(sol.search_frontier) == UInt
+        return haskey(sol.search_tree, id) && !haskey(sol.search_frontier, id)
+    else
+        return haskey(sol.search_tree, id) && !(id in sol.search_frontier)
     end
 end
+is_expanded(node::PathNode, sol::PathSearchSolution) =
+    is_expanded(node.id, sol)
+is_expanded(state::State, sol::PathSearchSolution) =
+    is_expanded(hash(state), sol)
+
+"Returns true if the node has been reached (evaluated or expanded)."
+is_reached(id::UInt, sol::PathSearchSolution) =
+    haskey(sol.search_tree, id)
+is_reached(node::PathNode, sol::PathSearchSolution) =
+    is_reached(node.id, sol)
+is_reached(state::State, sol::PathSearchSolution) =
+    is_reached(hash(state), sol)
 
 """
     BiPathSearchSolution(status, plan)
@@ -319,29 +261,6 @@ function Base.copy(sol::BiPathSearchSolution)
         (x isa Symbol || isnothing(x)) ? x : copy(x)
     end
     return BiPathSearchSolution(fields...)
-end
-
-function Base.show(io::IO, m::MIME"text/plain", sol::BiPathSearchSolution)
-    # Invoke call to Base.show for AbstractPathSearchSolution
-    invoke(show, Tuple{IO, typeof(m), AbstractPathSearchSolution}, io, m, sol)
-    # Print nodes expanded if present
-    if sol.expanded >= 0
-        print(io, "\n  expanded: ", sol.expanded)
-    end
-    # Print forward search information if present
-    if !isnothing(sol.f_search_tree)
-        print(io, "\n  f_search_tree: ", summary(sol.f_search_tree))
-        print(io, "\n  f_frontier: ", summary(sol.f_frontier))
-        print(io, "\n  f_expanded: ", sol.f_expanded)
-        print(io, "\n  f_trajectory: ", summary(sol.f_trajectory))
-    end
-    # Print backward search information if present
-    if !isnothing(sol.b_search_tree)
-        print(io, "\n  b_search_tree: ", summary(sol.b_search_tree))
-        print(io, "\n  b_frontier: ", summary(sol.b_frontier))
-        print(io, "\n  b_expanded: ", sol.b_expanded)
-        print(io, "\n  b_trajectory: ", summary(sol.b_trajectory))
-    end
 end
 
 "Dequeue a key according to a Boltzmann distribution over priority values."

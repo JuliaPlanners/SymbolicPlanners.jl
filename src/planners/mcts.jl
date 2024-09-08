@@ -26,15 +26,27 @@ best_action(sol::MCTSTreeSolution, state::State) =
     argmax(sol.Q[hash(state)])
 rand_action(sol::MCTSTreeSolution, state::State) =
     best_action(sol, state)
+has_values(sol::MCTSTreeSolution) =
+	true
 get_value(sol::MCTSTreeSolution, state::State) =
     maximum(sol.Q[hash(state)])
 get_value(sol::MCTSTreeSolution, state::State, action::Term) =
     sol.Q[hash(state)][action]
 get_action_values(sol::MCTSTreeSolution, state::State) =
     pairs(sol.Q[hash(state)])
+has_cached_value(sol::MCTSTreeSolution, state::State) =
+	has_cached_value(sol, hash(state))
+has_cached_value(sol::MCTSTreeSolution, state_id::UInt) =
+	haskey(sol.Q, state_id)
+has_cached_value(sol::MCTSTreeSolution, state::State, action::Term) =
+	has_cached_value(sol, hash(state), action)
+has_cached_value(sol::MCTSTreeSolution, state_id::UInt, action::Term) =
+	haskey(sol.Q, state_id) && haskey(sol.Q[state_id], action)
+has_cached_action_values(sol::MCTSTreeSolution, state::State) =
+	haskey(sol.Q, hash(state))
 
 has_state_node(sol::MCTSTreeSolution, state::State) =
-	hash(state) in keys(sol.s_visits)
+	haskey(sol.s_visits, hash(state))
 
 ## Selection strategies for leaf nodes ##
 
@@ -67,10 +79,18 @@ get_action(sol::MaxUCBPolicy, state::State) =
     best_action(sol, state)
 rand_action(sol::MaxUCBPolicy, state::State) =
     best_action(sol, state)
+has_values(sol::MaxUCBPolicy) =
+	true
 get_value(sol::MaxUCBPolicy, state::State) =
     maximum(values(get_action_values(sol, state)))
 get_value(sol::MaxUCBPolicy, state::State, action::Term) =
     get_action_values(sol, state)[action]
+has_cached_value(sol::MaxUCBPolicy, state::State) =
+	has_cached_value(sol.tree, state)
+has_cached_value(sol::MaxUCBPolicy, state::State, action::Term) =
+	has_cached_value(sol.tree, state, action)
+has_cached_action_values(sol::MaxUCBPolicy, state::State) =
+	has_cached_action_values(sol.tree, state)
 
 BoltzmannUCBPolicy(tree::MCTSTreeSolution, confidence, temperature) =
 	BoltzmannPolicy(MaxUCBPolicy(tree, confidence), temperature)

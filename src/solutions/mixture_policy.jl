@@ -43,8 +43,13 @@ function MixturePolicy(policies, rng::AbstractRNG)
     return MixturePolicy(policies, weights, rng)
 end
 
+function Base.show(io::IO, ::MIME"text/plain", sol::MixturePolicy)
+    indent = get(io, :indent, "")
+    show_struct(io, sol; indent = indent, show_fields_compact=(:weights,))
+end
+
 Base.copy(sol::MixturePolicy) =
-    MixturePolicy(copy.(sol.policies), sol.weights, sol.rng)
+    MixturePolicy(copy.(sol.policies), copy(sol.weights), sol.rng)
 
 get_action(sol::MixturePolicy, state::State) =
     rand_action(sol, state)
@@ -71,4 +76,28 @@ function get_action_prob(sol::MixturePolicy, state::State, action::Term)
         prob += get_action_prob(policy, state, action) * weight
     end
     return prob
+end
+
+"""
+    get_mixture_weights(sol)
+
+Returns the mixture weights for a mixture policy.
+
+    get_mixture_weights(sol, state, action)
+
+Returns the posterior mixture weights for a mixture policy after an `action`
+has been taken at `state`.
+"""
+function get_mixture_weights end
+
+function get_mixture_weights(sol::MixturePolicy)
+    return sol.weights
+end
+
+function get_mixture_weights(sol::MixturePolicy, state::State, action::Term)
+    joint_probs = map(zip(sol.policies, sol.weights)) do (policy, weight)
+        return get_action_prob(policy, state, action) * weight
+    end
+    new_weights = joint_probs ./ sum(joint_probs)
+    return new_weights
 end

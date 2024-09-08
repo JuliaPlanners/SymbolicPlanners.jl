@@ -76,7 +76,7 @@ gw_state_2[pddl"(ypos)"] = 3
 
 manhattan = precompute!(ManhattanHeuristic(@pddl("xpos", "ypos")),
                         gridworld, gw_state, gw_spec)
-policy = FunctionalVPolicy(manhattan, gridworld, gw_spec)
+policy = HeuristicVPolicy(manhattan, gridworld, gw_spec)
 heuristic = PolicyValueHeuristic(policy)
 
 @test heuristic(gridworld, gw_state, gw_spec) == 2
@@ -95,8 +95,8 @@ manhattan_1 = precompute!(ManhattanHeuristic(@pddl("xpos", "ypos")),
 manhattan_2 = precompute!(ManhattanHeuristic(@pddl("xpos", "ypos")),
                           gridworld, gw_state, gw_spec_2)
 policies = Dict(
-    gw_spec => FunctionalVPolicy(manhattan_1, gridworld, gw_spec),
-    gw_spec_2 => FunctionalVPolicy(manhattan_2, gridworld, gw_spec_2)
+    gw_spec => HeuristicVPolicy(manhattan_1, gridworld, gw_spec),
+    gw_spec_2 => HeuristicVPolicy(manhattan_2, gridworld, gw_spec_2)
 )
 heuristic = GoalDependentPolicyHeuristic(policies)
 
@@ -108,10 +108,10 @@ heuristic = GoalDependentPolicyHeuristic(policies)
 function default(domain, state, spec)
     manhattan = precompute!(ManhattanHeuristic(@pddl("xpos", "ypos")),
                             domain, state, spec)
-    return FunctionalVPolicy(manhattan, domain, spec)
+    return HeuristicVPolicy(manhattan, domain, spec)
 end
 
-policies = Dict{MinStepsGoal, FunctionalVPolicy}()
+policies = Dict{MinStepsGoal, HeuristicVPolicy}()
 heuristic = GoalDependentPolicyHeuristic(policies, default)
 
 @test heuristic(gridworld, gw_state, gw_spec) == 2
@@ -203,6 +203,32 @@ bw_act_spec = ActionGoal(pddl"(stack a c)")
 @test ff(blocksworld, bw_state, bw_act_spec) == 1
 bw_act_spec = ActionGoal(pddl"(stack a ?x)", pddl"(on ?x c)")
 @test ff(blocksworld, bw_state, bw_act_spec) == 3
+
+end
+
+@testset "LM-Cut Heuristic" begin
+
+lmcut = LMCut()
+@test 4 >= lmcut(blocksworld, bw_state, bw_problem.goal) >= 2
+@test 7 >= lmcut(wgc_domain, wgc_state, wgc_problem.goal) >= 1
+@test 4 >= lmcut(bw_axioms, ba_state, ba_problem.goal) >= 2
+
+# Test dynamic goal updating
+precompute!(lmcut, blocksworld, bw_state)
+@test 4 >= compute(lmcut, blocksworld, bw_state, bw_problem.goal) >= 2
+precompute!(lmcut, wgc_domain, wgc_state)
+@test 7 >= compute(lmcut, wgc_domain, wgc_state, wgc_problem.goal) >= 1
+precompute!(lmcut, bw_axioms, ba_state)
+@test 4 >= compute(lmcut, bw_axioms, ba_state, ba_problem.goal) >= 2
+
+# Test that LM-Cut always dominates HMax
+hmax = HMax()
+@test lmcut(blocksworld, bw_state, bw_problem.goal) >=
+    hmax(blocksworld, bw_state, bw_problem.goal)
+@test lmcut(wgc_domain, wgc_state, wgc_problem.goal) >=
+    hmax(wgc_domain, wgc_state, wgc_problem.goal)
+@test lmcut(bw_axioms, ba_state, ba_problem.goal) >=
+    hmax(bw_axioms, ba_state, ba_problem.goal)
 
 end
 

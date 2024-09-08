@@ -8,6 +8,7 @@ function simulate(sim::EndStateSimulator, sol::Solution,
     for t in steps
 		if is_goal(spec, domain, state, act) break end
         act = get_action(sol, t, state)
+        ismissing(act) && break
         state = transition!(domain, state, act)
     end
     return state

@@ -19,6 +19,11 @@ PruningHeuristic(h::Heuristic, pruner::PruningHeuristic) =
 PruningHeuristic(h::PruningHeuristic, pruner::PruningHeuristic) =
     PruningHeuristic(h.heuristic, pruner.pruner)
 
+function Base.show(io::IO, ::MIME"text/plain", h::PruningHeuristic)
+    indent = get(io, :indent, "")
+    show_struct(io, h; indent = indent, show_fields = (:heuristic, :pruner))
+end
+    
 is_precomputed(h::PruningHeuristic) =
     is_precomputed(h.heuristic)
 is_precomputed(h::PruningHeuristic{<:Heuristic, <:Heuristic}) =

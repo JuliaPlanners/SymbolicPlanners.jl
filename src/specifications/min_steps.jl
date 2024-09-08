@@ -19,6 +19,11 @@ MinStepsGoal(problem::Problem) =
 MinStepsGoal(goal::Term) =
     MinStepsGoal(PDDL.flatten_conjs(goal))
 
+function Base.show(io::IO, ::MIME"text/plain", spec::MinStepsGoal)
+    indent = get(io, :indent, "")
+    show_struct(io, spec; indent = indent, show_pddl_list=(:terms,))
+end
+    
 Base.hash(spec::MinStepsGoal, h::UInt) =
     hash(Set(spec.terms), h)
 Base.:(==)(s1::MinStepsGoal, s2::MinStepsGoal) =

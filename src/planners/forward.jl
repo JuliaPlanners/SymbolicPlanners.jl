@@ -60,7 +60,7 @@ Setting the `refine_method` keyword argument controls the behavior of
   `save_search`, `save_parents`, and `save_children` will default to `true`
   if this method is used.
 
-- `:restart`: Restarts the search from scratch, throwing away the 
+- `:restart`: Restarts the search from the new starting state, throwing away the 
   previous search tree and frontier. This is the only valid refinement method
   when `save_search` is `false`.
 
@@ -206,8 +206,12 @@ function solve(planner::ForwardPlanner,
     precompute!(heuristic, domain, state, spec)
     # Initialize solution
     sol = init_sol(planner, heuristic, domain, state, spec)
-    # Run the search
-    sol = search!(sol, planner, heuristic, domain, spec)
+    # Check if initial state satisfies trajectory constraints
+    if is_violated(spec, domain, state)
+        sol.status = :failure
+    else # Run the search
+        sol = search!(sol, planner, heuristic, domain, spec)
+    end
     # Return solution
     if save_search
         return sol
@@ -224,6 +228,7 @@ function init_sol(planner::ForwardPlanner, heuristic::Heuristic,
     node_id = hash(state)
     node = PathNode(node_id, state, 0.0, LinkedNodeRef(node_id))
     search_tree = Dict(node_id => node)
+    ensure_precomputed!(heuristic, domain, state, spec)
     h_val::Float32 = compute(heuristic, domain, state, spec)
     priority = (planner.h_mult * h_val, h_val, 0)
     queue = PriorityQueue(node_id => priority)
@@ -251,6 +256,7 @@ function reinit_sol!(
     search_tree[node_id] = node
     # Reinitialize priority queue
     empty!(queue)
+    ensure_precomputed!(heuristic, domain, state, spec)
     h_val::Float32 = compute(heuristic, domain, state, spec)
     priority = (planner.h_mult * h_val, h_val, 0)
     queue[node_id] = priority
@@ -271,6 +277,8 @@ function search!(sol::PathSearchSolution,
         # Check search termination criteria
         if is_goal(spec, domain, node.state, node.parent.action)
             sol.status = :success # Goal reached
+        elseif on_goal_path(spec, domain, node.state)
+            sol.status = :success # Previous path to goal reached
         elseif sol.expanded >= planner.max_nodes
             sol.status = :max_nodes # Node budget reached
         elseif time() - start_time >= planner.max_time
@@ -310,7 +318,7 @@ function expand!(
     planner::ForwardPlanner, heuristic::Heuristic, node::PathNode{S},
     search_tree::Dict{UInt,PathNode{S}}, queue::PriorityQueue,
     domain::Domain, spec::Specification
-)where {S <: State}
+) where {S <: State}
     @unpack g_mult, h_mult = planner
     state = node.state
     # Iterate over available actions, filtered by heuristic
@@ -319,7 +327,7 @@ function expand!(
         next_state = transition(domain, state, act; check=false)
         next_id = hash(next_state)
         # Check if next state satisfies trajectory constraints
-        if is_violated(spec, domain, state) continue end
+        if is_violated(spec, domain, next_state) continue end
         # Compute path cost
         act_cost = get_cost(spec, domain, state, act, next_state)
         path_cost = node.path_cost + act_cost
@@ -368,19 +376,24 @@ function refine!(
     domain::Domain, state::State, spec::Specification
 ) where {S, T <: PriorityQueue}
     @unpack heuristic, refine_method, reset_node_count = planner
-    # Immmediately return if solution is already complete
-    sol.status == :success && return sol
-    sol.status == :failure && return sol
-    sol.status = :in_progress
     # Resimplify goal specification and ensure heuristic is precomputed
     spec = simplify_goal(spec, domain, state)
     ensure_precomputed!(heuristic, domain, state, spec)
     # Decide between restarting, rerooting, or continuing the search
     if refine_method == :restart
-        init_state = sol.trajectory[1]
-        sol = reinit_sol!(sol, planner, heuristic, domain, init_state, spec)
+        (sol.status == :failure && is_reached(state, sol)) && return sol
+        # Check if initial state satisfies trajectory constraints
+        if is_violated(spec, domain, state) 
+            sol.status = :failure
+            return sol
+        end
+        reinit_sol!(sol, planner, heuristic, domain, state, spec)
     elseif refine_method == :reroot
         reroot!(sol, planner, heuristic, domain, state, spec)
+        sol.status = :in_progress
+    elseif refine_method == :continue
+        (sol.status == :success || sol.status == :failure) && return sol
+        sol.status = :in_progress
     end
     planner.reset_node_count && (sol.expanded = 0)
     # Run search and return solution
@@ -391,14 +404,21 @@ function reroot!(
     sol::PathSearchSolution{S}, planner::ForwardPlanner, heuristic::Heuristic,
     domain::Domain, state::S, spec::Specification
 ) where {S <: State}
-    @unpack h_mult, g_mult = planner
+    @unpack h_mult, g_mult, callback = planner
     queue, search_tree = sol.search_frontier, sol.search_tree
-    cb = planner.callback
-    verbose = cb isa LoggerCallback
+    verbose, cb = callback isa LoggerCallback, callback
+    root_id = hash(state)
+    # Return existing solution if new state is in an exhausted search space
+    if sol.status == :failure && is_reached(root_id, sol)
+        return sol
+    end
+    # Return existing solution if state is already on path to goal
+    if sol.status == :success && state in sol.trajectory
+        return sol
+    end
     verbose && @logmsg cb.loglevel "Rerooting search tree..."
     # Restart search if initial state is not in tree interior
-    root_id = hash(state)
-    if !haskey(search_tree, root_id) || haskey(queue, root_id) 
+    if !is_expanded(root_id, sol) 
         return reinit_sol!(sol, planner, heuristic, domain, state, spec)
     end
     # Detach new root node from parents

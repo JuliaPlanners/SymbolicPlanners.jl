@@ -3,8 +3,8 @@
 # Set up Blocksworld plan and (optimal) policy to simulate
 bw_plan = OrderedPlan(@pddl("(pick-up a)", "(stack a b)",
                             "(pick-up c)", "(stack c a)"))
-bw_policy = FunctionalVPolicy(PlannerHeuristic(AStarPlanner(HMax())),
-                              blocksworld, bw_spec)
+bw_policy = HeuristicVPolicy(PlannerHeuristic(AStarPlanner(HMax())),
+                             blocksworld, bw_spec)
 
 # Manually compute Blocksworld trajectory
 bw_traj = [bw_state]

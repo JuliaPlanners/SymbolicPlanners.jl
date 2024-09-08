@@ -4,7 +4,7 @@
 CurrentModule = SymbolicPlanners
 ```
 
-SymbolicPlanners.jl provides a composable library of problem specifications
+**SymbolicPlanners.jl** provides a composable library of problem specifications
 through the [`Specification`](@ref) interface, allowing users to define
 a range of planning problems from modular components.
 
@@ -55,7 +55,7 @@ of backward search, such as [`BackwardPlanner`](@ref) and
 
 ## Constraint Specifications
 
-SymbolicPlanners.jl also provides limited support for planning under
+**SymbolicPlanners.jl** also provides limited support for planning under
 constraints. In particular, planning solutions can be constrained such that
 all traversed states satisfy certain predicates:
 
@@ -94,7 +94,7 @@ infer_action_costs
 
 ## Reward Specifications
 
-SymbolicPlanners.jl also provides support for goal-based reward functions
+**SymbolicPlanners.jl** also provides support for goal-based reward functions
 through the following specifications.
 
 ```@docs
@@ -115,5 +115,5 @@ More general reward functions can also be defined using the
 is corresponds to the total reward.
 
 Reward-based specifications should generally be used with policy-based
-planning algorithms such as [`RTDP`](@ref RealTimeDynamicPlanner),
-[`RTHS`](@ref RealTimeHeuristicSearch) and [`MCTS`](@ref MonteCarloTreeSearch).
+planning algorithms such as [`RTDP`](@ref RealTimeDynamicPlanner) and
+[`MCTS`](@ref MonteCarloTreeSearch).
