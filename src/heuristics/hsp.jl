@@ -33,6 +33,7 @@ mutable struct HSPHeuristic{F <: Function} <: Heuristic
     goal_hash::Union{Nothing,UInt} # Hash of most recently pre-computed goal
     statics::Vector{Symbol} # Static domain fluents
     graph::PlanningGraph # Precomputed planning graph
+    search_state::PlanningGraphSearchState # Preallocated search state
     HSPHeuristic{F}() where {F <: Function} = new{F}(F.instance)
     HSPHeuristic(op::F) where {F <: Function} = new{F}(op)
 end
@@ -67,6 +68,7 @@ function precompute!(h::HSPHeuristic,
     h.goal_hash = nothing
     h.statics = infer_static_fluents(domain)
     h.graph = build_planning_graph(domain, state; statics=h.statics)
+    h.search_state = PlanningGraphSearchState(h.graph)
     return h
 end
 
@@ -77,6 +79,7 @@ function precompute!(h::HSPHeuristic,
     h.goal_hash = hash(get_goal_terms(spec))
     h.statics = infer_static_fluents(domain)
     h.graph = build_planning_graph(domain, state, spec; statics=h.statics)
+    h.search_state = PlanningGraphSearchState(h.graph)
     return h
 end
 
@@ -89,7 +92,8 @@ function compute(h::HSPHeuristic,
         h.goal_hash = hash(get_goal_terms(spec))
     end
     # Compute relaxed costs to goal nodes of the planning graph
-    _, _, _, goal_cost = relaxed_pgraph_search(domain, state, spec, h.op, h.graph)
+    init_pgraph_search!(h.search_state, h.graph, domain, state)
+    _, _, goal_cost = run_pgraph_search!(h.search_state, h.graph, spec, h.op)
     # Return goal cost (may be infinite if unreachable)
     return goal_cost
 end
@@ -143,9 +147,9 @@ function precompute!(h::HSPRHeuristic,
                      domain::Domain, state::State, spec::Specification)
     # Construct and compute fact costs from planning graph
     graph = build_planning_graph(domain, state)
-    costs, _, _, _ = relaxed_pgraph_search(domain, state, spec, h.op, graph)
+    search_state, _, _ = run_pgraph_search(graph, domain, state, spec, h.op)
     # Convert costs to dictionary for fast look-up
-    h.costs = Dict{Term,Float64}(c => v for (c, v) in zip(graph.conditions, costs))
+    h.costs = Dict{Term,Float64}(zip(graph.conditions, search_state.cond_costs))
     return h
 end
 
