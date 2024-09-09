@@ -21,6 +21,7 @@ mutable struct LMCut <: Heuristic
     goal_hash::Union{Nothing,UInt} # Hash of most recently pre-computed goal
     statics::Vector{Symbol} # Static domain fluents
     graph::PlanningGraph # Precomputed planning graph
+    search_state::PlanningGraphSearchState # Preallocated search state
     action_costs::Vector{Float32} # Precomputed action costs
     LMCut() = new()
 end
@@ -39,6 +40,7 @@ function precompute!(h::LMCut, domain::Domain, state::State)
     # Precompute static domain fluents and planning graph
     h.statics = infer_static_fluents(domain)
     h.graph = build_planning_graph(domain, state; statics=h.statics)
+    h.search_state = PlanningGraphSearchState(h.graph)
     # Precompute cost of each action
     n_actions = length(h.graph.actions)
     h.action_costs = map(eachindex(h.graph.actions)) do act_idx
@@ -58,6 +60,7 @@ function precompute!(h::LMCut, domain::Domain, state::State, spec::Specification
     # Precompute static domain fluents and planning graph
     h.statics = infer_static_fluents(domain)
     h.graph = build_planning_graph(domain, state, spec; statics=h.statics)
+    h.search_state = PlanningGraphSearchState(h.graph)
     # Precompute cost of each action
     n_actions = length(h.graph.actions)
     h.action_costs = map(enumerate(h.graph.actions)) do (act_idx, act)
@@ -88,20 +91,21 @@ function compute(h::LMCut, domain::Domain, state::State, spec::Specification)
             end
         end
     end
-    # Compute set of initial facts
-    init_idxs = pgraph_init_idxs(h.graph, domain, state)
+    # Initialize planning graph search state
+    init_pgraph_search!(h.search_state, h.graph, domain, state)
     # Calculate relaxed costs of facts and the h-max value
-    cond_costs, _, goal_idx, goal_cost =
-        relaxed_pgraph_search(domain, state, spec, maximum, h.graph;
-                              action_costs = h.action_costs)
+    search_state, goal_idx, goal_cost =
+        run_pgraph_search!(h.search_state, h.graph, spec, maximum;
+                           action_costs = h.action_costs)
     # Terminate early if goal is unreachable
     goal_cost == Inf32 && return goal_cost
     # Iteratively find landmark cuts and sum their costs
     hval = 0.0f0
+    init_conds = search_state.init_conds
     action_costs = copy(h.action_costs)
     for _ in 1:length(h.graph.actions)
         # Find the supporters for each action
-        supporters = find_supporters(h.graph, cond_costs)
+        supporters = find_supporters(h.graph, search_state.cond_costs)
         # Construct the justification graph
         jgraph = build_justification_graph(h.graph, supporters, action_costs)
         # Extract the goal zone
@@ -109,16 +113,18 @@ function compute(h::LMCut, domain::Domain, state::State, spec::Specification)
         # Extract the pregoal zone, landmarks, and their cost
         pregoal_zone, landmark_idxs, landmark_cost =
             extract_pregoal_zone_and_landmarks(jgraph, goal_zone,
-                                               init_idxs, action_costs)
-        # Update heuristic value and action costs
+                                               init_conds, action_costs)
+        # Update heuristic value, action costs and search queue
         hval += landmark_cost
-        for idx in landmark_idxs
-            action_costs[idx] -= landmark_cost
+        for act_idx in landmark_idxs
+            action_costs[act_idx] -= landmark_cost
         end
         # Re-calculate relaxed costs to each fact
-        cond_costs, _, goal_idx, goal_cost =
-            relaxed_pgraph_search(domain, state, spec, maximum, h.graph;
-                                  action_costs = action_costs)
+        init_pgraph_search!(h.search_state, h.graph, domain, state,
+                            compute_init_conds = false)
+        search_state, goal_idx, goal_cost =
+            run_pgraph_search!(h.search_state, h.graph, spec, maximum;
+                               action_costs = action_costs)
         # Terminate once goal cost has been reduced to zero
         iszero(goal_cost) && break
     end

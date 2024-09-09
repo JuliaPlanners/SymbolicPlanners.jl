@@ -7,6 +7,7 @@ mutable struct PlanningGraph
     actions::Vector{GroundAction} # All ground actions
     act_parents::Vector{Vector{Vector{Int}}} # Parent conditions of each action
     act_children::Vector{Vector{Int}} # Child conditions of each action
+    act_condflags::Vector{UInt} # Precondition bitflags for each action
     effect_map::Dict{Term,Vector{Int}} # Map of affected fluents to actions
     conditions::Vector{Term} # All ground preconditions / goal conditions
     cond_children::Vector{Vector{Tuple{Int,Int}}} # Child actions of each condition
@@ -134,6 +135,8 @@ function build_planning_graph(
         push!.(act_children[idxs], i)
     end
     act_children = unique!.(sort!.(act_children))
+    # Precompute initial bitflags for conditions
+    act_condflags = map(a -> (UInt(1) << length(a.preconds) - 1), actions)
     # Determine if conditions are derived or functional
     cond_derived = isempty(PDDL.get_axioms(domain)) ?
         falses(length(conditions)) :
@@ -144,8 +147,9 @@ function build_planning_graph(
                        PDDL.has_global_func(c), conditions)
     # Construct and return graph
     return PlanningGraph(
-        n_axioms, n_goals, actions, act_parents, act_children, effect_map,
-        conditions, cond_children, cond_derived, cond_functional
+        n_axioms, n_goals, actions, act_parents, act_children,
+        act_condflags, effect_map, conditions, cond_children,
+        cond_derived, cond_functional
     )
 end
 
@@ -222,6 +226,7 @@ function update_pgraph_goal!(
     resize!(graph.actions, n_nongoals)
     resize!(graph.act_parents, n_nongoals)
     resize!(graph.act_children, n_nongoals)
+    resize!(graph.act_condflags, n_nongoals)
     graph.n_goals = length(goal_actions)
     goal_parents = map(goal_actions) do act 
         [Int[] for _ in 1:min(Sys.WORD_SIZE, length(act.preconds))]
@@ -229,7 +234,7 @@ function update_pgraph_goal!(
     goal_children = [Int[] for _ in goal_actions]
     append!(graph.actions, goal_actions)
     append!(graph.act_parents, goal_parents)
-    append!(graph.act_children, goal_children)    
+    append!(graph.act_children, goal_children)
     # Extract conditions of goal actions
     cond_map = Dict{Term,Vector{Tuple{Int,Int}}}()
     for (i, act) in enumerate(goal_actions)
@@ -251,6 +256,9 @@ function update_pgraph_goal!(
             end
         end
     end
+    # Precompute condition flags for goal actions
+    append!(graph.act_condflags,
+            map(a -> (UInt(1) << length(a.preconds) - 1), goal_actions))
     # Update children of existing conditions and parents of goal actions
     for (i, cond) in enumerate(graph.conditions)
         # Filter out old goal children
@@ -296,30 +304,167 @@ function update_pgraph_goal!(
     return graph
 end
 
-"Compute relaxed costs and paths to each fact node of a planning graph."
-function relaxed_pgraph_search(domain::Domain, state::State, spec::Specification,
-                               accum_op::Function, graph::PlanningGraph;
-                               action_costs = nothing)
-    # Initialize fact costs, precondition flags,  etc.
-    n_actions = length(graph.actions)
-    n_conds = length(graph.conditions)
-    dists = fill(Inf32, n_conds) # Fact distances
-    costs = fill(Inf32, n_conds) # Fact costs
-    achievers = fill(-1, n_conds) # Fact achievers
-    condflags = [(UInt(1) << length(a.preconds)) - 1 for a in graph.actions]
+"Search state for relaxed planning graph search."
+struct PlanningGraphSearchState
+    init_conds::BitVector
+    cond_dists::Vector{Float32}
+    cond_costs::Vector{Float32}
+    cond_achievers::Vector{Int}
+    act_condflags::Vector{UInt64}
+    queue::FastPriorityQueue{Int,Float32}
+end
 
-    # Set up initial facts and priority queue
-    init_idxs = pgraph_init_idxs(graph, domain, state)
-    dists[init_idxs] .= 0
-    costs[init_idxs] .= 0
-    queue = PriorityQueue{Int,Float32}(i => 0 for i in findall(init_idxs))
+function PlanningGraphSearchState(graph::PlanningGraph)
+    n_conds = length(graph.conditions)
+    init_conds = falses(n_conds)
+    cond_dists = zeros(Float32, n_conds)
+    cond_costs = zeros(Float32, n_conds)
+    cond_achievers = zeros(Int, n_conds)
+    act_condflags = zeros(UInt, length(graph.actions))
+    queue = FastPriorityQueue{Int,Float32}()
+    return PlanningGraphSearchState(init_conds, cond_dists, cond_costs,
+                                    cond_achievers, act_condflags, queue)
+end
+
+"Initialize search state for relaxed planning graph search."
+function init_pgraph_search!(
+    search_state::PlanningGraphSearchState, graph::PlanningGraph, 
+    domain::Domain, state::State; compute_init_conds::Bool = true
+)
+    # Initialize condition distances and costs
+    n_conds = length(graph.conditions)
+    if n_conds != length(search_state.cond_dists)
+        resize!(search_state.cond_dists, n_conds)
+        resize!(search_state.cond_costs, n_conds)
+        resize!(search_state.cond_achievers, n_conds)
+    end
+    fill!(search_state.cond_dists, Inf32)
+    fill!(search_state.cond_costs, Inf32)
+    fill!(search_state.cond_achievers, -1)
+    # Initialize action precondition bitflags
+    n_actions = length(graph.actions)
+    if n_actions != length(search_state.act_condflags)
+        resize!(search_state.act_condflags, n_actions)
+    end
+    copyto!(search_state.act_condflags, graph.act_condflags)
+    # Compute facts which are true in the initial state
+    init_conds = search_state.init_conds
+    if compute_init_conds
+        compute_pgraph_init_conds!(init_conds, graph, domain, state)
+    end
+    search_state.cond_dists[init_conds] .= 0.0f0
+    search_state.cond_costs[init_conds] .= 0.0f0
+    # Initialize priority queue
+    empty!(search_state.queue)
+    append!(search_state.queue, (i => 0.0f0 for i in findall(init_conds)))
+    return search_state
+end
+
+"Compute planning graph indices for true initial facts."
+function compute_pgraph_init_conds!(
+    init_conds::BitVector, graph::PlanningGraph, domain::Domain, state::State
+)
+    @unpack conditions, cond_derived, cond_functional = graph
+    # Handle non-derived initial conditions
+    function check_cond(@nospecialize(c::Term), is_derived::Bool, is_func::Bool)
+        is_derived && return false
+        is_func && return satisfy(domain, state, c)::Bool
+        c.name == :not && return !PDDL.get_fluent(state, c.args[1])::Bool
+        c.name isa Bool && return c.name::Bool
+        c isa Const && return PDDL.get_fluent(state, c)::Bool
+        c isa Compound && return PDDL.get_fluent(state, c)::Bool
+        return PDDL.get_fluent(state, c)::Bool
+    end
+    # Compute initial conditions with in-place broadcast
+    broadcast!(check_cond, init_conds,
+               conditions, cond_derived, cond_functional)
+    # Handle derived initial conditions
+    if length(PDDL.get_axioms(domain)) > 0
+        compute_pgraph_derived_conds!(init_conds, graph)
+    end
+    return init_conds::BitVector
+end
+
+function compute_pgraph_init_conds!(
+    init_conds::BitVector, graph::PlanningGraph,
+    domain::Domain, state::GenericState
+)
+    @unpack conditions, cond_derived, cond_functional = graph
+    # Handle non-derived initial conditions
+    function check_cond(@nospecialize(c::Term), is_derived::Bool, is_func::Bool)
+        is_derived && return false
+        is_func && return satisfy(domain, state, c)::Bool
+        c.name == :not && return !(c.args[1] in PDDL.get_facts(state))
+        c.name isa Bool && return c.name::Bool
+        return c in PDDL.get_facts(state)
+    end
+    # Compute initial conditions with in-place broadcast
+    broadcast!(check_cond, init_conds,
+               conditions, cond_derived, cond_functional)
+    # Handle derived initial conditions
+    if !isempty(PDDL.get_axioms(domain))
+        compute_pgraph_derived_conds!(init_conds, graph)
+    end
+    return init_conds::BitVector
+end
+
+"Compute planning graph indices for initial facts derived from axioms."
+function compute_pgraph_derived_conds!(
+    init_conds::BitVector, graph::PlanningGraph
+)
+    # Set up search queue and condition flags
+    queue = findall(init_conds)
+    condflags = graph.act_condflags[1:graph.n_axioms]
+    # Compute all initially true axioms
+    while !isempty(queue)
+        # Dequeue first fact/condition
+        cond_idx = popfirst!(queue)
+        # Iterate over child axioms
+        for (act_idx, precond_idx) in graph.cond_children[cond_idx]
+            is_axiom = act_idx <= graph.n_axioms
+            if !is_axiom continue end
+            # Skip actions with no children
+            isempty(graph.act_children[act_idx]) && continue
+            # Skip already achieved actions
+            condflags[act_idx] === UInt(0) && continue
+            # Set precondition flag for unachieved actions
+            condflags[act_idx] &= ~(UInt(1) << (precond_idx-1))
+            condflags[act_idx] !== UInt(0) && continue
+            # Place child conditions on queue
+            act_children = graph.act_children[act_idx]
+            for c_idx in act_children
+                if init_conds[c_idx] == false
+                    init_conds[c_idx] = true
+                    push!(queue, c_idx)
+                end
+            end
+        end
+    end
+    # Return updated initial indices
+    return init_conds::BitVector
+end
+
+"Compute relaxed costs and paths to each fact node of a planning graph."
+function run_pgraph_search!(
+    search_state::PlanningGraphSearchState, graph::PlanningGraph, 
+    spec::Specification, accum_op::Function = maximum;
+    action_costs = nothing
+)
+    # Unpack search state
+    dists = search_state.cond_dists
+    costs = search_state.cond_costs
+    achievers = search_state.cond_achievers
+    condflags = search_state.act_condflags
+    queue = search_state.queue
 
     # Perform Djikstra / uniform-cost search until goals are reached
     goal_idx, goal_cost = nothing, Inf32
-    last_nongoal_idx = n_actions - graph.n_goals
+    last_nongoal_idx = length(graph.actions) - graph.n_goals
     while !isempty(queue) && isnothing(goal_idx)
         # Dequeue nearest fact/condition
-        cond_idx = dequeue!(queue)
+        cond_idx, cond_dist = dequeue_pair!(queue)
+        # Skip if distance greater than stored value
+        cond_dist > dists[cond_idx] && continue
         # Iterate over child actions
         for (act_idx, precond_idx) in graph.cond_children[cond_idx]
             # Check if goal action is reached
@@ -355,8 +500,7 @@ function relaxed_pgraph_search(domain::Domain, state::State, spec::Specification
                     act_cost = action_costs[act_idx]
                 end
                 next_cost = path_cost + act_cost
-                next_dist = accum_op === maximum && !has_action_cost(spec) ?
-                    next_cost : dists[cond_idx] + 1
+                next_dist = dists[cond_idx] + 1
             end
             # Return goal index and goal cost if goal is reached
             if is_goal
@@ -373,93 +517,26 @@ function relaxed_pgraph_search(domain::Domain, state::State, spec::Specification
                     costs[c_idx] = next_cost
                     achievers[c_idx] = act_idx
                 end
-                if !(c_idx in keys(queue)) # Enqueue new conditions
+                if less_dist # Adjust distances and place on queue
                     enqueue!(queue, c_idx, next_dist)
-                elseif less_dist # Adjust distances
-                    queue[c_idx] = next_dist
                     dists[c_idx] = next_dist
                 end
             end
         end
     end
 
-    # Return fact costs, achievers, goal index and cost
-    return costs, achievers, goal_idx, goal_cost
+    # Return search state, goal index and cost
+    return search_state, goal_idx, goal_cost
 end
 
-"Returns planning graph indices for initial facts."
-function pgraph_init_idxs(graph::PlanningGraph,
-                          domain::Domain, state::State)
-    @unpack conditions, cond_derived, cond_functional = graph
-    # Handle non-derived initial conditions
-    function check_cond(@nospecialize(c::Term), is_derived::Bool, is_func::Bool)
-        is_derived && return false
-        is_func && return satisfy(domain, state, c)::Bool
-        c.name == :not && return !PDDL.get_fluent(state, c.args[1])::Bool
-        c.name isa Bool && return c.name::Bool
-        c isa Const && return PDDL.get_fluent(state, c)::Bool
-        c isa Compound && return PDDL.get_fluent(state, c)::Bool
-        return PDDL.get_fluent(state, c)::Bool
-    end
-    init_idxs = broadcast(check_cond, conditions, cond_derived, cond_functional)
-    # Handle derived initial conditions
-    if length(PDDL.get_axioms(domain)) > 0
-        init_idxs = pgraph_derived_idxs!(init_idxs, graph, domain, state)
-    end
-    return init_idxs::BitVector
+"Compute relaxed costs and paths to each fact node of a planning graph."
+function run_pgraph_search(
+    graph::PlanningGraph,  domain::Domain, state::State, spec::Specification,
+    accum_op::Function = maximum; action_costs = nothing
+)
+    search_state = PlanningGraphSearchState(graph)
+    init_pgraph_search!(search_state, graph, domain, state)
+    return run_pgraph_search!(search_state, graph, spec, accum_op;
+                              action_costs = action_costs)
 end
 
-function pgraph_init_idxs(graph::PlanningGraph,
-                          domain::Domain, state::GenericState)
-    @unpack conditions, cond_derived, cond_functional = graph
-    # Handle non-derived initial conditions
-    function check_cond(@nospecialize(c::Term), is_derived::Bool, is_func::Bool)
-        is_derived && return false
-        is_func && return satisfy(domain, state, c)::Bool
-        c.name == :not && return !(c.args[1] in PDDL.get_facts(state))
-        c.name isa Bool && return c.name::Bool
-        return c in PDDL.get_facts(state)
-    end
-    init_idxs = broadcast(check_cond, conditions, cond_derived, cond_functional)
-    # Handle derived initial conditions
-    if !isempty(PDDL.get_axioms(domain))
-        init_idxs = pgraph_derived_idxs!(init_idxs, graph, domain, state)
-    end
-    return init_idxs::BitVector
-end
-
-"Determine indices for initial facts derived from axioms."
-function pgraph_derived_idxs!(init_idxs::BitVector, graph::PlanningGraph,
-                              domain::Domain, state::State)
-    # Set up priority queue and condition flags
-    queue = PriorityQueue{Int,Float32}(i => 0 for i in findall(init_idxs))
-    condflags = [(UInt(1) << length(a.preconds)) - 1
-                 for a in graph.actions[1:graph.n_axioms]]
-    # Compute all initially true axioms
-    while !isempty(queue)
-        # Dequeue nearest fact/condition
-        cond_idx = dequeue!(queue)
-        # Iterate over child axioms
-        for (act_idx, precond_idx) in graph.cond_children[cond_idx]
-            is_axiom = act_idx <= graph.n_axioms
-            if !is_axiom continue end
-            # Skip actions with no children
-            isempty(graph.act_children[act_idx]) && continue
-            # Skip already achieved actions
-            condflags[act_idx] === UInt(0) && continue
-            # Set precondition flag for unachieved actions
-            condflags[act_idx] &= ~(UInt(1) << (precond_idx-1))
-            condflags[act_idx] !== UInt(0) && continue
-            # Place child conditions on queue
-            act_children = graph.act_children[act_idx]
-            for c_idx in act_children
-                init_idxs[c_idx] = true
-                if !(c_idx in keys(queue)) # Enqueue new conditions
-                    enqueue!(queue, c_idx, 0)
-                end
-            end
-        end
-    end
-    # Return updated initial indices
-    return init_idxs::BitVector
-end

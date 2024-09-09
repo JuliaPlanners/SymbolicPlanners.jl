@@ -30,6 +30,7 @@ mutable struct FFHeuristic <: Heuristic
     goal_hash::Union{Nothing,UInt} # Hash of most recently pre-computed goal
     statics::Vector{Symbol} # Static domain fluents 
     graph::PlanningGraph # Precomputed planning graph
+    search_state::PlanningGraphSearchState # Preallocated search state
     FFHeuristic() = new()
 end
 
@@ -46,6 +47,7 @@ function precompute!(h::FFHeuristic,
     h.goal_hash = nothing
     h.statics = infer_static_fluents(domain)
     h.graph = build_planning_graph(domain, state; statics=h.statics)
+    h.search_state = PlanningGraphSearchState(h.graph)
     return h
 end
 
@@ -56,6 +58,7 @@ function precompute!(h::FFHeuristic,
     h.goal_hash = hash(get_goal_terms(spec))
     h.statics = infer_static_fluents(domain)
     h.graph = build_planning_graph(domain, state, spec; statics=h.statics)
+    h.search_state = PlanningGraphSearchState(h.graph)
     return h
 end
 
@@ -68,8 +71,11 @@ function compute(h::FFHeuristic,
         h.goal_hash = hash(get_goal_terms(spec))
     end
     # Compute achievers to each condition node of the relaxed planning graph
-    costs, achievers, goal_idx, _ =
-        relaxed_pgraph_search(domain, state, spec, maximum, h.graph)
+    init_pgraph_search!(h.search_state, h.graph, domain, state)
+    search_state, goal_idx, _ =
+        run_pgraph_search!(h.search_state, h.graph, spec)
+    costs = search_state.cond_costs
+    achievers = search_state.cond_achievers
     # Return infinity if goal is not reached
     if isnothing(goal_idx) return Inf32 end
     # Initialize queue
