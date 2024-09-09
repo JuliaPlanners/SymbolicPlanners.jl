@@ -186,7 +186,7 @@ end
 Fast heap-based priority queue implementation which supports enqueuing and
 dequeueing, but not priority adjustment.
 """
-struct FastPriorityQueue{K, V, O <: Base.Ordering} <: AbstractDict{K, V}
+struct FastPriorityQueue{K, V, O <: Base.Ordering}
     heap::BinaryHeap{Pair{K, V}, Base.Order.By{typeof(last), O}}
 end 
 
