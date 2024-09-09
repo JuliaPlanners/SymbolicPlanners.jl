@@ -311,7 +311,7 @@ struct PlanningGraphSearchState
     cond_costs::Vector{Float32}
     cond_achievers::Vector{Int}
     act_condflags::Vector{UInt64}
-    queue::FastPriorityQueue{Int,Float32}
+    queue::FastPriorityQueue{Int,Float32,DataStructures.FasterForward}
 end
 
 function PlanningGraphSearchState(graph::PlanningGraph)
