@@ -161,13 +161,17 @@ bw_act_spec = ActionGoal(pddl"(stack a ?x)", pddl"(on ?x c)")
 @test h_max(blocksworld, bw_state, bw_act_spec) == 2
 
 # Test HSP heuristics with action costs
+h_add = HAdd()
+h_max = HMax()
 bw_actions = collect(keys(PDDL.get_actions(blocksworld)))
 bw_act_costs = ones(length(bw_actions)) .* 2
 bw_act_spec = MinActionCosts([bw_problem.goal], bw_actions, bw_act_costs)
-h_add = HAdd()
-h_max = HMax()
 @test h_add(blocksworld, bw_state, bw_act_spec) == 8
 @test h_max(blocksworld, bw_state, bw_act_spec) == 4
+
+zt_infer_spec = zt_infer_spec = MinActionCosts(zeno_travel, zt_problem)
+@test h_add(zeno_travel, zt_state, zt_infer_spec) == 44588
+@test h_max(zeno_travel, zt_state, zt_infer_spec) == 15512
 
 end
 
@@ -186,14 +190,14 @@ end
 @testset "FF Heuristic" begin
 
 ff = FFHeuristic()
-@test ff(blocksworld, bw_state, bw_problem.goal) <= 4
-@test ff(bw_axioms, ba_state, ba_problem.goal) <= 4
+@test 2 <= ff(blocksworld, bw_state, bw_problem.goal) <= 4
+@test 2 <= ff(bw_axioms, ba_state, ba_problem.goal) <= 4
 
 # Test dynamic goal updating
 precompute!(ff, blocksworld, bw_state)
-@test compute(ff, blocksworld, bw_state, bw_problem.goal) <= 4
+@test 2 <= compute(ff, blocksworld, bw_state, bw_problem.goal) <= 4
 precompute!(ff, bw_axioms, ba_state)
-@test compute(ff, bw_axioms, ba_state, ba_problem.goal) <= 4
+@test 2 <= compute(ff, bw_axioms, ba_state, ba_problem.goal) <= 4
 
 # Test FF heuristic with action goals
 ff = FFHeuristic()
@@ -203,6 +207,16 @@ bw_act_spec = ActionGoal(pddl"(stack a c)")
 @test ff(blocksworld, bw_state, bw_act_spec) == 1
 bw_act_spec = ActionGoal(pddl"(stack a ?x)", pddl"(on ?x c)")
 @test ff(blocksworld, bw_state, bw_act_spec) == 3
+
+# Test FF heuristic with action costs
+ff = FFHeuristic()
+bw_actions = collect(keys(PDDL.get_actions(blocksworld)))
+bw_act_costs = ones(length(bw_actions)) .* 2
+bw_act_spec = MinActionCosts([bw_problem.goal], bw_actions, bw_act_costs)
+@test 4 <= ff(blocksworld, bw_state, bw_act_spec) <= 8
+
+zt_infer_spec = zt_infer_spec = MinActionCosts(zeno_travel, zt_problem)
+@test 15512 <= ff(zeno_travel, zt_state, zt_infer_spec) <= 44592
 
 end
 
@@ -229,6 +243,16 @@ hmax = HMax()
     hmax(wgc_domain, wgc_state, wgc_problem.goal)
 @test lmcut(bw_axioms, ba_state, ba_problem.goal) >=
     hmax(bw_axioms, ba_state, ba_problem.goal)
+
+# Test LMCut heuristic with action costs
+lmcut = LMCut()
+bw_actions = collect(keys(PDDL.get_actions(blocksworld)))
+bw_act_costs = ones(length(bw_actions)) .* 2
+bw_act_spec = MinActionCosts([bw_problem.goal], bw_actions, bw_act_costs)
+@test 4 <= lmcut(blocksworld, bw_state, bw_act_spec) <= 8
+
+zt_infer_spec = zt_infer_spec = MinActionCosts(zeno_travel, zt_problem)
+@test 15512 <= lmcut(zeno_travel, zt_state, zt_infer_spec) <= 44592
 
 end
 
