@@ -251,7 +251,7 @@ bw_act_costs = ones(length(bw_actions)) .* 2
 bw_act_spec = MinActionCosts([bw_problem.goal], bw_actions, bw_act_costs)
 @test 4 <= lmcut(blocksworld, bw_state, bw_act_spec) <= 8
 
-zt_infer_spec = zt_infer_spec = MinActionCosts(zeno_travel, zt_problem)
+zt_infer_spec = MinActionCosts(zeno_travel, zt_problem)
 @test 15512 <= lmcut(zeno_travel, zt_state, zt_infer_spec) <= 44592
 
 end

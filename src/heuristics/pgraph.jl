@@ -478,7 +478,6 @@ function run_pgraph_search!(
     # Perform Djikstra / uniform-cost search until goals are reached
     goal_idx, goal_cost = nothing, Inf32
     last_nongoal_idx = length(graph.actions) - graph.n_goals
-    has_disjunctive_preconds = false
     while !isempty(queue) && isnothing(goal_idx)
         # Dequeue nearest fact/condition
         cond_idx, cond_cost = dequeue_pair!(queue)

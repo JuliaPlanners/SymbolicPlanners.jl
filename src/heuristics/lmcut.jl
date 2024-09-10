@@ -91,11 +91,12 @@ function compute(h::LMCut, domain::Domain, state::State, spec::Specification)
             end
         end
     end
-    # Initialize planning graph search state
-    init_pgraph_search!(h.search_state, h.graph, domain, state)
     # Calculate relaxed costs of facts and the h-max value
+    init_pgraph_search!(h.search_state, h.graph, domain, state)
+    fill!(h.search_state.act_pathcosts, -Inf32)
     search_state, goal_idx, goal_cost =
         run_pgraph_search!(h.search_state, h.graph, spec;
+                           compute_supporters = true,
                            action_costs = h.action_costs)
     # Terminate early if goal is unreachable
     goal_cost == Inf32 && return goal_cost
@@ -104,9 +105,8 @@ function compute(h::LMCut, domain::Domain, state::State, spec::Specification)
     init_conds = search_state.init_conds
     action_costs = copy(h.action_costs)
     for _ in 1:length(h.graph.actions)
-        # Find the supporters for each action
-        supporters = find_supporters(h.graph, search_state.cond_costs)
         # Construct the justification graph
+        supporters = search_state.act_supporters
         jgraph = build_justification_graph(h.graph, supporters, action_costs)
         # Extract the goal zone
         goal_zone = extract_goal_zone(jgraph)
@@ -119,16 +119,93 @@ function compute(h::LMCut, domain::Domain, state::State, spec::Specification)
         for act_idx in landmark_idxs
             action_costs[act_idx] -= landmark_cost
         end
-        # Re-calculate relaxed costs to each fact
-        init_pgraph_search!(h.search_state, h.graph, domain, state,
-                            compute_init_conds = false)
+        # Update fact costs and actions supporters
         search_state, goal_idx, goal_cost =
-            run_pgraph_search!(h.search_state, h.graph, spec;
-                               action_costs = action_costs)
+            update_pgraph_costs!(h.search_state, h.graph,
+                                 landmark_idxs, action_costs)
         # Terminate once goal cost has been reduced to zero
         iszero(goal_cost) && break
     end
     return hval
+end
+
+"Update costs of facts in the planning graph given updated landmark costs."
+function update_pgraph_costs!(
+    search_state::PlanningGraphSearchState, graph::PlanningGraph, 
+    landmark_idxs::Set{Int}, action_costs::Vector{<:Real}
+)
+    # Unpack search state
+    cond_costs = search_state.cond_costs
+    act_pathcosts = search_state.act_pathcosts
+    act_supporters = search_state.act_supporters
+    queue = search_state.queue
+
+    # Reinitialize search queue with cost-reduced conditions
+    empty!(queue)
+    for act_idx in landmark_idxs
+        path_cost = act_pathcosts[act_idx]
+        next_cost = path_cost + action_costs[act_idx]
+        for c_idx in graph.act_children[act_idx]
+            # Update cost and place on queue if cost decreased
+            next_cost < cond_costs[c_idx] || continue
+            cond_costs[c_idx] = next_cost
+            enqueue!(queue, c_idx, next_cost)
+        end
+    end
+
+    # Propagate reduced costs to landmark descendants
+    goal_idx, goal_cost = nothing, Inf32
+    last_nongoal_idx = length(graph.actions) - graph.n_goals
+    while !isempty(queue)
+        # Dequeue nearest fact/condition
+        cond_idx, cond_cost = dequeue_pair!(queue)
+        # Skip if cost is greater than stored value
+        cond_cost > cond_costs[cond_idx] && continue
+        # Iterate over child actions
+        for (act_idx, _) in graph.cond_children[cond_idx]
+            # Skip if condition is not the supporter of this action
+            supporter_idx = act_supporters[act_idx]
+            supporter_idx == cond_idx || continue
+            # Skip if supporter cost is not lower than it was previously
+            supporter_cost = cond_cost
+            prev_supporter_cost = act_pathcosts[act_idx]
+            supporter_cost < prev_supporter_cost || continue
+            # Update supporter and supporter cost for action
+            for precond_idxs in graph.act_parents[act_idx]
+                min_precond_idx = first(precond_idxs)
+                min_precond_cost = cond_costs[min_precond_idx]
+                if length(precond_idxs) > 1
+                    # Find least costly condition in disjunctive precondition
+                    for p_idx in Iterators.rest(precond_idxs, 2)
+                        cond_costs[p_idx] < min_precond_cost || continue
+                        min_precond_idx = p_idx
+                        min_precond_cost = cond_costs[p_idx]
+                    end
+                end
+                # Set as new supporter if higher in cost than old supporter
+                min_precond_cost > supporter_cost || continue
+                act_supporters[act_idx] = min_precond_idx
+                supporter_cost = min_precond_cost
+            end
+            if act_idx > last_nongoal_idx
+                # Terminate if goal is reached
+                act_pathcosts[act_idx] = supporter_cost
+                goal_idx, goal_cost = act_idx, supporter_cost
+                break
+            elseif supporter_cost < prev_supporter_cost
+                # Update action path cost, and place child conditions on queue
+                act_pathcosts[act_idx] = supporter_cost
+                next_cost = supporter_cost + action_costs[act_idx]
+                for c_idx in graph.act_children[act_idx]
+                    next_cost < cond_costs[c_idx] || continue
+                    cond_costs[c_idx] = next_cost
+                    enqueue!(queue, c_idx, next_cost)
+                end
+            end
+        end
+    end
+
+    return search_state, goal_idx, goal_cost
 end
 
 "Finds the most costly precondition (i.e. supporter) of each action."
@@ -182,6 +259,7 @@ function build_justification_graph(
     for act_idx in 1:n_actions
         parent_idx = supporters[act_idx]
         act_cost = action_costs[act_idx]
+        parent_idx == -1 && continue
         for child_idx in pgraph.act_children[act_idx]
             push!(jgraph.fadjlist[parent_idx], (act_idx, child_idx))
             act_cost == 0 && push!(jgraph.badjlist[child_idx], parent_idx)
