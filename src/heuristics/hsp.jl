@@ -10,7 +10,7 @@ planner [1]. The heuristic precomputes a graph that stores the dependencies
 between all ground actions and plan-relevant conditions. The cost of achieving
 each action  (and also the goal) is then recursively estimated as the aggregated
 cost of achieving each (pre)condition the action or goal depends upon, where
-`op` is an aggregation function (e.g. `maximum` or `sum`).
+`op` is an aggregation function (e.g. `max` or `+`).
     
 In turn, the cost of achieving each condition (a.k.a. "fact") is estimated
 as the minimum cost among all actions that achieve that condition. Once a
@@ -28,7 +28,7 @@ Intelligence, vol. 129, no. 1, pp. 5–33, Jun. 2001,
 <https://doi.org/10.1016/S0004-3702(01)00108-4>.
 """
 mutable struct HSPHeuristic{F <: Function} <: Heuristic
-    op::F # Aggregator (e.g. maximum, sum) for fact costs
+    op::F # Aggregator (e.g. max, +) for fact costs
     dynamic_goal::Bool # Flag whether goal-relevant information is dynamic
     goal_hash::Union{Nothing,UInt} # Hash of most recently pre-computed goal
     statics::Vector{Symbol} # Static domain fluents
@@ -41,18 +41,18 @@ end
 """
     HMax()
 
-[`HSPHeuristic`](@ref) where an action's cost is the `maximum` cost of the 
+[`HSPHeuristic`](@ref) where an action's cost is the `max` cost of the 
 conditions it depends upon.
 """
-const HMax = HSPHeuristic{typeof(maximum)}
+const HMax = HSPHeuristic{typeof(max)}
 
 """
     HAdd()
 
-[`HSPHeuristic`](@ref) where an action's cost is the `sum`` of costs of the 
+[`HSPHeuristic`](@ref) where an action's cost is the sum of costs of the 
 conditions it depends upon.
 """
-const HAdd = HSPHeuristic{typeof(sum)}
+const HAdd = HSPHeuristic{typeof(+)}
 
 function Base.show(io::IO, h::HSPHeuristic)
     is_precomputed_str = "precomputed=$(is_precomputed(h))"
@@ -124,17 +124,17 @@ end
     HMaxR()
 
 [`HSPRHeuristic`](@ref) for backward search, where an action's cost is the
-`maximum` cost of its dependencies.
+`max` cost of its dependencies.
 """
-const HMaxR = HSPRHeuristic{typeof(maximum)}
+const HMaxR = HSPRHeuristic{typeof(max)}
 
 """
     HAddR()
 
 [`HSPRHeuristic`](@ref) for backward search, where an action's cost is the
-`sum` of costs of its dependencies.
+sum of costs of its dependencies.
 """
-const HAddR = HSPRHeuristic{typeof(sum)}
+const HAddR = HSPRHeuristic{typeof(+)}
 
 function Base.show(io::IO, h::HSPRHeuristic)
     is_precomputed_str = "precomputed=$(is_precomputed(h))"
@@ -159,5 +159,5 @@ function compute(h::HSPRHeuristic,
     facts = PDDL.get_facts(state)
     # TODO: Handle negative literals
     if length(facts) == 0 return 0.0 end
-    return h.op(get(h.costs, f, 0) for f in facts)
+    return reduce(h.op, (get(h.costs, f, 0) for f in facts))
 end

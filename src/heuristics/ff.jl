@@ -73,7 +73,7 @@ function compute(h::FFHeuristic,
     # Compute achievers to each condition node of the relaxed planning graph
     init_pgraph_search!(h.search_state, h.graph, domain, state)
     search_state, goal_idx, _ =
-        run_pgraph_search!(h.search_state, h.graph, spec)
+        run_pgraph_search!(h.search_state, h.graph, spec; compute_achievers=true)
     costs = search_state.cond_costs
     achievers = search_state.cond_achievers
     # Return infinity if goal is not reached

@@ -95,7 +95,7 @@ function compute(h::LMCut, domain::Domain, state::State, spec::Specification)
     init_pgraph_search!(h.search_state, h.graph, domain, state)
     # Calculate relaxed costs of facts and the h-max value
     search_state, goal_idx, goal_cost =
-        run_pgraph_search!(h.search_state, h.graph, spec, maximum;
+        run_pgraph_search!(h.search_state, h.graph, spec;
                            action_costs = h.action_costs)
     # Terminate early if goal is unreachable
     goal_cost == Inf32 && return goal_cost
@@ -123,7 +123,7 @@ function compute(h::LMCut, domain::Domain, state::State, spec::Specification)
         init_pgraph_search!(h.search_state, h.graph, domain, state,
                             compute_init_conds = false)
         search_state, goal_idx, goal_cost =
-            run_pgraph_search!(h.search_state, h.graph, spec, maximum;
+            run_pgraph_search!(h.search_state, h.graph, spec;
                                action_costs = action_costs)
         # Terminate once goal cost has been reduced to zero
         iszero(goal_cost) && break
