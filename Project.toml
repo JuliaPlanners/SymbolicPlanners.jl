@@ -23,7 +23,7 @@ Parameters = "0.12"
 PlanningDomains = "0.1.3"
 Random = "<0.0.1, 1"
 StatsBase = "0.33, 0.34"
-julia = "1.3"
+julia = "1.6"
 
 [extras]
 PlanningDomains = "34fa33c8-33e3-4e77-bac8-de592315aba2"
