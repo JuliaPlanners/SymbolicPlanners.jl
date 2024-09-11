@@ -10,9 +10,11 @@ mutable struct PlanningGraph
     act_condflags::Vector{UInt} # Precondition bitflags for each action
     effect_map::Dict{Term,Vector{Int}} # Map of affected fluents to actions
     conditions::Vector{Term} # All ground preconditions / goal conditions
+    cond_parents::Vector{Vector{Int}} # Parent actions of each condition
     cond_children::Vector{Vector{Tuple{Int,Int}}} # Child actions of each condition
     cond_derived::BitVector # Whether the conditions are derived
     cond_functional::BitVector # Whether the conditions involve functions
+    has_disjuncts::Bool # Whether any preconditions are disjunctive
 end
 
 """
@@ -112,8 +114,9 @@ function build_planning_graph(
         end
     end
     # Flatten map from conditions to child indices
-    cond_children = collect(values(cond_map))
     conditions = collect(keys(cond_map))
+    cond_children = collect(values(cond_map))
+    cond_parents = Vector{Int}[]
     # Determine parent and child conditions of each action
     act_parents = map(actions) do act 
         [Int[] for _ in 1:length(act.preconds)]
@@ -133,10 +136,14 @@ function build_planning_graph(
             idxs = reduce(union, (get(Vector{Int}, effect_map, t) for t in terms))
         end
         push!.(act_children[idxs], i)
+        push!(cond_parents, idxs)
     end
     act_children = unique!.(sort!.(act_children))
     # Precompute initial bitflags for conditions
-    act_condflags = map(a -> (UInt(1) << length(a.preconds) - 1), actions)
+    act_condflags = map(a -> (one(UInt) << length(a.preconds) - 1), actions)
+    # Determine if any action preconditions are disjunctive
+    has_disjuncts = any(any(length(idxs) > 1 for idxs in precond_idxs)
+                        for precond_idxs in act_parents)
     # Determine if conditions are derived or functional
     cond_derived = isempty(PDDL.get_axioms(domain)) ?
         falses(length(conditions)) :
@@ -148,8 +155,8 @@ function build_planning_graph(
     # Construct and return graph
     return PlanningGraph(
         n_axioms, n_goals, actions, act_parents, act_children,
-        act_condflags, effect_map, conditions, cond_children,
-        cond_derived, cond_functional
+        act_condflags, effect_map, conditions, cond_parents, cond_children,
+        cond_derived, cond_functional, has_disjuncts
     )
 end
 
@@ -258,7 +265,7 @@ function update_pgraph_goal!(
     end
     # Precompute condition flags for goal actions
     append!(graph.act_condflags,
-            map(a -> (UInt(1) << length(a.preconds) - 1), goal_actions))
+            map(a -> (one(UInt) << length(a.preconds) - 1), goal_actions))
     # Update children of existing conditions and parents of goal actions
     for (i, cond) in enumerate(graph.conditions)
         # Filter out old goal children
@@ -295,64 +302,77 @@ function update_pgraph_goal!(
             idxs = reduce(union, (get(Vector{Int}, effect_map, t) for t in terms))
         end
         push!.(graph.act_children[idxs], new_idx)
+        # Link new condition to parent actions
+        push!(graph.cond_parents, idxs)
         # Flag whether condition is derived or functional
         is_derived = PDDL.has_derived(cond, domain)
         is_func = PDDL.has_func(cond, domain) || PDDL.has_global_func(cond)
         push!(graph.cond_derived, is_derived)
         push!(graph.cond_functional, is_func)
     end
+    # Determine if any action preconditions are disjunctive
+    has_disjuncts = any(any(length(idxs) > 1 for idxs in graph.act_parents[i])
+                        for i in n_nongoals+1:length(graph.actions))
+    graph.has_disjuncts |= has_disjuncts
     return graph
 end
 
 "Search state for relaxed planning graph search."
 struct PlanningGraphSearchState
     init_conds::BitVector
-    cond_dists::Vector{Float32}
     cond_costs::Vector{Float32}
     cond_achievers::Vector{Int}
-    act_condflags::Vector{UInt64}
+    act_condflags::Vector{UInt}
+    act_pathcosts::Vector{Float32}
+    act_supporters::Vector{Int}
     queue::FastPriorityQueue{Int,Float32,DataStructures.FasterForward}
 end
 
 function PlanningGraphSearchState(graph::PlanningGraph)
     n_conds = length(graph.conditions)
     init_conds = falses(n_conds)
-    cond_dists = zeros(Float32, n_conds)
     cond_costs = zeros(Float32, n_conds)
     cond_achievers = zeros(Int, n_conds)
     act_condflags = zeros(UInt, length(graph.actions))
+    act_pathcosts = zeros(Float32, length(graph.actions))
+    act_supporters = zeros(Int, length(graph.actions))
     queue = FastPriorityQueue{Int,Float32}()
-    return PlanningGraphSearchState(init_conds, cond_dists, cond_costs,
-                                    cond_achievers, act_condflags, queue)
+    return PlanningGraphSearchState(
+        init_conds, cond_costs, cond_achievers,
+        act_condflags, act_pathcosts, act_supporters, queue
+    )
 end
 
 "Initialize search state for relaxed planning graph search."
 function init_pgraph_search!(
     search_state::PlanningGraphSearchState, graph::PlanningGraph, 
-    domain::Domain, state::State; compute_init_conds::Bool = true
+    domain::Domain, state::State;
+    compute_init_conds::Bool = true
 )
     # Initialize condition distances and costs
     n_conds = length(graph.conditions)
-    if n_conds != length(search_state.cond_dists)
-        resize!(search_state.cond_dists, n_conds)
+    if n_conds != length(search_state.cond_costs)
+        resize!(search_state.init_conds, n_conds)
         resize!(search_state.cond_costs, n_conds)
         resize!(search_state.cond_achievers, n_conds)
     end
-    fill!(search_state.cond_dists, Inf32)
     fill!(search_state.cond_costs, Inf32)
     fill!(search_state.cond_achievers, -1)
     # Initialize action precondition bitflags
     n_actions = length(graph.actions)
     if n_actions != length(search_state.act_condflags)
         resize!(search_state.act_condflags, n_actions)
+        resize!(search_state.act_pathcosts, n_actions)
+        resize!(search_state.act_supporters, n_actions)
     end
     copyto!(search_state.act_condflags, graph.act_condflags)
+    fill!(search_state.act_pathcosts, 0.0f0)
+    fill!(search_state.act_supporters, -1)
     # Compute facts which are true in the initial state
     init_conds = search_state.init_conds
     if compute_init_conds
         compute_pgraph_init_conds!(init_conds, graph, domain, state)
     end
-    search_state.cond_dists[init_conds] .= 0.0f0
     search_state.cond_costs[init_conds] .= 0.0f0
     # Initialize priority queue
     empty!(search_state.queue)
@@ -414,7 +434,7 @@ function compute_pgraph_derived_conds!(
 )
     # Set up search queue and condition flags
     queue = findall(init_conds)
-    condflags = graph.act_condflags[1:graph.n_axioms]
+    act_condflags = graph.act_condflags[1:graph.n_axioms]
     # Compute all initially true axioms
     while !isempty(queue)
         # Dequeue first fact/condition
@@ -426,10 +446,10 @@ function compute_pgraph_derived_conds!(
             # Skip actions with no children
             isempty(graph.act_children[act_idx]) && continue
             # Skip already achieved actions
-            condflags[act_idx] === UInt(0) && continue
+            iszero(act_condflags[act_idx]) && continue
             # Set precondition flag for unachieved actions
-            condflags[act_idx] &= ~(UInt(1) << (precond_idx-1))
-            condflags[act_idx] !== UInt(0) && continue
+            act_condflags[act_idx] &= ~(one(UInt) << UInt(precond_idx-1))
+            !iszero(act_condflags[act_idx]) && continue
             # Place child conditions on queue
             act_children = graph.act_children[act_idx]
             for c_idx in act_children
@@ -447,14 +467,17 @@ end
 "Compute relaxed costs and paths to each fact node of a planning graph."
 function run_pgraph_search!(
     search_state::PlanningGraphSearchState, graph::PlanningGraph, 
-    spec::Specification, accum_op::Function = maximum;
-    action_costs = nothing
+    spec::Specification, accum_op::Function = max;
+    compute_achievers::Bool = false,
+    compute_supporters::Bool = false,
+    act_costs = nothing
 )
     # Unpack search state
-    dists = search_state.cond_dists
-    costs = search_state.cond_costs
-    achievers = search_state.cond_achievers
-    condflags = search_state.act_condflags
+    cond_costs = search_state.cond_costs
+    cond_achievers = search_state.cond_achievers
+    act_condflags = search_state.act_condflags
+    act_pathcosts = search_state.act_pathcosts
+    act_supporters = search_state.act_supporters
     queue = search_state.queue
 
     # Perform Djikstra / uniform-cost search until goals are reached
@@ -462,64 +485,65 @@ function run_pgraph_search!(
     last_nongoal_idx = length(graph.actions) - graph.n_goals
     while !isempty(queue) && isnothing(goal_idx)
         # Dequeue nearest fact/condition
-        cond_idx, cond_dist = dequeue_pair!(queue)
-        # Skip if distance greater than stored value
-        cond_dist > dists[cond_idx] && continue
+        cond_idx, cond_cost = dequeue_pair!(queue)
+        # Skip if cost is greater than stored value
+        cond_cost > cond_costs[cond_idx] && continue
         # Iterate over child actions
         for (act_idx, precond_idx) in graph.cond_children[cond_idx]
-            # Check if goal action is reached
+            # Determine if action is a goal or axiom
             is_goal = act_idx > last_nongoal_idx
+            is_axiom = act_idx <= graph.n_axioms
             # Skip actions with no children
             !is_goal && isempty(graph.act_children[act_idx]) && continue
             # Skip actions already achieved
-            condflags[act_idx] === UInt(0) && continue
-            # Set precondition flag for unachieved actions
-            condflags[act_idx] &= ~(UInt(1) << (precond_idx-1))
-            # Continue if preconditions for action are not fully satisfied
-            condflags[act_idx] != UInt(0) && continue
-            # Compute path cost and distance of achieved action or axiom
-            act_parents = graph.act_parents[act_idx]
-            is_axiom = act_idx <= graph.n_axioms
-            if is_axiom # Axiom cost is the max of parent costs
-                next_cost = maximum(act_parents) do precond_parents
-                    minimum(costs[p] for p in precond_parents)
-                end
-                next_dist = dists[cond_idx]
-            elseif is_goal # Goal cost is the accumulation of parent costs
-                next_cost = accum_op(act_parents) do precond_parents
-                    minimum(costs[p] for p in precond_parents)
-                end
-            else # Look up action cost if specified, default to one otherwise
-                path_cost = accum_op(act_parents) do precond_parents
-                    minimum(costs[p] for p in precond_parents)
-                end
-                if isnothing(action_costs)
-                    act_cost = has_action_cost(spec) ?
-                        get_action_cost(spec, graph.actions[act_idx].term) : 1
-                else
-                    act_cost = action_costs[act_idx]
-                end
-                next_cost = path_cost + act_cost
-                next_dist = dists[cond_idx] + 1
+            iszero(act_condflags[act_idx]) && continue
+            # Skip if this precondition has already been satisfied
+            if graph.has_disjuncts
+                flag = act_condflags[act_idx] >> UInt(precond_idx-1) & one(UInt)
+                iszero(flag) && continue
             end
+            # Set precondition flag for unachieved actions
+            act_condflags[act_idx] &= ~(one(UInt) << UInt(precond_idx-1))
+            # Update action path costs and supporters
+            if is_axiom # Cost of axiom is maximum of preconditions
+                next_cost = max(cond_cost, act_pathcosts[act_idx])                
+            else # Accumulate cost of action with cost of precondition
+                next_cost = accum_op(cond_cost, act_pathcosts[act_idx])
+            end
+            if accum_op !== max && next_cost === Inf32 # Check for overflow
+                next_cost = max(act_pathcosts[act_idx], floatmax(Float32))
+            end
+            if next_cost > act_pathcosts[act_idx]
+                act_pathcosts[act_idx] = next_cost
+                if compute_supporters
+                    act_supporters[act_idx] = cond_idx
+                end
+            end
+            # Continue to next action if preconditions are not fully satisfied
+            !iszero(act_condflags[act_idx]) && continue
             # Return goal index and goal cost if goal is reached
             if is_goal
                 goal_idx, goal_cost = act_idx, next_cost
                 break
             end
-            # Place child conditions on queue
+            # Add cost of action to path cost
+            if is_axiom
+                act_cost = 0.0f0
+            elseif isnothing(act_costs)
+                act_cost = has_action_cost(spec) ?
+                    get_action_cost(spec, graph.actions[act_idx].term) : 1
+            else
+                act_cost = act_costs[act_idx]
+            end
+            next_cost += Float32(act_cost)
+            # Update costs of child conditions and enqueue if necessary
             act_children = graph.act_children[act_idx]
             for c_idx in act_children
-                less_dist = next_dist < dists[c_idx]
-                less_cost = next_cost < costs[c_idx]
-                if !(less_dist || less_cost) continue end
-                if less_cost # Store new cost and achiever
-                    costs[c_idx] = next_cost
-                    achievers[c_idx] = act_idx
-                end
-                if less_dist # Adjust distances and place on queue
-                    enqueue!(queue, c_idx, next_dist)
-                    dists[c_idx] = next_dist
+                next_cost < cond_costs[c_idx] || continue
+                cond_costs[c_idx] = next_cost
+                enqueue!(queue, c_idx, next_cost)
+                if compute_achievers
+                    cond_achievers[c_idx] = act_idx
                 end
             end
         end
@@ -532,11 +556,9 @@ end
 "Compute relaxed costs and paths to each fact node of a planning graph."
 function run_pgraph_search(
     graph::PlanningGraph,  domain::Domain, state::State, spec::Specification,
-    accum_op::Function = maximum; action_costs = nothing
+    accum_op::Function = max; kwargs...
 )
     search_state = PlanningGraphSearchState(graph)
     init_pgraph_search!(search_state, graph, domain, state)
-    return run_pgraph_search!(search_state, graph, spec, accum_op;
-                              action_costs = action_costs)
+    return run_pgraph_search!(search_state, graph, spec, accum_op; kwargs...)
 end
-
