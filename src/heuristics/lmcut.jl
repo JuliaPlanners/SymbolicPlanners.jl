@@ -22,7 +22,7 @@ mutable struct LMCut <: Heuristic
     statics::Vector{Symbol} # Static domain fluents
     graph::PlanningGraph # Precomputed planning graph
     search_state::PlanningGraphSearchState # Preallocated search state
-    action_costs::Vector{Float32} # Precomputed action costs
+    act_costs::Vector{Float32} # Precomputed action costs
     LMCut() = new()
 end
 
@@ -43,7 +43,7 @@ function precompute!(h::LMCut, domain::Domain, state::State)
     h.search_state = PlanningGraphSearchState(h.graph)
     # Precompute cost of each action
     n_actions = length(h.graph.actions)
-    h.action_costs = map(eachindex(h.graph.actions)) do act_idx
+    h.act_costs = map(eachindex(h.graph.actions)) do act_idx
         if h.graph.n_axioms < act_idx <= n_actions - h.graph.n_goals
             return 1.0f0
         else
@@ -63,7 +63,7 @@ function precompute!(h::LMCut, domain::Domain, state::State, spec::Specification
     h.search_state = PlanningGraphSearchState(h.graph)
     # Precompute cost of each action
     n_actions = length(h.graph.actions)
-    h.action_costs = map(enumerate(h.graph.actions)) do (act_idx, act)
+    h.act_costs = map(enumerate(h.graph.actions)) do (act_idx, act)
         if h.graph.n_axioms < act_idx <= n_actions - h.graph.n_goals
             return has_action_cost(spec) ?
                 Float32(get_action_cost(spec, act.term)) : 1.0f0
@@ -81,70 +81,118 @@ function compute(h::LMCut, domain::Domain, state::State, spec::Specification)
                                       statics=h.statics)
         h.goal_hash = hash(get_goal_terms(spec))
         n_actions = length(h.graph.actions)
-        resize!(h.action_costs, n_actions)
+        resize!(h.act_costs, n_actions)
         for (act_idx, act) in enumerate(h.graph.actions)
             if h.graph.n_axioms < act_idx <= n_actions - h.graph.n_goals
-                h.action_costs[act_idx] = has_action_cost(spec) ?
+                h.act_costs[act_idx] = has_action_cost(spec) ?
                     Float32(get_action_cost(spec, act.term)) : 1.0f0
             else
-                h.action_costs[act_idx] = 0.0f0
+                h.act_costs[act_idx] = 0.0f0
             end
         end
     end
-    # Calculate relaxed costs of facts and the h-max value
+    # Calculate relaxed costs of facts and action supporters
     init_pgraph_search!(h.search_state, h.graph, domain, state)
     fill!(h.search_state.act_pathcosts, -Inf32)
-    search_state, goal_idx, goal_cost =
+    _, goal_idx, goal_cost =
         run_pgraph_search!(h.search_state, h.graph, spec;
-                           compute_supporters = true,
-                           action_costs = h.action_costs)
+                           compute_supporters = true, act_costs = h.act_costs)
     # Terminate early if goal is unreachable
     goal_cost == Inf32 && return goal_cost
     # Iteratively find landmark cuts and sum their costs
     hval = 0.0f0
-    init_conds = search_state.init_conds
-    action_costs = copy(h.action_costs)
+    act_costs = copy(h.act_costs)
+    landmarks = Int[]
+    in_goal_zone = falses(length(h.graph.conditions))
+    in_pregoal_zone = falses(length(h.graph.conditions))
     for _ in 1:length(h.graph.actions)
-        # Construct the justification graph
-        supporters = search_state.act_supporters
-        jgraph = build_justification_graph(h.graph, supporters, action_costs)
-        # Extract the goal zone
-        goal_zone = extract_goal_zone(jgraph)
-        # Extract the pregoal zone, landmarks, and their cost
-        pregoal_zone, landmark_idxs, landmark_cost =
-            extract_pregoal_zone_and_landmarks(jgraph, goal_zone,
-                                               init_conds, action_costs)
-        # Update heuristic value, action costs and search queue
+        # Extract action landmarks and their cost
+        landmarks, landmark_cost =
+            extract_landmark_cut(h.search_state, h.graph, goal_idx, act_costs,
+                                 landmarks, in_goal_zone, in_pregoal_zone)
+        # Update heuristic value and action costs
         hval += landmark_cost
-        for act_idx in landmark_idxs
-            action_costs[act_idx] -= landmark_cost
+        for act_idx in landmarks
+            act_costs[act_idx] -= landmark_cost
         end
-        # Update fact costs and actions supporters
-        search_state, goal_idx, goal_cost =
-            update_pgraph_costs!(h.search_state, h.graph,
-                                 landmark_idxs, action_costs)
+        # Update fact costs and action supporters
+        _, goal_idx, goal_cost =
+            update_pgraph_costs!(h.search_state, h.graph, landmarks, act_costs)
         # Terminate once goal cost has been reduced to zero
         iszero(goal_cost) && break
+        # Empty buffers for next iteration
+        empty!(landmarks)
+        fill!(in_goal_zone, false)
     end
     return hval
+end
+
+"Extract landmark cut from the implicit justification graph."
+function extract_landmark_cut(
+    search_state::PlanningGraphSearchState, graph::PlanningGraph,
+    goal_idx::Int, act_costs::Vector{<:Real},
+    landmark_idxs::Vector{Int} = Int[],
+    in_goal_zone::BitVector = falses(length(graph.conditions)),
+    in_pregoal_zone::BitVector = falses(length(graph.conditions))
+)
+    # Mark goal zone (nodes in justification graph with zero cost to the goal)
+    goal_supporter_idx = search_state.act_supporters[goal_idx]
+    in_goal_zone[goal_supporter_idx] = true
+    queue = Int[goal_supporter_idx]
+    while !isempty(queue)
+        cond_idx = popfirst!(queue)
+        # Iterate over supporters of parent actions with zero cost
+        for act_idx in graph.cond_parents[cond_idx]
+            iszero(act_costs[act_idx]) || continue
+            parent_idx = search_state.act_supporters[act_idx]
+            if parent_idx != -1 && !in_goal_zone[parent_idx]
+                in_goal_zone[parent_idx] = true
+                push!(queue, parent_idx)
+            end
+        end
+    end
+    # Find landmark cut (actions between the pregoal zone and the goal zone)
+    landmark_cost = Inf32
+    copyto!(in_pregoal_zone, search_state.init_conds)
+    queue = findall(search_state.init_conds)
+    while !isempty(queue)
+        cond_idx = popfirst!(queue)
+        # Iterate over supported child actions
+        for (act_idx, _) in graph.cond_children[cond_idx]
+            search_state.act_supporters[act_idx] == cond_idx || continue
+            # Iterate over child conditions of supported action
+            for child_idx in graph.act_children[act_idx]
+                if in_goal_zone[child_idx]
+                    # Add action to set of landmarks if it crosses the zones
+                    push!(landmark_idxs, act_idx)
+                    act_cost = act_costs[act_idx]
+                    landmark_cost = min(landmark_cost, act_cost)                    
+                elseif !in_pregoal_zone[child_idx]
+                    # Add node to pregoal zone and search queue
+                    in_pregoal_zone[child_idx] = true
+                    push!(queue, child_idx)
+                end
+            end
+        end
+    end
+    return landmark_idxs, landmark_cost
 end
 
 "Update costs of facts in the planning graph given updated landmark costs."
 function update_pgraph_costs!(
     search_state::PlanningGraphSearchState, graph::PlanningGraph, 
-    landmark_idxs::Set{Int}, action_costs::Vector{<:Real}
+    landmark_idxs::Vector{Int}, act_costs::Vector{<:Real}
 )
     # Unpack search state
     cond_costs = search_state.cond_costs
     act_pathcosts = search_state.act_pathcosts
     act_supporters = search_state.act_supporters
     queue = search_state.queue
-
     # Reinitialize search queue with cost-reduced conditions
     empty!(queue)
     for act_idx in landmark_idxs
         path_cost = act_pathcosts[act_idx]
-        next_cost = path_cost + action_costs[act_idx]
+        next_cost = path_cost + act_costs[act_idx]
         for c_idx in graph.act_children[act_idx]
             # Update cost and place on queue if cost decreased
             next_cost < cond_costs[c_idx] || continue
@@ -152,10 +200,8 @@ function update_pgraph_costs!(
             enqueue!(queue, c_idx, next_cost)
         end
     end
-
     # Propagate reduced costs to landmark descendants
     goal_idx, goal_cost = nothing, Inf32
-    last_nongoal_idx = length(graph.actions) - graph.n_goals
     while !isempty(queue)
         # Dequeue nearest fact/condition
         cond_idx, cond_cost = dequeue_pair!(queue)
@@ -187,132 +233,26 @@ function update_pgraph_costs!(
                 act_supporters[act_idx] = min_precond_idx
                 supporter_cost = min_precond_cost
             end
-            if act_idx > last_nongoal_idx
-                # Terminate if goal is reached
-                act_pathcosts[act_idx] = supporter_cost
-                goal_idx, goal_cost = act_idx, supporter_cost
-                break
-            elseif supporter_cost < prev_supporter_cost
-                # Update action path cost, and place child conditions on queue
-                act_pathcosts[act_idx] = supporter_cost
-                next_cost = supporter_cost + action_costs[act_idx]
-                for c_idx in graph.act_children[act_idx]
-                    next_cost < cond_costs[c_idx] || continue
-                    cond_costs[c_idx] = next_cost
-                    enqueue!(queue, c_idx, next_cost)
-                end
+            # Update action path cost, and place child conditions on queue
+            supporter_cost < prev_supporter_cost || continue
+            act_pathcosts[act_idx] = supporter_cost
+            next_cost = supporter_cost + act_costs[act_idx]
+            for c_idx in graph.act_children[act_idx]
+                next_cost < cond_costs[c_idx] || continue
+                cond_costs[c_idx] = next_cost
+                enqueue!(queue, c_idx, next_cost)
             end
         end
     end
-
+    # Find least costly goal action
+    goal_idx, goal_cost = nothing, Inf32
+    n_actions = length(graph.actions)
+    last_nongoal_idx = n_actions - graph.n_goals
+    for act_idx in last_nongoal_idx+1:n_actions
+        path_cost = act_pathcosts[act_idx]
+        if path_cost !== -Inf32 && path_cost < goal_cost
+            goal_idx, goal_cost = act_idx, path_cost
+        end
+    end
     return search_state, goal_idx, goal_cost
-end
-
-"Finds the most costly precondition (i.e. supporter) of each action."
-function find_supporters(pgraph::PlanningGraph, cond_costs::Vector{T}) where {T <: Real}
-    supporters = map(eachindex(pgraph.actions)) do act_idx
-        max_cond_idx = nothing
-        max_precond_val = typemin(T)
-        # Find most costly precondition clause
-        for precond_idxs in pgraph.act_parents[act_idx]
-            min_cond_idx = nothing
-            min_cond_val = typemax(T)
-            # Find least costly condition in the disjunctive clause
-            for cond_idx in precond_idxs
-                if isnothing(min_cond_idx) || cond_costs[cond_idx] < min_cond_val
-                    min_cond_idx = cond_idx
-                    min_cond_val = cond_costs[cond_idx]
-                end
-            end
-            if isnothing(max_cond_idx) || min_cond_val > max_precond_val
-                max_cond_idx = min_cond_idx
-                max_precond_val = min_cond_val
-            end
-        end
-        return max_cond_idx::Int
-    end
-    return supporters
-end
-
-"Justification graph used by the LMCut heuristic."
-struct JustificationGraph
-    fadjlist::Vector{Vector{Tuple{Int, Int}}}
-    badjlist::Vector{Vector{Int}}
-end
-
-function JustificationGraph(n_conditions::Int)
-    fadjlist = [Tuple{Int, Int}[] for _ in 1:n_conditions+1]
-    badjlist = [Int[] for _ in 1:n_conditions+1]
-    return JustificationGraph(fadjlist, badjlist)
-end
-
-"Constructs a justification graph from the relaxed planning graph."
-function build_justification_graph(
-    pgraph::PlanningGraph, supporters::Vector{Int}, action_costs::Vector{<:Real}
-)
-    n_conditions = length(pgraph.conditions)
-    n_actions = length(pgraph.actions)
-    last_nongoal_idx = n_actions - pgraph.n_goals
-    # Construct a new justification graph
-    jgraph = JustificationGraph(n_conditions)
-    # Add edges from supporter of each action to child conditions of each action
-    for act_idx in 1:n_actions
-        parent_idx = supporters[act_idx]
-        act_cost = action_costs[act_idx]
-        parent_idx == -1 && continue
-        for child_idx in pgraph.act_children[act_idx]
-            push!(jgraph.fadjlist[parent_idx], (act_idx, child_idx))
-            act_cost == 0 && push!(jgraph.badjlist[child_idx], parent_idx)
-        end
-        # Add edges to from goal conditions to dummy goal node
-        if act_idx > last_nongoal_idx
-            push!(jgraph.fadjlist[parent_idx], (act_idx, n_conditions + 1))
-            push!(jgraph.badjlist[n_conditions + 1], parent_idx)
-        end
-    end
-    return jgraph
-end
-
-"Extract goal zone from the justification graph."
-function extract_goal_zone(jgraph::JustificationGraph)
-    goal_zone = Set{Int}()
-    goal_idx = length(jgraph.fadjlist)
-    queue = Int[goal_idx]
-    while !isempty(queue)
-        cond_idx = popfirst!(queue)
-        for parent_idx in jgraph.badjlist[cond_idx]
-            if !in(parent_idx, goal_zone)
-                push!(goal_zone, parent_idx)
-                push!(queue, parent_idx)
-            end
-        end
-    end
-    return goal_zone
-end
-
-"Extract pregoal zone and action landmarks from the justification graph."
-function extract_pregoal_zone_and_landmarks(
-    jgraph::JustificationGraph, goal_zone::Set{Int},
-    init_idxs::BitVector, action_costs::Vector{<:Real}
-)
-    landmark_idxs = Set{Int}()
-    landmark_cost = Inf32
-    queue = findall(init_idxs)
-    pregoal_zone = Set{Int}(queue)
-    while !isempty(queue)
-        cond_idx = popfirst!(queue)
-        for (act_idx, child_idx) in jgraph.fadjlist[cond_idx]
-            if child_idx in goal_zone
-                # Add action to set of landmarks
-                push!(landmark_idxs, act_idx)
-                act_cost = action_costs[act_idx]
-                landmark_cost = min(landmark_cost, act_cost)                    
-            elseif !(child_idx in pregoal_zone)
-                # Add node to pregoal zone and queue
-                push!(pregoal_zone, child_idx)
-                push!(queue, child_idx)
-            end
-        end
-    end
-    return pregoal_zone, landmark_idxs, landmark_cost
 end

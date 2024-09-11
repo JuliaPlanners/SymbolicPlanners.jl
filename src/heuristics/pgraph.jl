@@ -10,6 +10,7 @@ mutable struct PlanningGraph
     act_condflags::Vector{UInt} # Precondition bitflags for each action
     effect_map::Dict{Term,Vector{Int}} # Map of affected fluents to actions
     conditions::Vector{Term} # All ground preconditions / goal conditions
+    cond_parents::Vector{Vector{Int}} # Parent actions of each condition
     cond_children::Vector{Vector{Tuple{Int,Int}}} # Child actions of each condition
     cond_derived::BitVector # Whether the conditions are derived
     cond_functional::BitVector # Whether the conditions involve functions
@@ -113,8 +114,9 @@ function build_planning_graph(
         end
     end
     # Flatten map from conditions to child indices
-    cond_children = collect(values(cond_map))
     conditions = collect(keys(cond_map))
+    cond_children = collect(values(cond_map))
+    cond_parents = Vector{Int}[]
     # Determine parent and child conditions of each action
     act_parents = map(actions) do act 
         [Int[] for _ in 1:length(act.preconds)]
@@ -134,6 +136,7 @@ function build_planning_graph(
             idxs = reduce(union, (get(Vector{Int}, effect_map, t) for t in terms))
         end
         push!.(act_children[idxs], i)
+        push!(cond_parents, idxs)
     end
     act_children = unique!.(sort!.(act_children))
     # Precompute initial bitflags for conditions
@@ -152,7 +155,7 @@ function build_planning_graph(
     # Construct and return graph
     return PlanningGraph(
         n_axioms, n_goals, actions, act_parents, act_children,
-        act_condflags, effect_map, conditions, cond_children,
+        act_condflags, effect_map, conditions, cond_parents, cond_children,
         cond_derived, cond_functional, has_disjuncts
     )
 end
@@ -299,6 +302,8 @@ function update_pgraph_goal!(
             idxs = reduce(union, (get(Vector{Int}, effect_map, t) for t in terms))
         end
         push!.(graph.act_children[idxs], new_idx)
+        # Link new condition to parent actions
+        push!(graph.cond_parents, idxs)
         # Flag whether condition is derived or functional
         is_derived = PDDL.has_derived(cond, domain)
         is_func = PDDL.has_func(cond, domain) || PDDL.has_global_func(cond)
@@ -465,7 +470,7 @@ function run_pgraph_search!(
     spec::Specification, accum_op::Function = max;
     compute_achievers::Bool = false,
     compute_supporters::Bool = false,
-    action_costs = nothing
+    act_costs = nothing
 )
     # Unpack search state
     cond_costs = search_state.cond_costs
@@ -524,11 +529,11 @@ function run_pgraph_search!(
             # Add cost of action to path cost
             if is_axiom
                 act_cost = 0.0f0
-            elseif isnothing(action_costs)
+            elseif isnothing(act_costs)
                 act_cost = has_action_cost(spec) ?
                     get_action_cost(spec, graph.actions[act_idx].term) : 1
             else
-                act_cost = action_costs[act_idx]
+                act_cost = act_costs[act_idx]
             end
             next_cost += Float32(act_cost)
             # Update costs of child conditions and enqueue if necessary
