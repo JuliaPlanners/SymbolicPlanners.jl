@@ -367,7 +367,6 @@ function update_values_costdiff!(
     policy::ReusableTreePolicy, planner::RealTimeHeuristicSearch,
     domain::Domain, spec::Specification, search_sol::PathSearchSolution
 )
-    @unpack h_mult = planner
     @unpack trajectory, search_tree, search_frontier = search_sol
     # Get value of terminal node from search frontier
     terminal_id, (_, terminal_h_val, _) = peek(search_frontier)
@@ -392,7 +391,6 @@ function update_values_dijkstra!(
     policy::ReusableTreePolicy, planner::RealTimeHeuristicSearch,
     domain::Domain, spec::Specification, search_sol::PathSearchSolution
 )
-    @unpack h_mult = planner
     @unpack trajectory, search_tree, search_frontier = search_sol
     # Construct priority queue of nodes ordered by h-values
     h_val_iter = Iterators.map(keys(search_tree)) do node_id
