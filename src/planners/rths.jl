@@ -395,14 +395,17 @@ function update_values_dijkstra!(
     @unpack h_mult = planner
     @unpack trajectory, search_tree, search_frontier = search_sol
     # Construct priority queue of nodes ordered by h-values
-    queue = PriorityQueue{UInt,Float32}()
-    for node_id in keys(search_tree)
-        h_val = haskey(search_frontier, node_id) ?
-            search_frontier[node_id][2] : Inf32
-        enqueue!(queue, node_id, h_val)
+    h_val_iter = Iterators.map(keys(search_tree)) do node_id
+        if haskey(search_frontier, node_id)
+            h_val = search_frontier[node_id][2]
+        else # Set h-value to Inf for all interior nodes
+            h_val = Inf32
+            set_value!(policy, node_id, -h_val)
+        end
+        return (node_id => h_val)::Pair{UInt,Float32}
     end
+    queue = PriorityQueue{UInt,Float32}(h_val_iter)
     # Update values of all nodes in the search tree's interior
-    visited = Set{UInt}()
     while !isempty(queue)
         node_id, h_val = dequeue_pair!(queue)
         node = search_tree[node_id]
@@ -415,13 +418,13 @@ function update_values_dijkstra!(
             # Skip self-edges / edges without actions
             isnothing(parent_act) && continue
             parent_id == node_id && continue
-            # Skip if parent node already has a lower h-value
-            parent_h_val = haskey(queue, parent_id) ? queue[parent_id] :
-                (-get_value(policy, parent_id, -Inf32) |> Float32)
-            parent_h_val > h_val || continue
             # Skip parents that were deleted by rerooting etc.
             parent = get(search_tree, parent_id, nothing)
             isnothing(parent) && continue
+            # Skip if parent node already has a lower h-value
+            parent_h_val = haskey(queue, parent_id) ?
+                queue[parent_id] : Float32(-get_value(policy, parent_id, -Inf32))
+            parent_h_val > h_val || continue
             # Skip if parent node's h-value can't be decreased
             act_cost = get_cost(spec, domain, parent.state,
                                 parent_act, node.state)
@@ -430,7 +433,6 @@ function update_values_dijkstra!(
             # Update parent's h-value and insert into priority queue
             set_value!(policy, parent_id, -parent_h_val)
             queue[parent_id] = parent_h_val
-            push!(visited, parent_id)
         end
     end
     return policy
