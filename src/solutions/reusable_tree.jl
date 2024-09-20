@@ -28,6 +28,12 @@ AAMAS (2011), pp. 123–130. <https://dl.acm.org/doi/abs/10.5555/2030470.2030488
     goal_tree::Dict{UInt, PathNode{S}} # Reusable tree of cost-optimal paths
 end
 
+function ReusableTreePolicy(
+    policy::P, search_sol::PathSearchSolution{S, Q} 
+) where {S <: State, P <: PolicySolution, Q}
+    ReusableTreePolicy{S}(policy, search_sol)
+end
+
 function ReusableTreePolicy{S}(
     policy::P, search_sol::PathSearchSolution{S, Q} 
 ) where {S <: State, P <: PolicySolution, Q}

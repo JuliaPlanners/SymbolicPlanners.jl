@@ -774,10 +774,12 @@ planner = RTHS(GoalCountHeuristic(), n_iters=1, max_nodes=10,
                update_method=:costdiff, reuse_paths=true, reuse_search=true)
 sol = planner(doors_keys_gems, dkg_state, dkg_spec)
 actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
+init_nodes = length(sol.search_sol.search_tree)
 @test !is_goal(dkg_spec, doors_keys_gems, trajectory[end])
 refine!(sol, planner, doors_keys_gems, trajectory[2], dkg_spec)
 actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
 @test is_goal(dkg_spec, doors_keys_gems, trajectory[end])
+@test length(sol.search_sol.search_tree) > init_nodes
 @test actions == @pddl("(down)", "(pickup key1)", "(down)",
                        "(unlock key1 door1)", "(right)", "(right)",
                        "(up)", "(up)", "(pickup gem1)")
@@ -787,10 +789,171 @@ planner = RTHS(GoalCountHeuristic(), n_iters=1, max_nodes=10,
                update_method=:dijkstra, reuse_paths=true, reuse_search=true)
 sol = planner(doors_keys_gems, dkg_state, dkg_spec)
 actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
+init_nodes = length(sol.search_sol.search_tree)
 @test !is_goal(dkg_spec, doors_keys_gems, trajectory[end])
 refine!(sol, planner, doors_keys_gems, trajectory[2], dkg_spec)
 actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
 @test is_goal(dkg_spec, doors_keys_gems, trajectory[end])
+@test length(sol.search_sol.search_tree) > init_nodes
+@test actions == @pddl("(down)", "(pickup key1)", "(down)",
+                       "(unlock key1 door1)", "(right)", "(right)",
+                       "(up)", "(up)", "(pickup gem1)")
+@test get_value(sol, dkg_state) == -9.0
+
+@test copy(planner) == planner
+
+end
+
+@testset "Alternating Real Time Heuristic Search" begin
+
+Random.seed!(0)
+simulator = StateActionRecorder(100)
+
+# Test alternating RTHS with Dijkstra / LSS-LRTA* update
+heuristic = ManhattanHeuristic(@pddl("xpos", "ypos"))
+rths_astar = RTHS(heuristic, n_iters=1, max_nodes=20, h_mult = 1.0,
+                  update_method=:dijkstra, reuse_paths=false)
+rths_bfs = RTHS(heuristic, n_iters=1, max_nodes=5, h_mult = 0.0,
+                update_method=:dijkstra, reuse_paths=false)
+planner = ARTHS(rths_astar, rths_bfs,
+                share_values=true, share_search=false)
+sol = planner(gridworld, gw_state, gw_spec)
+@test sol.solutions[1].value_policy === sol.solutions[2].value_policy
+@test sol.solutions[1].search_sol !== sol.solutions[2].search_sol
+@test sol.solutions[1].search_sol.status == :success
+@test sol.solutions[2].search_sol.status != :success
+actions, trajectory = simulator(sol, gridworld, gw_state, gw_spec)
+@test is_goal(gw_spec, gridworld, trajectory[end])
+@test actions == @pddl("down", "down", "right", "right", "up", "up")
+@test get_value(sol, gw_state) == -6.0
+
+rths_astar = RTHS(GoalCountHeuristic(), n_iters=1, max_nodes=20, h_mult = 1.0,
+                  update_method=:dijkstra, reuse_paths=false)
+rths_bfs = RTHS(GoalCountHeuristic(), n_iters=1, max_nodes=10, h_mult = 0.0,
+                update_method=:dijkstra, reuse_paths=false)
+planner = ARTHS(rths_astar, rths_bfs,
+                share_values=true, share_search=false)
+sol = planner(doors_keys_gems, dkg_state, dkg_spec)
+@test sol.solutions[1].value_policy === sol.solutions[2].value_policy
+@test sol.solutions[1].search_sol !== sol.solutions[2].search_sol
+@test sol.solutions[1].search_sol.status == :success
+@test sol.solutions[2].search_sol.status != :success
+actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
+@test is_goal(dkg_spec, doors_keys_gems, trajectory[end])
+@test actions == @pddl("(down)", "(pickup key1)", "(down)",
+                       "(unlock key1 door1)", "(right)", "(right)",
+                       "(up)", "(up)", "(pickup gem1)")
+@test get_value(sol, dkg_state) == -9.0
+
+rths_astar = RTHS(HMax(), n_iters=1, max_nodes=10, h_mult = 1.0,
+                  update_method=:dijkstra, reuse_paths=false)
+rths_bfs = RTHS(HMax(), n_iters=1, max_nodes=10, h_mult = 0.0,
+                update_method=:dijkstra, reuse_paths=false)
+planner = ARTHS(rths_astar, rths_bfs,
+                share_values=true, share_search=false)
+sol = planner(blocksworld, bw_state, bw_spec)
+@test sol.solutions[1].value_policy === sol.solutions[2].value_policy
+@test sol.solutions[1].search_sol !== sol.solutions[2].search_sol
+@test sol.solutions[1].search_sol.status == :success
+@test sol.solutions[2].search_sol.status != :success
+actions, trajectory = simulator(sol, blocksworld, bw_state, bw_spec)
+@test is_goal(bw_spec, blocksworld, trajectory[end])
+@test actions == @pddl("(pick-up a)", "(stack a b)",
+                       "(pick-up c)", "(stack c a)")
+@test get_value(sol, bw_state) == -4.0
+
+# Test alternating RTHS with Dijkstra / LSS-LRTA* update and goal tree reuse
+heuristic = ManhattanHeuristic(@pddl("xpos", "ypos"))
+rths_astar = RTHS(heuristic, n_iters=1, max_nodes=20, h_mult = 1.0,
+                  update_method=:dijkstra, reuse_paths=true)
+rths_bfs = RTHS(heuristic, n_iters=1, max_nodes=5, h_mult = 0.0,
+                update_method=:dijkstra, reuse_paths=true)
+planner = ARTHS(rths_astar, rths_bfs,
+                share_values=true, share_search=false, share_paths=true)
+sol = planner(gridworld, gw_state, gw_spec)
+@test sol.solutions[1].value_policy === sol.solutions[2].value_policy
+@test sol.solutions[1].search_sol !== sol.solutions[2].search_sol
+@test sol.solutions[1].goal_tree === sol.solutions[2].goal_tree
+@test sol.solutions[1].search_sol.status == :success
+@test sol.solutions[2].search_sol.status == :success
+actions, trajectory = simulator(sol, gridworld, gw_state, gw_spec)
+@test is_goal(gw_spec, gridworld, trajectory[end])
+@test actions == @pddl("down", "down", "right", "right", "up", "up")
+@test get_value(sol, gw_state) == -6.0
+
+rths_astar = RTHS(GoalCountHeuristic(), n_iters=1, max_nodes=20, h_mult = 1.0,
+                  update_method=:dijkstra, reuse_paths=true)
+rths_bfs = RTHS(GoalCountHeuristic(), n_iters=1, max_nodes=10, h_mult = 0.0,
+                update_method=:dijkstra, reuse_paths=true)
+planner = ARTHS(rths_astar, rths_bfs,
+                share_values=true, share_search=false, share_paths=true)
+sol = planner(doors_keys_gems, dkg_state, dkg_spec)
+@test sol.solutions[1].value_policy === sol.solutions[2].value_policy
+@test sol.solutions[1].search_sol !== sol.solutions[2].search_sol
+@test sol.solutions[1].goal_tree === sol.solutions[2].goal_tree
+@test sol.solutions[1].search_sol.status == :success
+@test sol.solutions[2].search_sol.status == :success
+actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
+@test is_goal(dkg_spec, doors_keys_gems, trajectory[end])
+@test actions == @pddl("(down)", "(pickup key1)", "(down)",
+                       "(unlock key1 door1)", "(right)", "(right)",
+                       "(up)", "(up)", "(pickup gem1)")
+@test get_value(sol, dkg_state) == -9.0
+
+rths_astar = RTHS(HMax(), n_iters=1, max_nodes=10, h_mult = 1.0,
+                  update_method=:dijkstra, reuse_paths=true)
+rths_bfs = RTHS(HMax(), n_iters=1, max_nodes=10, h_mult = 0.0,
+                update_method=:dijkstra, reuse_paths=true)
+planner = ARTHS(rths_astar, rths_bfs,
+                share_values=true, share_search=false, share_paths=true)
+sol = planner(blocksworld, bw_state, bw_spec)
+@test sol.solutions[1].value_policy === sol.solutions[2].value_policy
+@test sol.solutions[1].search_sol !== sol.solutions[2].search_sol
+@test sol.solutions[1].goal_tree === sol.solutions[2].goal_tree
+@test sol.solutions[1].search_sol.status == :success
+@test sol.solutions[2].search_sol.status == :success
+actions, trajectory = simulator(sol, blocksworld, bw_state, bw_spec)
+@test is_goal(bw_spec, blocksworld, trajectory[end])
+@test actions == @pddl("(pick-up a)", "(stack a b)",
+                       "(pick-up c)", "(stack c a)")
+@test get_value(sol, bw_state) == -4.0
+
+# Test solution refinement
+rths_astar = RTHS(GoalCountHeuristic(), n_iters=1, max_nodes=10, h_mult = 1.0,
+                  update_method=:dijkstra, reuse_paths=false)
+rths_bfs = RTHS(GoalCountHeuristic(), n_iters=1, max_nodes=5, h_mult = 0.0,
+                update_method=:dijkstra, reuse_paths=false)
+planner = ARTHS(rths_astar, rths_bfs,
+                share_values=true, share_search=false)
+sol = planner(doors_keys_gems, dkg_state, dkg_spec)
+actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
+@test !is_goal(dkg_spec, doors_keys_gems, trajectory[end])
+planner.max_nodes = (20, 10)
+refine!(sol, planner, doors_keys_gems, dkg_state, dkg_spec)
+actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
+@test is_goal(dkg_spec, doors_keys_gems, trajectory[end])
+@test actions == @pddl("(down)", "(pickup key1)", "(down)",
+                       "(unlock key1 door1)", "(right)", "(right)",
+                       "(up)", "(up)", "(pickup gem1)")
+@test get_value(sol, dkg_state) == -9.0
+
+# Test solution refinement with search tree reuse
+rths_astar = RTHS(GoalCountHeuristic(), n_iters=1, max_nodes=10, h_mult = 1.0,
+                  update_method=:dijkstra, reuse_paths=false, reuse_search=true)
+rths_bfs = RTHS(GoalCountHeuristic(), n_iters=1, max_nodes=5, h_mult = 0.0,
+                update_method=:dijkstra, reuse_paths=false, reuse_search=true)
+planner = ARTHS(rths_astar, rths_bfs,
+                share_values=true, share_search=false)
+sol = planner(doors_keys_gems, dkg_state, dkg_spec)
+actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
+init_nodes_1 = length(sol.solutions[1].search_sol.search_tree)
+init_nodes_2 = length(sol.solutions[2].search_sol.search_tree)
+@test !is_goal(dkg_spec, doors_keys_gems, trajectory[end])
+refine!(sol, planner, doors_keys_gems, trajectory[2], dkg_spec)
+actions, trajectory = simulator(sol, doors_keys_gems, dkg_state, dkg_spec)
+@test is_goal(dkg_spec, doors_keys_gems, trajectory[end])
+@test length(sol.solutions[1].search_sol.search_tree) > init_nodes_1
+@test length(sol.solutions[2].search_sol.search_tree) > init_nodes_2
 @test actions == @pddl("(down)", "(pickup key1)", "(down)",
                        "(unlock key1 door1)", "(right)", "(right)",
                        "(up)", "(up)", "(pickup gem1)")

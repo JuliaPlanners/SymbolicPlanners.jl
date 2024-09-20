@@ -1,4 +1,5 @@
 export RealTimeHeuristicSearch, RTHS
+export AlternatingRealTimeHeuristicSearch, AlternatingRTHS, ARTHS
 
 """
     RealTimeHeuristicSearch(;
@@ -216,13 +217,11 @@ function solve(planner::RealTimeHeuristicSearch,
     # Simplify goal specification
     spec = simplify_goal(spec, domain, state)
     # Precompute heuristic information
-    planner = copy(planner)
-    planner.heuristic = precomputed(planner.heuristic, domain, state, spec)
+    heuristic = precomputed(planner.heuristic, domain, state, spec)
     # Initialize then refine solution
-    default = HeuristicVPolicy(planner.heuristic, domain, spec)
+    default = HeuristicVPolicy(heuristic, domain, spec)
     value_policy = TabularVPolicy(domain, spec, default)
-    search_sol = init_sol(planner.planner, planner.heuristic,
-                          domain, state, spec)
+    search_sol = init_sol(planner.planner, heuristic, domain, state, spec)
     sol = ReusableTreePolicy{typeof(state)}(value_policy, search_sol)
     sol = solve!(sol, planner, domain, state, spec)
     return sol
@@ -483,4 +482,144 @@ function (cb::LoggerCallback)(
                 "value = $cur_v, initial state value = $init_v")
     end
     return nothing
+end
+
+"""
+    AlternatingRealTimeHeuristicSearch(
+        planners::RealTimeHeuristicSearch...;
+        share_values::Bool = true,
+        share_search::Bool = false,
+        share_paths::Bool = true,
+    )
+
+A variant of [`RealTimeHeuristicSearch`](@ref) (`AlternatingRTHS` or `ARTHS`
+for short) that alternates between different search strategies, corresponding
+to one or more `planners`. For example, `ARTHS` can alternate between a 
+`RTHS` planner that uses A* search (`h_mult = 1.0`) and an `RTHS` planner that 
+uses breadth-first search (`h_mult = 0.0`), ensuring that the updated region 
+of the state space is both deep and broad.
+
+Returns a [`MultiSolution`](@ref) composed of [`ReusableTreePolicy`](@ref)
+sub-solutions. By default, these sub-solutions share and update the same value
+estimates (`share_values = true`) and the same reusable tree of optimal paths
+to the goal (`share_paths = true`), but do not share the same reusable forward
+search tree (`share_search = false`).
+"""
+@auto_hash_equals mutable struct AlternatingRealTimeHeuristicSearch{
+    Ps <: Tuple
+} <: Planner
+    planners::Ps
+    share_values::Bool
+    share_search::Bool
+    share_paths::Bool
+end
+
+const AlternatingRTHS = AlternatingRealTimeHeuristicSearch
+const ARTHS = AlternatingRealTimeHeuristicSearch
+@doc (@doc AlternatingRealTimeHeuristicSearch) AlternatingRTHS
+@doc (@doc AlternatingRealTimeHeuristicSearch) ARTHS
+
+function AlternatingRealTimeHeuristicSearch(
+    planners::P...;
+    share_values::Bool = true,
+    share_search::Bool = false,
+    share_paths::Bool = true,
+) where {P <: RealTimeHeuristicSearch}
+    @assert !isempty(planners) "Please provide one or more `RTHS` planners."
+    return AlternatingRealTimeHeuristicSearch(
+        planners, share_values, share_search, share_paths
+    )
+end
+
+function Base.getproperty(planner::P, name::Symbol) where {P <: ARTHS}
+    if hasfield(P, name)
+        return getfield(planner, name)
+    else
+        return map(p -> getproperty(p, name), planner.planners)
+    end
+end
+
+function Base.setproperty!(planner::P, name::Symbol, val) where {P <: ARTHS}
+    if hasfield(P, name)
+        return setfield!(planner, name, val)
+    elseif val isa Tuple
+        return map(zip(planner.planners, val)) do (p, v)
+            setproperty!(p, name, v)
+        end
+    else
+        return map(p -> setproperty!(p, name, val), planner.planners)
+    end
+end
+
+function Base.hasproperty(planner::P, name::Symbol) where {P <: ARTHS}
+    hasfield(P, name) || any(hasproperty(p, name) for p in planner.planners)
+end
+
+function Base.copy(p::AlternatingRealTimeHeuristicSearch)
+    return AlternatingRealTimeHeuristicSearch(
+        map(copy, p.planners), p.share_values, p.share_search, p.share_paths
+    )
+end
+
+function solve(planner::AlternatingRealTimeHeuristicSearch,
+               domain::Domain, state::State, spec::Specification)
+    # Simplify goal specification
+    spec = simplify_goal(spec, domain, state)
+    # Construct (possibly) shared solution components
+    S = typeof(state)
+    subplanner = first(planner.planners)
+    shared_heuristic = precomputed(subplanner.heuristic, domain, state, spec)
+    shared_default = HeuristicVPolicy(shared_heuristic, domain, spec)
+    shared_value_policy = TabularVPolicy(domain, spec, shared_default)
+    shared_search_sol = init_sol(subplanner.planner, shared_heuristic,
+                                 domain, state, spec)
+    shared_goal_tree = Dict{UInt, PathNode{S}}()
+    # Construct sub-solutions for each component planner
+    subsols = map(planner.planners) do subplanner
+        # Precompute heuristic information
+        if shared_heuristic.heuristic === subplanner.heuristic
+            heuristic = shared_heuristic
+        else
+            heuristic = precomputed(subplanner.heuristic, domain, state, spec)
+        end
+        # Initialize value table
+        if planner.share_values
+            value_policy = shared_value_policy
+        else
+            default = HeuristicVPolicy(heuristic, domain, spec)
+            value_policy = TabularVPolicy(domain, spec, default)
+        end
+        # Initialize search solution
+        if planner.share_search
+            search_sol = shared_search_sol
+        else
+            search_sol = init_sol(subplanner.planner, heuristic,
+                                  domain, state, spec)
+        end
+        # Initialize goal tree
+        if planner.share_paths
+            goal_tree = shared_goal_tree
+        else
+            goal_tree = Dict{UInt, PathNode{S}}()
+        end
+        # Return sub-solution
+        return ReusableTreePolicy(value_policy, search_sol, goal_tree)
+    end
+    sol = MultiSolution(subsols)
+    return solve!(sol, planner, domain, state, spec)
+end
+
+function solve!(sol::MultiSolution, planner::AlternatingRealTimeHeuristicSearch,
+                domain::Domain, state::State, spec::Specification)
+    @assert length(sol.solutions) == length(planner.planners)
+    for (subsol, subplanner) in zip(sol.solutions, planner.planners)
+        @assert subsol isa ReusableTreePolicy
+        solve!(subsol, subplanner, domain, state, spec)
+    end
+    return sol
+end
+
+function refine!(sol::MultiSolution, planner::AlternatingRealTimeHeuristicSearch,
+                 domain::Domain, state::State, spec::Specification)
+    return solve!(sol, planner, domain, state, spec)
 end
