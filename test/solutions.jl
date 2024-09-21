@@ -569,4 +569,67 @@ new_weights = new_weights ./ sum(new_weights)
 
 end
 
+@testset "Multi-Solution" begin
+
+planner = AStarPlanner(HMax())
+heuristic = PlannerHeuristic(planner)
+sol = HeuristicVPolicy(heuristic, blocksworld, bw_spec)
+sol_1 = EpsilonGreedyPolicy(blocksworld, sol, 0.1)
+sol_2 = BoltzmannPolicy(sol, 1.0)
+
+sol = MultiSolution(sol_1, sol_2)
+
+@test get_action(sol, bw_state) in bw_init_actions
+@test rand_action(sol, bw_state) in bw_init_actions
+
+@test best_action(sol, bw_state) == best_action(sol_1, bw_state)
+@test best_action(sol, bw_state) == pddl"(pick-up a)"
+
+@test get_action_probs(sol, bw_state) == get_action_probs(sol_1, bw_state)
+@test get_action_probs(sol, bw_state) != get_action_probs(sol_2, bw_state)
+@test get_action_prob(sol, bw_state, pddl"(pick-up a)") ==
+    get_action_prob(sol_1, bw_state, pddl"(pick-up a)")
+@test get_action_prob(sol, bw_state, pddl"(pick-up a)") !=
+    get_action_prob(sol_2, bw_state, pddl"(pick-up a)")
+
+@test has_values(sol) == true
+
+@test copy(sol) == sol
+
+bw_selector(solutions) = solutions[1]
+bw_selector(solutions, state) =
+    state[pddl"(holding a)"] ? solutions[2] : solutions[1]
+sol = MultiSolution((sol_1, sol_2), bw_selector)
+
+@test get_action(sol, bw_state) in bw_init_actions
+@test rand_action(sol, bw_state) in bw_init_actions
+
+@test best_action(sol, bw_state) == best_action(sol_1, bw_state)
+@test best_action(sol, bw_state) == pddl"(pick-up a)"
+
+@test get_action_probs(sol, bw_state) == get_action_probs(sol_1, bw_state)
+@test get_action_probs(sol, bw_state) != get_action_probs(sol_2, bw_state)
+@test get_action_prob(sol, bw_state, pddl"(pick-up a)") ==
+    get_action_prob(sol_1, bw_state, pddl"(pick-up a)")
+@test get_action_prob(sol, bw_state, pddl"(pick-up a)") !=
+    get_action_prob(sol_2, bw_state, pddl"(pick-up a)")
+
+next_bw_state = transition(blocksworld, bw_state, pddl"(pick-up a)")
+
+@test best_action(sol, next_bw_state) == best_action(sol_2, next_bw_state)
+@test best_action(sol, next_bw_state) == pddl"(stack a b)"
+
+@test get_action_probs(sol, next_bw_state) != get_action_probs(sol_1, next_bw_state)
+@test get_action_probs(sol, next_bw_state) == get_action_probs(sol_2, next_bw_state)
+@test get_action_prob(sol, next_bw_state, pddl"(stack a b)") !=
+    get_action_prob(sol_1, next_bw_state, pddl"(stack a b)")
+@test get_action_prob(sol, next_bw_state, pddl"(stack a b)") ==
+    get_action_prob(sol_2, next_bw_state, pddl"(stack a b)")
+
+@test has_values(sol) == true
+
+@test copy(sol) == sol
+
+end
+
 end

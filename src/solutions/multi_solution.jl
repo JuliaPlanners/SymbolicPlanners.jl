@@ -22,7 +22,7 @@ MultiSolution(solutions::Ts) where {Ts <: Tuple} = MultiSolution{Ts}(solutions)
 MultiSolution(solutions::Solution...) = MultiSolution(solutions)
 
 function Base.copy(sol::MultiSolution)
-    return MultiSolution(copy(sol.solutions), sol.selector)
+    return MultiSolution(copy.(sol.solutions), sol.selector)
 end
 
 get_action(sol::MultiSolution, t::Int, state::State) =
