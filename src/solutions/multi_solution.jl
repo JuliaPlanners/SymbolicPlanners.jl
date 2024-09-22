@@ -1,7 +1,8 @@
 export MultiSolution
 
 """
-    MultiSolution(solutions, [selector])
+    MultiSolution(solutions::Solution...)
+    MultiSolution(solutions::Tuple, [selector])
 
 A combination of multiple [`Solution`](@ref)s, which are selected between
 according to a `selector` function `(solutions, [state]) -> sol` that returns

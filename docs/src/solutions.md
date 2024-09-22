@@ -142,3 +142,12 @@ accessed with [`get_mixture_weights`](@ref):
 ```@docs
 get_mixture_weights
 ```
+
+## Combined Solutions
+
+It is possible to combine multiple solutions into a single solution using a
+`MultiSolution`:
+
+```@docs
+MultiSolution
+```

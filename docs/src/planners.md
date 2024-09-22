@@ -112,6 +112,7 @@ via reuse of previous solutions.
 ```@docs
 RealTimeDynamicPlanner
 RealTimeHeuristicSearch
+AlternatingRealTimeHeuristicSearch
 MonteCarloTreeSearch
 ```
 

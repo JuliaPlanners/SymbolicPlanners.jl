@@ -73,6 +73,7 @@ sol = planner(domain, state, spec)
 - [HSP heuristics](src/heuristics/hsp.jl): _h_<sub>add</sub>, _h_<sub>max</sub>, etc.
 - [HSPr heuristics](src/heuristics/hsp.jl): the above, but for backward search
 - [FF heuristic](src/heuristics/ff.jl): length of a relaxed plan, used by the Fast-Forward planner
+- [LMCut heuristic](src/heuristics/lmcut.jl): admissible heuristic based on action landmarks
 
 ## Specifications
 
