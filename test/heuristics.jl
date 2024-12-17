@@ -1,5 +1,8 @@
 @testset "Heuristics" begin
 
+using SymbolicPlanners:
+    ensure_precomputed!, filter_available, filter_relevant
+
 @testset "Interface" begin
 
 goal_count = GoalCountHeuristic()
@@ -8,12 +11,22 @@ hval2 = goal_count(doors_keys_gems, dkg_state, dkg_problem.goal)
 hval3 = goal_count(doors_keys_gems, dkg_state, dkg_spec)
 @test hval1 == hval2 == hval3
 
+f_actions = filter_available(goal_count, doors_keys_gems, dkg_state, dkg_spec)
+@test issetequal(f_actions, available(doors_keys_gems, dkg_state))
+
 h_add = HAdd()
 SymbolicPlanners.ensure_precomputed!(h_add, blocksworld, bw_state, bw_spec)
 hval1 = h_add(blocksworld, bw_problem; precompute=false)
 hval2 = h_add(blocksworld, bw_state, bw_problem.goal; precompute=false)
 hval3 = h_add(blocksworld, bw_state, bw_spec; precompute=false)
 @test hval1 == hval2 == hval3
+
+f_actions = filter_available(h_add, blocksworld, bw_state, bw_spec)
+@test issetequal(f_actions, available(blocksworld, bw_state))
+
+bw_goal_state = goalstate(blocksworld, bw_problem)
+f_actions = filter_relevant(h_add, blocksworld, bw_goal_state, bw_spec)
+@test issetequal(f_actions, relevant(blocksworld, bw_goal_state))
 
 end
 
@@ -272,10 +285,16 @@ hval = h(doors_keys_gems, dkg_state, dkg_problem.goal)
 h = precomputed(h, doors_keys_gems, dkg_state, dkg_problem.goal)
 @test h(doors_keys_gems, dkg_state, dkg_problem.goal) == hval
 
+h1 = precomputed(h, doors_keys_gems, dkg_state, dkg_problem.goal)
+@test h1.heuristic isa GoalCountHeuristic
+
 h = FFHeuristic()
 hval = h(blocksworld, bw_state, bw_problem.goal)
 h = precomputed(FFHeuristic(), blocksworld, bw_state, bw_problem.goal)
 @test h(blocksworld, bw_state, bw_problem.goal) == hval
+
+h1 = precomputed(h, blocksworld, bw_state, bw_problem.goal)
+@test h1.heuristic isa FFHeuristic
 
 end
 
@@ -286,10 +305,73 @@ hval = h(doors_keys_gems, dkg_state, dkg_problem.goal)
 @test h.heuristic(doors_keys_gems, dkg_state, dkg_problem.goal) == hval
 @test h(doors_keys_gems, dkg_state, dkg_problem.goal) == hval
 
+h1 = memoized(h)
+@test h1.heuristic isa GoalCountHeuristic
+@test h1 === h
+
 h = memoized(precomputed(FFHeuristic(), blocksworld, bw_state))
 hval = h(blocksworld, bw_state, bw_problem.goal)
 @test h.heuristic(blocksworld, bw_state, bw_problem.goal) == hval
 @test h(blocksworld, bw_state, bw_problem.goal) == hval
+
+h1 = memoized(h)
+@test h1.heuristic isa PrecomputedHeuristic{FFHeuristic}
+@test h1 === h
+
+end
+
+@testset "Pruning Heuristic" begin
+
+struct ActionFilter
+    action_names::Vector{Symbol}
+end
+
+SymbolicPlanners.filter_available(h::ActionFilter, domain::Domain, state::State, spec) =
+    Iterators.filter(a -> a.name in h.action_names, available(domain, state))
+SymbolicPlanners.filter_relevant(h::ActionFilter, domain::Domain, state::State, spec) =
+    Iterators.filter(a -> a.name in h.action_names, relevant(domain, state))
+
+action_filter = ActionFilter([:pickup, :unlock])
+h = PruningHeuristic(GoalCountHeuristic(), action_filter)
+hval = h.heuristic(doors_keys_gems, dkg_state, dkg_problem.goal)
+@test h(doors_keys_gems, dkg_state, dkg_problem.goal) == hval
+
+actions = available(doors_keys_gems, dkg_state)
+f_actions = filter_available(h, doors_keys_gems, dkg_state, dkg_spec)
+@test issetequal(f_actions, filter(a -> a.name in [:pickup, :unlock], actions))
+
+h1 = PruningHeuristic(h.heuristic, h)
+@test h1.heuristic isa GoalCountHeuristic && h1.pruner === action_filter
+h2 = PruningHeuristic(h, action_filter)
+@test h2.heuristic isa GoalCountHeuristic && h2.pruner === action_filter
+h3 = PruningHeuristic(h, h)
+@test h3.heuristic isa GoalCountHeuristic && h3.pruner === action_filter
+
+action_filter = ActionFilter([:stack, :unstack])
+h = PruningHeuristic(FFHeuristic(), action_filter)
+
+@test !is_precomputed(h)
+precompute!(h, blocksworld, bw_state, bw_spec)
+@test is_precomputed(h) && is_precomputed(h.heuristic)
+
+hval = h.heuristic(blocksworld, bw_state, bw_problem.goal)
+@test h(blocksworld, bw_state, bw_problem.goal) == hval
+
+actions = available(blocksworld, bw_state)
+f_actions = filter_available(h, blocksworld, bw_state, bw_spec)
+@test issetequal(f_actions, filter(a -> a.name in [:stack, :unstack], actions))
+
+bw_goal_state = goalstate(blocksworld, bw_problem)
+actions = relevant(blocksworld, bw_goal_state)
+f_actions = filter_relevant(h, blocksworld, bw_goal_state, bw_spec)
+@test issetequal(f_actions, filter(a -> a.name in [:stack, :unstack], actions))
+
+h1 = PruningHeuristic(h.heuristic, h)
+@test h1.heuristic isa FFHeuristic && h1.pruner === action_filter
+h2 = PruningHeuristic(h, action_filter)
+@test h2.heuristic isa FFHeuristic && h2.pruner === action_filter
+h3 = PruningHeuristic(h, h)
+@test h3.heuristic isa FFHeuristic && h3.pruner === action_filter
 
 end
 

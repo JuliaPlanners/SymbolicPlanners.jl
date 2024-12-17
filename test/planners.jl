@@ -1,8 +1,6 @@
-# Test that planners correctly solve simple problems
+@testset "Planners" begin
 
 using SymbolicPlanners: get_value
-
-@testset "Planners" begin
 
 @testset "Interface" begin
 

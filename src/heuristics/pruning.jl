@@ -15,7 +15,7 @@ end
 PruningHeuristic(h::PruningHeuristic, pruner) =
     PruningHeuristic(h.heuristic, pruner)
 PruningHeuristic(h::Heuristic, pruner::PruningHeuristic) =
-    PruningHeuristic(h.heuristic, pruner.pruner)
+    PruningHeuristic(h, pruner.pruner)
 PruningHeuristic(h::PruningHeuristic, pruner::PruningHeuristic) =
     PruningHeuristic(h.heuristic, pruner.pruner)
 
