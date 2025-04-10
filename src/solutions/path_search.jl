@@ -272,7 +272,8 @@ function prob_dequeue!(queue::PriorityQueue, temperature::Float64)
 end
 
 "Return a key according to a Boltzmann distribution over priority values."
-function prob_peek(queue::PriorityQueue, temperature::Float64)
+function prob_peek(queue::PriorityQueue, temperature::Float64,
+                   rng::AbstractRNG = Random.GLOBAL_RNG)
     if temperature == 0.0 return peek(queue) end
     _, min_priority = peek(queue)
     min_weight = first(min_priority)
@@ -280,7 +281,7 @@ function prob_peek(queue::PriorityQueue, temperature::Float64)
     # Use Gumbel-Max reservoir sampling
     for (key, priority) in queue.xs
         weight = (min_weight - first(priority)) / temperature
-        weight += randgumbel()
+        weight += randgumbel(rng)
         if weight > best_weight
             best_weight = weight
             best_key = key

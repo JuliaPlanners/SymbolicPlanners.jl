@@ -79,7 +79,7 @@ function rand_action(sol::BoltzmannPolicy, state::State)
         # Reservoir sampling via Gumbel-max trick
         chosen_act, chosen_score = missing, -Inf
         for (act, q) in get_action_values(sol, state)
-            score = q / sol.temperature + randgumbel()
+            score = q / sol.temperature + randgumbel(sol.rng)
             if score > chosen_score
                 chosen_act = act
                 chosen_score = score
