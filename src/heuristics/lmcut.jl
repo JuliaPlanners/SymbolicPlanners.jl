@@ -166,7 +166,7 @@ function extract_landmark_cut(
                     # Add action to set of landmarks if it crosses the zones
                     push!(landmark_idxs, act_idx)
                     act_cost = act_costs[act_idx]
-                    landmark_cost = min(landmark_cost, act_cost)                    
+                    landmark_cost = min(landmark_cost, act_cost)
                 elseif !in_pregoal_zone[child_idx]
                     # Add node to pregoal zone and search queue
                     in_pregoal_zone[child_idx] = true
@@ -175,6 +175,8 @@ function extract_landmark_cut(
             end
         end
     end
+    # Remove duplicate landmarks
+    unique!(landmark_idxs)
     return landmark_idxs, landmark_cost
 end
 
