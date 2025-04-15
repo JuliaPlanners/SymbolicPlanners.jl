@@ -421,9 +421,9 @@ function reroot!(
     if !is_expanded(root_id, sol) 
         return reinit_sol!(sol, planner, heuristic, domain, state, spec)
     end
-    # Detach new root node from parents
+    # Set new root as its own parent
     root_node = search_tree[root_id]
-    root_node.parent = LinkedNodeRef(root_id)
+    root_node.parent = LinkedNodeRef(root_id, nothing, unique(root_node.parent))
     # Mark all nodes not rooted at the new root for deletion
     verbose && @logmsg cb.loglevel "Marking nodes for deletion..."
     prev_root_id = hash(sol.trajectory[1])
@@ -464,7 +464,7 @@ function reroot!(
             parent_id = parent_ref.id
             parent_act = parent_ref.action
             parent_ref = parent_ref.next
-            # Skip parents that not in the interior of the new tree
+            # Skip parents that are not in the interior of the new tree
             parent_id in deleted && continue
             parent_id in keys(search_tree) || continue
             parent_id in keys(queue) && continue
