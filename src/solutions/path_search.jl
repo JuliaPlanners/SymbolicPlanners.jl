@@ -71,18 +71,17 @@ LinkedNodeRef(id, action) = LinkedNodeRef(id, action, nothing)
 Base.copy(ref::LinkedNodeRef) = LinkedNodeRef(ref.id, ref.action, ref.next)
 
 function Base.unique(ref::LinkedNodeRef)
+    isnothing(ref.next) && return ref
     unique_keys = Set{Tuple{UInt, Union{Term,Nothing}}}()
-    iter = ref
+    push!(unique_keys, (ref.id, ref.action))
+    new_ref = LinkedNodeRef(ref.id, ref.action, nothing)
+    tail = new_ref
+    iter = ref.next
     while !isnothing(iter)
-        push!(unique_keys, (iter.id, iter.action))
-        iter = iter.next
-    end
-    new_ref = nothing
-    iter = ref
-    while !isnothing(iter)
-        if (iter.id, iter.action) in unique_keys
-            new_ref = LinkedNodeRef(iter.id, iter.action, new_ref)
-            delete!(unique_keys, (iter.id, iter.action))
+        if (iter.id, iter.action) ∉ unique_keys
+            push!(unique_keys, (iter.id, iter.action))
+            tail.next = LinkedNodeRef(iter.id, iter.action, nothing)
+            tail = tail.next
         end
         iter = iter.next
     end
