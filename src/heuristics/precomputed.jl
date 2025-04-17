@@ -46,3 +46,11 @@ that prevents repeated pre-computation later.
 """
 precomputed(h::Heuristic, domain::Domain, args...) =
     PrecomputedHeuristic(h, domain, args...)
+
+function precomputed(h::MemoizedHeuristic, domain::Domain, args...)
+    if h.heuristic isa PrecomputedHeuristic
+        ensure_precomputed!(h.heuristic.heuristic, domain, args...)
+        return h
+    end
+    return MemoizedHeuristic(precomputed(h.heuristic, domain, args...), h.cache)
+end
