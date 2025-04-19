@@ -83,10 +83,11 @@ end
 
 Returns the mixture weights for a mixture policy.
 
-    get_mixture_weights(sol, state, action)
+    get_mixture_weights(sol, state, action; normalize = true)
 
 Returns the posterior mixture weights for a mixture policy after an `action`
-has been taken at `state`.
+has been taken at `state`. Posterior weights are normalized by default, but 
+this can be disabled by setting `normalize = false`.
 """
 function get_mixture_weights end
 
@@ -94,10 +95,11 @@ function get_mixture_weights(sol::MixturePolicy)
     return sol.weights
 end
 
-function get_mixture_weights(sol::MixturePolicy, state::State, action::Term)
+function get_mixture_weights(sol::MixturePolicy, state::State, action::Term;
+                             normalize::Bool = true)
     joint_probs = map(zip(sol.policies, sol.weights)) do (policy, weight)
         return get_action_prob(policy, state, action) * weight
     end
-    new_weights = joint_probs ./ sum(joint_probs)
+    new_weights = normalize ? joint_probs ./ sum(joint_probs) : joint_probs
     return new_weights
 end

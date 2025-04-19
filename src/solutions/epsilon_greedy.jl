@@ -221,7 +221,8 @@ function get_mixture_weights(sol::EpsilonMixturePolicy)
 end
 
 function get_mixture_weights(sol::EpsilonMixturePolicy,
-                             state::State, action::Term)
+                             state::State, action::Term;
+                             normalize::Bool = true)
     if has_values(sol.policy)
         qs = get_action_values(sol.policy, state)
         if !haskey(qs, action) return sol.weights end
@@ -244,6 +245,6 @@ function get_mixture_weights(sol::EpsilonMixturePolicy,
             return prob
         end
     end
-    new_weights = joint_probs ./ sum(joint_probs)
+    new_weights = normalize ? joint_probs ./ sum(joint_probs) : joint_probs
     return new_weights
 end

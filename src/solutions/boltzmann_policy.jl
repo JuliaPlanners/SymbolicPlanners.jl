@@ -251,7 +251,8 @@ function get_mixture_weights(sol::BoltzmannMixturePolicy)
 end
 
 function get_mixture_weights(sol::BoltzmannMixturePolicy,
-                             state::State, action::Term)
+                             state::State, action::Term;
+                             normalize::Bool = true)
     action_values = get_action_values(sol, state)
     if isempty(action_values) || !haskey(action_values, action)
         return sol.weights
@@ -270,6 +271,6 @@ function get_mixture_weights(sol::BoltzmannMixturePolicy,
             return probs[act_idx] * weight
         end
     end
-    new_weights = joint_probs ./ sum(joint_probs)
+    new_weights = normalize ? joint_probs ./ sum(joint_probs) : joint_probs
     return new_weights
 end
