@@ -99,7 +99,7 @@ end
 function solve(planner::BidirectionalPlanner,
                domain::Domain, state::State, spec::Specification)
     # Simplify goal specification
-    f_spec = simplify_goal(spec, domain, state)
+    f_spec = simplified(spec, domain, state)
     b_spec = BackwardSearchGoal(spec, state)
     # Extract heuristics
     f_heuristic = planner.forward.heuristic
@@ -259,7 +259,7 @@ function refine!(
 ) where {S, T <: PriorityQueue}
     sol.status == :success && return sol
     sol.status = :in_progress
-    f_spec = simplify_goal(spec, domain, state)
+    f_spec = simplified(spec, domain, state)
     b_spec = BackwardSearchGoal(spec, state)
     f_heuristic = planner.forward.heuristic
     b_heuristic = planner.backward.heuristic

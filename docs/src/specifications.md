@@ -117,3 +117,28 @@ is corresponds to the total reward.
 Reward-based specifications should generally be used with policy-based
 planning algorithms such as [`RTDP`](@ref RealTimeDynamicPlanner) and
 [`MCTS`](@ref MonteCarloTreeSearch).
+
+## Goal Simplification
+
+It is generally useful to simplify and ground a goal specification in the
+the initial state before planning, so as to reduce the runtime of checking
+whether a goal is satisfied (e.g. by removing universal or existential
+quantifiers). This can be achieved using the [`simplify_goal`](@ref) function:
+
+```@docs
+simplify_goal
+```
+
+To ensure a goal is simplified once before planning, and prevent further 
+(potentially costly) attempts at simplification by a planner, the
+[`simplified`](@ref) function can be used to create a [`SimplifiedGoal`](@ref).
+
+```@docs
+SimplifiedGoal
+simplified
+is_simplified
+```
+
+Preventing further simplication is useful when one planner calls another planner
+internally, or when multiple planner calls with the same specification are 
+expected.

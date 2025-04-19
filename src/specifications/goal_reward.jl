@@ -46,19 +46,19 @@ discounted(spec::GoalReward, discount::Float64) =
     GoalReward(spec.terms, spec.reward, discount * spec.discount)
 
 """
-    BonusGoalReward(goal::Goal, reward=1.0, discount=0.9)
+    BonusGoalReward(goal::Specification, reward=1.0, discount=0.9)
 
-Wrapper around an existing [`Goal`](@ref) specification, which delivers
+Wrapper around an existing goal [`Specification`], which delivers
 additional `reward` upon reaching a goal.
 """
-@kwdef struct BonusGoalReward{G <: Goal} <: Goal
-    goal::G # Goal specification to be satisfied
+@kwdef struct BonusGoalReward{S <: Specification} <: Goal
+    goal::S # Goal specification to be satisfied
     reward::Float64 = 1.0 # Additional reward gained from reaching goal
     discount::Float64 = 1.0 # Discount factor
 end
 
-BonusGoalReward(spec::Goal) = BonusGoalReward(spec, 1.0, 1.0)
-BonusGoalReward(spec::Goal, reward) = BonusGoalReward(spec, reward, 1.0)
+BonusGoalReward(spec::Specification) = BonusGoalReward(spec, 1.0, 1.0)
+BonusGoalReward(spec::Specification, reward) = BonusGoalReward(spec, reward, 1.0)
 BonusGoalReward(spec::BonusGoalReward, reward, discount) =
     BonusGoalReward(spec.goal, reward + spec.reward, discount * spec.discount)
 

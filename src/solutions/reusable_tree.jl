@@ -181,27 +181,4 @@ on_goal_path(spec::Specification, domain::Domain, state::State) =
 on_goal_path(spec::ReusableTreeGoal, domain::Domain, state::State) =
     (!isempty(spec.goal_tree) && haskey(spec.goal_tree, hash(state)))
 
-is_goal(spec::ReusableTreeGoal, domain::Domain, state::State) =
-    is_goal(spec.spec, domain, state)
-
-is_goal(spec::ReusableTreeGoal, domain::Domain, state::State, action) =
-    is_goal(spec.spec, domain, state, action)
-
-is_violated(spec::ReusableTreeGoal, domain::Domain, state::State) =
-    is_violated(spec.spec, domain, state)
-get_cost(spec::ReusableTreeGoal, domain::Domain, s1::State, a::Term, s2::State) =
-    get_cost(spec.spec, domain, s1, a, s2)
-get_reward(spec::ReusableTreeGoal, domain::Domain, s1::State, a::Term, s2::State) =
-    get_reward(spec.spec, domain, s1, a, s2)
-get_discount(spec::ReusableTreeGoal) =
-    get_discount(spec.spec)
-get_goal_terms(spec::ReusableTreeGoal) =
-    get_goal_terms(spec.spec)
-
-set_goal_terms(spec::ReusableTreeGoal, terms) =
-    ReusableTreeGoal(set_goal_terms(spec.spec, terms), spec.goal_tree)
-
-has_action_goal(spec::ReusableTreeGoal) = has_action_goal(spec.spec)
-has_action_cost(spec::ReusableTreeGoal) = has_action_cost(spec.spec)
-get_action_cost(spec::ReusableTreeGoal, action::Term) =
-    get_action_cost(spec.spec, action)
+@set_subspec(ReusableTreeGoal, spec) 

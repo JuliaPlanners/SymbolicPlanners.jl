@@ -1,25 +1,25 @@
 export StateConstrainedGoal
 
 """
-    StateConstrainedGoal(goal::Goal, constraints::Vector{Term})
+    StateConstrainedGoal(goal::Specification, constraints::Vector{Term})
 
 [`Goal`](@ref) specification with a list of `constraints` that must hold
 for every state. Planners that receive this specification are required to return
 plans or policies that ensure every visited state satisfies the constraints.
 """
-struct StateConstrainedGoal{G <: Goal} <: Goal
-    goal::G
+struct StateConstrainedGoal{S <: Specification} <: Goal
+    goal::S
     constraints::Vector{Term}
 end
 
 function StateConstrainedGoal(problem::Problem)
     # Convert problem to underlying goal
-    goal = Specification(problem)::Goal
+    goal = Specification(problem)
     # Get constraints
     constraints = PDDL.get_constraints(problem)::Term
     return StateConstrainedGoal(goal, constraints)
 end
-StateConstrainedGoal(goal::Goal, constraints::Term) =
+StateConstrainedGoal(goal::Specification, constraints::Term) =
     StateConstrainedGoal(goal, PDDL.flatten_conjs(constraints))
 
 function Base.show(io::IO, ::MIME"text/plain", spec::StateConstrainedGoal)

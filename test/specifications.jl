@@ -38,6 +38,14 @@ next_state = PDDL.transition(blocksworld, bw_state, action)
 new_spec = set_goal_terms(spec, Term[pddl"(true)"])
 @test get_goal_terms(new_spec) == Term[pddl"(true)"]
 
+# Test goal simplification
+base_goal = pddl"(exists (?x - block) (and (on a ?x) (= b ?x)))"
+base_spec = MinStepsGoal(base_goal)
+sim_spec = simplified(base_spec, blocksworld, bw_state)
+@test get_goal_terms(sim_spec) == Term[pddl"(on a b)"]
+@test !is_simplified(base_spec)
+@test is_simplified(sim_spec)
+
 end
 
 @testset "MinMetricGoal" begin
@@ -78,6 +86,14 @@ cost = 4.0 + 5.0 * fuel_used
 new_spec = set_goal_terms(spec, Term[pddl"(true)"])
 @test get_goal_terms(new_spec) == Term[pddl"(true)"]
 
+# Test goal simplification
+base_goal = pddl"(forall (?p - aircraft) (and (at ?p city1)))"
+base_spec = MinMetricGoal(base_goal, metric)
+sim_spec = simplified(base_spec, zeno_travel, zt_state)
+@test get_goal_terms(sim_spec) == Term[pddl"(at plane1 city1)"]
+@test !is_simplified(base_spec)
+@test is_simplified(sim_spec)
+
 end
 
 @testset "MaxMetricGoal" begin
@@ -114,6 +130,14 @@ reward = 4.0 + 5.0 * fuel_used
 @test get_goal_terms(spec) == PDDL.flatten_conjs(zt_problem.goal)
 new_spec = set_goal_terms(spec, Term[pddl"(true)"])
 @test get_goal_terms(new_spec) == Term[pddl"(true)"]
+
+# Test goal simplification
+base_goal = pddl"(forall (?p - aircraft) (and (at ?p city1)))"
+base_spec = MaxMetricGoal(base_goal, metric)
+sim_spec = simplified(base_spec, zeno_travel, zt_state)
+@test get_goal_terms(sim_spec) == Term[pddl"(at plane1 city1)"]
+@test !is_simplified(base_spec)
+@test is_simplified(sim_spec)
 
 end
 
@@ -161,6 +185,20 @@ next_state = PDDL.transition(wgc_domain, wgc_state, action)
 new_spec = set_goal_terms(spec, Term[pddl"(true)"])
 @test get_goal_terms(new_spec) == Term[pddl"(true)"]
 
+# Test goal simplification
+base_goal = pddl"(exists (?p - pos) (and (cabbage-at ?p) (goat-at ?p) (wolf-at ?p) (boat-at ?p) (not (= ?p left))))"
+base_spec = StateConstrainedGoal(MinStepsGoal(base_goal), constraints)
+
+sim_spec = simplified(base_spec, wgc_domain, wgc_state)
+@test get_goal_terms(sim_spec) == PDDL.flatten_conjs(wgc_problem.goal)
+@test !is_simplified(base_spec)
+@test is_simplified(sim_spec)
+
+sim_spec = simplified(MinStepsGoal(base_goal), wgc_domain, wgc_state)
+sim_spec = StateConstrainedGoal(sim_spec, constraints)
+@test get_goal_terms(sim_spec) == PDDL.flatten_conjs(wgc_problem.goal)
+@test is_simplified(sim_spec)
+
 end
 
 @testset "BackwardSearchGoal" begin
@@ -196,6 +234,20 @@ next_state = PDDL.transition(blocksworld, bw_state, action)
 @test get_goal_terms(spec) == PDDL.flatten_conjs(bw_problem.goal)
 new_spec = set_goal_terms(spec, Term[pddl"(true)"])
 @test get_goal_terms(new_spec) == Term[pddl"(true)"]
+
+# Test goal simplification
+base_goal = pddl"(exists (?x - block) (and (on a ?x) (= b ?x)))"
+base_spec = BackwardSearchGoal(MinStepsGoal(base_goal), bw_state)
+
+sim_spec = simplified(base_spec, blocksworld, bw_state)
+@test get_goal_terms(sim_spec) == Term[pddl"(on a b)"]
+@test !is_simplified(base_spec)
+@test is_simplified(sim_spec)
+
+sim_spec = simplified(MinStepsGoal(base_goal), blocksworld, bw_state)
+sim_spec = BackwardSearchGoal(sim_spec, bw_state)
+@test get_goal_terms(sim_spec) == Term[pddl"(on a b)"]
+@test is_simplified(sim_spec)
 
 end
 
@@ -253,6 +305,11 @@ new_spec = set_goal_terms(spec, Term[pddl"(do-action (stack a b))"])
 @test new_spec.action == pddl"(stack a b)"
 @test isempty(new_spec.constraints)
 
+# Test goal simplification
+@test is_simplified(spec)
+@test simplify_goal(spec, blocksworld, bw_state) == spec
+@test simplified(spec, blocksworld, bw_state) == spec
+
 end
 
 @testset "DiscountedReward" begin
@@ -296,6 +353,20 @@ new_spec = discounted(spec, 0.9)
 new_spec = set_goal_terms(spec, Term[pddl"(true)"])
 @test get_goal_terms(new_spec) == Term[pddl"(true)"]
 
+# Test goal simplification
+base_goal = pddl"(exists (?x - block) (and (on a ?x) (= b ?x)))"
+base_spec = DiscountedReward(MinStepsGoal(base_goal), 0.9)
+
+sim_spec = simplified(base_spec, blocksworld, bw_state)
+@test get_goal_terms(sim_spec) == Term[pddl"(on a b)"]
+@test !is_simplified(base_spec)
+@test is_simplified(sim_spec)
+
+sim_spec = simplified(MinStepsGoal(base_goal), blocksworld, bw_state)
+sim_spec = DiscountedReward(sim_spec, 0.9)
+@test get_goal_terms(sim_spec) == Term[pddl"(on a b)"]
+@test is_simplified(sim_spec)
+
 end
 
 @testset "GoalReward" begin
@@ -336,6 +407,14 @@ new_spec = discounted(spec, 0.9)
 @test get_goal_terms(spec) == [pddl"(on a b)"]
 new_spec = set_goal_terms(spec, Term[pddl"(true)"])
 @test get_goal_terms(new_spec) == Term[pddl"(true)"]
+
+# Test goal simplification
+base_goal = pddl"(exists (?x - block) (and (on a ?x) (= b ?x)))"
+base_spec = GoalReward(base_goal, 1.0)
+sim_spec = simplified(base_spec, blocksworld, bw_state)
+@test get_goal_terms(sim_spec) == Term[pddl"(on a b)"]
+@test !is_simplified(base_spec)
+@test is_simplified(sim_spec)
 
 end
 
@@ -380,6 +459,20 @@ new_spec = discounted(spec, 0.9)
 @test get_goal_terms(spec) == [pddl"(on a b)"]
 new_spec = set_goal_terms(spec, Term[pddl"(true)"])
 @test get_goal_terms(new_spec) == Term[pddl"(true)"]
+
+# Test goal simplification
+base_goal = pddl"(exists (?x - block) (and (on a ?x) (= b ?x)))"
+base_spec = BonusGoalReward(MinStepsGoal(base_goal), 10.0)
+
+sim_spec = simplified(base_spec, blocksworld, bw_state)
+@test get_goal_terms(sim_spec) == Term[pddl"(on a b)"]
+@test !is_simplified(base_spec)
+@test is_simplified(sim_spec)
+
+sim_spec = simplified(MinStepsGoal(base_goal), blocksworld, bw_state)
+sim_spec = BonusGoalReward(sim_spec, 10.0)
+@test get_goal_terms(sim_spec) == Term[pddl"(on a b)"]
+@test is_simplified(sim_spec)
 
 end
 
@@ -435,6 +528,17 @@ new_spec = discounted(spec, 0.9)
 @test get_goal_terms(spec) == [Compound(:or, goals)]
 new_spec = set_goal_terms(spec, @pddl("(true)", "(true)"))
 @test get_goal_terms(new_spec) == [Compound(:or, @pddl("(true)", "(true)"))]
+
+# Test goal simplification
+base_goals = [
+    pddl"(exists (?x - block) (and (on a ?x) (= b ?x)))",
+    pddl"(exists (?x - block) (and (on b ?x) (= c ?x)))",
+]
+base_spec = MultiGoalReward(base_goals, [1.0, 2.0], 0.9)
+sim_spec = simplified(base_spec, blocksworld, bw_state)
+@test get_goal_terms(sim_spec) == Term[pddl"(or (on a b) (on b c))"]
+@test !is_simplified(base_spec)
+@test is_simplified(sim_spec)
 
 end
 
@@ -493,6 +597,17 @@ next_state = PDDL.transition(blocksworld, bw_state, action)
 new_spec = set_goal_terms(spec, Term[pddl"(true)"])
 @test get_goal_terms(new_spec) == Term[pddl"(true)"]
 
+# Test goal simplification
+base_goal = pddl"(exists (?x - block) (and (on a ?x) (= b ?x)))"
+base_spec = MinActionCosts(base_goal, costs)
+sim_spec = simplified(base_spec, blocksworld, bw_state)
+@test get_goal_terms(sim_spec) == Term[pddl"(on a b)"]
+@test !is_simplified(base_spec)
+@test is_simplified(sim_spec)
+
+@test has_action_cost(sim_spec)
+@test get_action_cost(sim_spec, pddl"(pick-up b)") == 2.0
+
 end
 
 @testset "ExtraActionCosts" begin
@@ -547,6 +662,23 @@ new_spec = discounted(spec, 0.9)
 @test get_goal_terms(spec) == [pddl"(on a b)"]
 new_spec = set_goal_terms(spec, Term[pddl"(true)"])
 @test get_goal_terms(new_spec) == Term[pddl"(true)"]
+
+# Test goal simplification
+base_goal = pddl"(exists (?x - block) (and (on a ?x) (= b ?x)))"
+base_spec = ExtraActionCosts(GoalReward(base_goal, 1.0), costs)
+
+sim_spec = simplified(base_spec, blocksworld, bw_state)
+@test get_goal_terms(sim_spec) == Term[pddl"(on a b)"]
+@test !is_simplified(base_spec)
+@test is_simplified(sim_spec)
+
+sim_spec = simplified(GoalReward(base_goal, 1.0), blocksworld, bw_state)
+sim_spec = ExtraActionCosts(sim_spec, costs)
+@test get_goal_terms(sim_spec) == Term[pddl"(on a b)"]
+@test is_simplified(sim_spec)
+
+@test has_action_cost(sim_spec)
+@test get_action_cost(sim_spec, pddl"(pick-up b)") == 2.0
 
 end
 
@@ -603,6 +735,17 @@ next_state = PDDL.transition(zeno_travel, zt_state, action)
 @test get_goal_terms(spec) == PDDL.flatten_conjs(zt_problem.goal)
 new_spec = set_goal_terms(spec, Term[pddl"(true)"])
 @test get_goal_terms(new_spec) == Term[pddl"(true)"]
+
+# Test goal simplification
+base_goal = pddl"(exists (?p - aircraft) (at ?p city1))"
+base_spec = MinPerAgentActionCosts(base_goal, costs)
+sim_spec = simplified(base_spec, zeno_travel, zt_state)
+@test get_goal_terms(sim_spec) == Term[pddl"(at plane1 city1)"]
+@test !is_simplified(base_spec)
+@test is_simplified(sim_spec)
+
+@test has_action_cost(sim_spec)
+@test get_action_cost(sim_spec, pddl"(fly plane1 city0 city2)") == 1.0
 
 end
 
@@ -663,6 +806,77 @@ new_spec = discounted(spec, 0.9)
 @test get_goal_terms(spec) == [pddl"(at plane1 city2)"]
 new_spec = set_goal_terms(spec, Term[pddl"(true)"])
 @test get_goal_terms(new_spec) == Term[pddl"(true)"]
+
+# Test goal simplification
+base_goal = pddl"(exists (?p - aircraft) (at ?p city1))"
+base_spec = ExtraPerAgentActionCosts(GoalReward(base_goal, 1.0), costs)
+
+sim_spec = simplified(base_spec, zeno_travel, zt_state)
+@test get_goal_terms(sim_spec) == Term[pddl"(at plane1 city1)"]
+@test !is_simplified(base_spec)
+@test is_simplified(sim_spec)
+
+sim_spec = simplified(GoalReward(base_goal, 1.0), zeno_travel, zt_state)
+sim_spec = ExtraPerAgentActionCosts(sim_spec, costs)
+@test get_goal_terms(sim_spec) == Term[pddl"(at plane1 city1)"]
+@test is_simplified(sim_spec)
+
+@test has_action_cost(sim_spec)
+@test get_action_cost(sim_spec, pddl"(zoom plane1 city0 city2)") == 2.0
+
+end
+
+@testset "SimplifiedGoal" begin
+    
+# Test construction
+base_spec = MinStepsGoal(pddl"(exists (?x - block) (and (on a ?x) (= b ?x)))")
+spec = simplified(base_spec, blocksworld, bw_state)
+@test spec isa SimplifiedGoal
+@test spec == SimplifiedGoal(MinStepsGoal(pddl"(on a b)"))
+
+# Test hashing and equality
+@test hash(simplified(base_spec, blocksworld, bw_state)) == hash(spec)
+@test simplified(base_spec, blocksworld, bw_state) == spec
+@test SimplifiedGoal(MinStepsGoal([])) != spec
+
+# Test goal satisfaction
+@test is_goal(spec, blocksworld, bw_state) == false
+goal_state = copy(bw_state)
+goal_state[pddl"(clear c)"] = true
+goal_state[pddl"(on c a)"] = true
+goal_state[pddl"(on a b)"] = true
+goal_state[pddl"(ontable b)"] = true
+@test is_goal(spec, blocksworld, goal_state) == true
+
+# Test constraint violation
+@test is_violated(spec, blocksworld, bw_state) == false
+
+# Test costs and rewards
+action = pddl"(pick-up a)"
+next_state = PDDL.transition(blocksworld, bw_state, action)
+@test get_cost(spec, blocksworld, bw_state, action, next_state) == 1.0
+@test get_reward(spec, blocksworld, bw_state, action, next_state) == -1.0
+@test get_discount(spec) == 1.0 
+@test has_action_cost(spec) == false
+
+# Test goal term accessors
+@test get_goal_terms(spec) == Term[pddl"(on a b)"]
+new_spec = set_goal_terms(spec, Term[pddl"(true)"])
+@test get_goal_terms(new_spec) == Term[pddl"(true)"]
+
+# Test goal simplification
+base_goal = pddl"(exists (?x - block) (and (on a ?x) (= b ?x)))"
+goal = pddl"(on a b)"
+@test simplify_goal(base_goal, blocksworld, bw_state) == goal
+
+base_spec = MinStepsGoal(base_goal)
+spec = simplified(base_spec, blocksworld, bw_state)
+@test get_goal_terms(spec) == PDDL.flatten_conjs(goal)
+@test spec == SimplifiedGoal(MinStepsGoal(goal))
+
+@test !is_simplified(base_spec)
+@test is_simplified(spec)
+@test is_simplified(DiscountedReward(spec, 1.0))
 
 end
 

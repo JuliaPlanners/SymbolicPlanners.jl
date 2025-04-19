@@ -1,21 +1,21 @@
 export BackwardSearchGoal
 
 """
-    BackwardSearchGoal(goal::Goal, start::State)
+    BackwardSearchGoal(goal::Specification, start::State)
 
 A goal specification used for backward search (e.g. [`BackwardPlanner`](@ref)),
 constructed from the original `goal` specification, and the `start` state to
 be reached via backward search from the goal.
 """
-struct BackwardSearchGoal{G <: Goal, C} <: Goal
-    goal::G # Original goal specification
+struct BackwardSearchGoal{S <: Specification, C} <: Goal
+    goal::S # Original goal specification
     start::State # Start state to be reached via backward search
     constraint_diff::C # State constraints as a diff, if any
 end
 
-BackwardSearchGoal(goal::Goal, start::State) =
+BackwardSearchGoal(goal::Specification, start::State) =
     BackwardSearchGoal(goal, start, nothing)
-BackwardSearchGoal(goal::Goal, domain::Domain, start::State) =
+BackwardSearchGoal(goal::Specification, domain::Domain, start::State) =
     BackwardSearchGoal(goal, start, nothing)
 
 function BackwardSearchGoal(goal::StateConstrainedGoal,
@@ -39,8 +39,8 @@ is_goal(spec::BackwardSearchGoal, domain::Domain, state::State) =
     issubset(state, spec.start)
 
 function add_constraints!(
-    spec::BackwardSearchGoal{G,C}, domain::Domain, state::State
-) where {G,C <: PDDL.Diff}
+    spec::BackwardSearchGoal{S,C}, domain::Domain, state::State
+) where {S,C <: PDDL.Diff}
     update!(state, domain, spec.constraint_diff)
 end
 add_constraints!(spec::BackwardSearchGoal, domain::Domain, state::State) =

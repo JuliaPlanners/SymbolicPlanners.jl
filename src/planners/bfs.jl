@@ -48,7 +48,7 @@ function solve(planner::BreadthFirstPlanner,
                domain::Domain, state::State, spec::Specification)
     @unpack save_search = planner
     # Simplify goal specification
-    spec = simplify_goal(spec, domain, state)
+    spec = simplified(spec, domain, state)
     # Initialize backpointers and queue
     node_id = hash(state)
     node = PathNode(node_id, state, 0.0, LinkedNodeRef(node_id))
@@ -145,7 +145,7 @@ function refine!(
 ) where {S, T <: Vector}
     sol.status == :success && return sol
     sol.status = :in_progress
-    spec = simplify_goal(spec, domain, state)
+    spec = simplified(spec, domain, state)
     return search!(sol, planner, domain, spec)
 end
 

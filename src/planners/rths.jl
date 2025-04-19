@@ -215,7 +215,7 @@ end
 function solve(planner::RealTimeHeuristicSearch,
                domain::Domain, state::State, spec::Specification)
     # Simplify goal specification
-    spec = simplify_goal(spec, domain, state)
+    spec = simplified(spec, domain, state)
     # Precompute heuristic information
     heuristic = precomputed(planner.heuristic, domain, state, spec)
     # Initialize then refine solution
@@ -461,6 +461,7 @@ end
 
 function refine!(sol::PolicySolution, planner::RealTimeHeuristicSearch,
                  domain::Domain, state::State, spec::Specification)
+    spec = simplified(spec, domain, state)
     return solve!(sol, planner, domain, state, spec)
 end
 
@@ -570,7 +571,7 @@ end
 function solve(planner::AlternatingRealTimeHeuristicSearch,
                domain::Domain, state::State, spec::Specification)
     # Simplify goal specification
-    spec = simplify_goal(spec, domain, state)
+    spec = simplified(spec, domain, state)
     # Construct (possibly) shared solution components
     S = typeof(state)
     subplanner = first(planner.planners)
@@ -627,5 +628,6 @@ end
 
 function refine!(sol::MultiSolution, planner::AlternatingRealTimeHeuristicSearch,
                  domain::Domain, state::State, spec::Specification)
+    spec = simplified(spec, domain, state)
     return solve!(sol, planner, domain, state, spec)
 end

@@ -1,11 +1,37 @@
-# Utilities for method forwarding to a sub-specification
-
 using ConstructionBase: setproperties
 
-"Forwards methods for a `spectype` to the sub-specification at `field`"
-macro set_subspec(spectype, field)
-    @assert field isa Symbol
+"""
+    $(SIGNATURES)
+
+Returns `true` if the specification wrapes around a sub-specification.
+"""
+has_subspec(spec::Specification) = false
+
+"""
+    $(SIGNATURES)
+
+Returns the sub-specification of a wrapper specification.
+"""
+get_subspec(spec::Specification) = error("Not implemented.")
+
+"""
+    $(SIGNATURES)
+
+Sets the sub-specification of a wrapper specification.
+"""
+set_subspec(spec::Specification, subspec) = error("Not implemented.")
+
+"""
+    @set_subspec spectype field
+
+Forwards all undefined [`Specification`] interface methods for a `spectype` to
+the sub-specification at `field`.
+"""
+macro set_subspec(spectype, field::Symbol)
     # Escaped function names
+    _has_subspec = GlobalRef(SymbolicPlanners, :has_subspec)
+    _get_subspec = GlobalRef(SymbolicPlanners, :get_subspec)
+    _set_subspec = GlobalRef(SymbolicPlanners, :set_subspec)
     _is_goal = GlobalRef(SymbolicPlanners, :is_goal)
     _is_violated = GlobalRef(SymbolicPlanners, :is_violated)
     _get_cost = GlobalRef(SymbolicPlanners, :get_cost)
@@ -28,13 +54,22 @@ macro set_subspec(spectype, field)
     _terms = esc(:terms)
     # Generate method definitions
     expr = quote
-        if !_spec_hasmethod($(_is_goal), $(esc(spectype)), Domain, State)
-            $(_is_goal)($_spec::$(esc(spectype)), $_domain::Domain, $_state::State) =
-                $(_is_goal)($_subspec, $_domain, $_state)
+        $(_has_subspec)($_spec::$(esc(spectype))) = true
+        $(_get_subspec)($_spec::$(esc(spectype))) = $_subspec
+        function $(_set_subspec)($_spec::$(esc(spectype)), $(esc(:subspec)))
+            return setproperties(spec, ($(field)=$(esc(:subspec)),))
         end
         if !_spec_hasmethod($(_is_goal), $(esc(spectype)), Domain, State, Term)
             $(_is_goal)($_spec::$(esc(spectype)), $_domain::Domain, $_state::State, $_action::Term) =
                 $(_is_goal)($_subspec, $_domain, $_state, $_action)
+        end
+        if !_spec_hasmethod($(_is_goal), $(esc(spectype)), Domain, State, Nothing)
+            $(_is_goal)($_spec::$(esc(spectype)), $_domain::Domain, $_state::State, $_action::Nothing) =
+                $(_is_goal)($_subspec, $_domain, $_state, $_action)
+        end
+        if !_spec_hasmethod($(_is_goal), $(esc(spectype)), Domain, State)
+            $(_is_goal)($_spec::$(esc(spectype)), $_domain::Domain, $_state::State) =
+                $(_is_goal)($_subspec, $_domain, $_state)
         end
         if !_spec_hasmethod($(_is_violated), $(esc(spectype)), Domain, State)
             $(_is_violated)($_spec::$(esc(spectype)), $_domain::Domain, $_state::State) =
@@ -58,8 +93,8 @@ macro set_subspec(spectype, field)
         end
         if !_spec_hasmethod($(_set_goal_terms), $(esc(spectype)), Any)
             function $(_set_goal_terms)($_spec::$(esc(spectype)), $_terms)
-                subspec = $(_set_goal_terms)($_subspec, $_terms)
-                return setproperties(spec, ($(field)=subspec,))
+                $(esc(:subspec)) = $(_set_goal_terms)($_subspec, $_terms)
+                return setproperties(spec, ($(field)=$(esc(:subspec)),))
             end
         end
         if !_spec_hasmethod($(_has_action_goal), $(esc(spectype)))

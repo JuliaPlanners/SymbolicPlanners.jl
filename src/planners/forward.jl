@@ -201,7 +201,7 @@ function solve(planner::ForwardPlanner,
                domain::Domain, state::State, spec::Specification)
     @unpack heuristic, save_search = planner
     # Simplify goal specification
-    spec = simplify_goal(spec, domain, state)
+    spec = simplified(spec, domain, state)
     # Precompute heuristic information
     precompute!(heuristic, domain, state, spec)
     # Initialize solution
@@ -377,7 +377,7 @@ function refine!(
 ) where {S, T <: PriorityQueue}
     @unpack heuristic, refine_method, reset_node_count = planner
     # Resimplify goal specification and ensure heuristic is precomputed
-    spec = simplify_goal(spec, domain, state)
+    spec = simplified(spec, domain, state)
     ensure_precomputed!(heuristic, domain, state, spec)
     # Decide between restarting, rerooting, or continuing the search
     if refine_method == :restart

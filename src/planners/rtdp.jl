@@ -67,7 +67,7 @@ end
 function solve(planner::RealTimeDynamicPlanner,
                domain::Domain, state::State, spec::Specification)
     # Simplify goal specification
-    spec = simplify_goal(spec, domain, state)
+    spec = simplified(spec, domain, state)
     # Precompute heuristic information
     precompute!(planner.heuristic, domain, state, spec)
     # Initialize then refine solution
@@ -85,7 +85,7 @@ function solve!(sol::TabularPolicy,
                 domain::Domain, state::State, spec::Specification)
     @unpack n_rollouts, max_depth, action_noise, rollout_noise = planner
     # Simplify goal specification
-    spec = simplify_goal(spec, domain, state)
+    spec = simplified(spec, domain, state)
     # Precompute heuristic information
     ensure_precomputed!(heuristic, domain, state, spec)
     # Run callback

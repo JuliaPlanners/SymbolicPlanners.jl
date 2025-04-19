@@ -205,7 +205,7 @@ function solve(planner::MonteCarloTreeSearch,
 	@unpack heuristic, selector, estimator = planner
 	discount = get_discount(spec)
     # Simplify goal specification
-    spec = simplify_goal(spec, domain, state)
+    spec = simplified(spec, domain, state)
 	# Precompute heuristic information
     precompute!(heuristic, domain, state, spec)
     # Initialize solution

@@ -147,7 +147,7 @@ include("action_costs.jl")
 include("discounted.jl")
 include("goal_reward.jl")
 include("backward.jl")
-include("utils.jl")
+include("simplified.jl")
 
 # Convenience constructors
 """
