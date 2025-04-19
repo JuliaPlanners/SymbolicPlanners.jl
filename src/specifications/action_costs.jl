@@ -229,7 +229,9 @@ has_action_cost(spec::MinPerAgentActionCosts) = true
 
 function get_action_cost(spec::MinPerAgentActionCosts, action::Term)
     agent = action.args[spec.agent_arg_idx]
-    if keytype(spec.costs) == Symbol
+    if spec.costs isa NamedTuple
+        return _get_action_cost(spec.costs[agent.name], action)
+    elseif keytype(spec.costs) == Symbol
         return _get_action_cost(spec.costs[agent.name], action)
     else
         return _get_action_cost(spec.costs[agent], action)
@@ -288,7 +290,9 @@ has_action_cost(spec::ExtraPerAgentActionCosts) = true
 function get_action_cost(spec::ExtraPerAgentActionCosts, action::Term)
     base_cost = has_action_cost(spec.spec) ? get_action_cost(spec.spec, action) : 0.0
     agent = action.args[spec.agent_arg_idx]
-    if keytype(spec.costs) == Symbol
+    if spec.costs isa NamedTuple
+        extra_cost = _get_action_cost(spec.costs[agent.name], action)
+    elseif keytype(spec.costs) == Symbol
         extra_cost = _get_action_cost(spec.costs[agent.name], action)
     else
         extra_cost = _get_action_cost(spec.costs[agent], action)
