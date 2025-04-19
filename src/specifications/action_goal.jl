@@ -1,12 +1,4 @@
 export ActionGoal
-export has_action_goal
-
-"""
-$(SIGNATURES)
-
-Returns whether a specification has an action as a goal.
-"""
-has_action_goal(spec::Specification) = false
 
 """
     ActionGoal(action::Term, [constraints, step_cost])

@@ -1,6 +1,7 @@
 export Specification, Goal
 export NullSpecification, NullGoal
 export is_goal, is_violated, get_cost, get_reward, get_discount
+export has_action_goal, has_action_cost, get_action_cost
 
 """
     $(TYPEDEF)
@@ -53,6 +54,28 @@ $(SIGNATURES)
 Returns the reward discount factor.
 """
 get_discount(spec::Specification) =
+    error("Not implemented.")
+
+"""
+$(SIGNATURES)
+
+Returns whether a specification has an action as a goal.
+"""
+has_action_goal(spec::Specification) = false
+
+"""
+$(SIGNATURES)
+
+Returns whether a specification has action-specific costs.
+"""
+has_action_cost(spec::Specification) = false
+
+"""
+$(SIGNATURES)
+
+Returns the cost for `act` for specifications with fixed action costs.
+"""
+get_action_cost(spec::Specification, action::Term) =
     error("Not implemented.")
 
 """
@@ -114,6 +137,7 @@ get_reward(::NullGoal, ::Domain, ::State, ::Term, ::State) = 0.0
 get_discount(::NullGoal) = 1.0
 get_goal_terms(::NullGoal) = Term[]
 
+include("subspecs.jl")
 include("min_steps.jl")
 include("min_metric.jl")
 include("max_metric.jl")

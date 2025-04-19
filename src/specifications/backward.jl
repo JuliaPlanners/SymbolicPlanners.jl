@@ -37,18 +37,6 @@ Base.:(==)(s1::BackwardSearchGoal, s2::BackwardSearchGoal) =
 
 is_goal(spec::BackwardSearchGoal, domain::Domain, state::State) =
     issubset(state, spec.start)
-is_violated(spec::BackwardSearchGoal, domain::Domain, state::State) =
-    is_violated(spec.goal, domain, state)
-get_cost(spec::BackwardSearchGoal, domain::Domain, s1::State, a::Term, s2::State) =
-    get_cost(spec.goal, domain, s2, a, s1)
-get_reward(spec::BackwardSearchGoal, domain::Domain, s1::State, a::Term, s2::State) =
-    get_reward(spec.goal, domain, s2, a, s1)
-get_goal_terms(spec::BackwardSearchGoal) =
-    get_goal_terms(spec.goal)
-
-set_goal_terms(spec::BackwardSearchGoal, terms) =
-    BackwardSearchGoal(set_goal_terms(spec.goal, terms),
-                       spec.start, spec.constraint_diff)
 
 function add_constraints!(
     spec::BackwardSearchGoal{G,C}, domain::Domain, state::State
@@ -58,6 +46,4 @@ end
 add_constraints!(spec::BackwardSearchGoal, domain::Domain, state::State) =
     nothing
 
-has_action_cost(spec::BackwardSearchGoal) = has_action_cost(spec.goal)
-get_action_cost(spec::BackwardSearchGoal, action::Term) =
-    get_action_cost(spec.goal, action)
+@set_subspec(BackwardSearchGoal, goal)
