@@ -27,7 +27,9 @@ no. 3, pp. 57–57, Sep. 2001, <https://doi.org/10.1609/aimag.v22i3.1572>.
 """
 mutable struct FFHeuristic <: Heuristic
     dynamic_goal::Bool # Flag whether goal-relevant information is dynamic
-    goal_hash::Union{Nothing,UInt} # Hash of most recently pre-computed goal
+    spec_obj_id::Union{Nothing,UInt} # Object ID of most recently precomputed spec
+    goal_obj_id::Union{Nothing,UInt} # Object ID of most recently precomputed goal
+    goal_hash::Union{Nothing,UInt} # Hash of most recently computed goal terms
     statics::Vector{Symbol} # Static domain fluents 
     graph::PlanningGraph # Precomputed planning graph
     search_state::PlanningGraphSearchState # Preallocated search state
@@ -44,6 +46,8 @@ function precompute!(h::FFHeuristic,
                      domain::Domain, state::State)
     # If goal specification is not provided, assume dynamic goal
     h.dynamic_goal = true
+    h.spec_obj_id = nothing
+    h.goal_obj_id = nothing
     h.goal_hash = nothing
     h.statics = infer_static_fluents(domain)
     h.graph = build_planning_graph(domain, state; statics=h.statics)
@@ -54,22 +58,37 @@ end
 function precompute!(h::FFHeuristic,
                      domain::Domain, state::State, spec::Specification)
     # If goal specification is provided, assume non-dynamic goal
+    goals = get_goal_terms(spec)
     h.dynamic_goal = false
-    h.goal_hash = hash(get_goal_terms(spec))
+    h.spec_obj_id = objectid(spec)
+    h.goal_obj_id = objectid(goals)
+    h.goal_hash = hash(goals)
     h.statics = infer_static_fluents(domain)
     h.graph = build_planning_graph(domain, state, spec; statics=h.statics)
     h.search_state = PlanningGraphSearchState(h.graph)
     return h
 end
 
+function update_spec!(h::FFHeuristic,
+                      domain::Domain, state::State, spec::Specification)
+    !h.dynamic_goal && return h
+    objectid(spec) == h.spec_obj_id && return h
+    h.spec_obj_id = objectid(spec)
+    goals = get_goal_terms(spec)
+    objectid(goals) == h.goal_obj_id && return h
+    h.goal_obj_id = objectid(goals)
+    goal_hash = hash(goals)
+    goal_hash == h.goal_hash && return h
+    h.goal_hash = goal_hash
+    h.graph = update_pgraph_goal!(h.graph, domain, state, spec;
+                                  statics=h.statics)
+    return h
+end
+
 function compute(h::FFHeuristic,
                  domain::Domain, state::State, spec::Specification)
     # If necessary, update planning graph with new goal
-    if h.dynamic_goal && hash(get_goal_terms(spec)) != h.goal_hash
-        h.graph = update_pgraph_goal!(h.graph, domain, state, spec;
-                                      statics=h.statics)
-        h.goal_hash = hash(get_goal_terms(spec))
-    end
+    update_spec!(h, domain, state, spec)
     # Compute achievers to each condition node of the relaxed planning graph
     init_pgraph_search!(h.search_state, h.graph, domain, state)
     search_state, goal_idx, _ =

@@ -18,6 +18,8 @@ the Difference Anyway?,"  ICAPS (2009), vol. 19 no. 1, pp. 162-169.
 """
 mutable struct LMCut <: Heuristic
     dynamic_goal::Bool # Flag whether goal-relevant information is dynamic
+    spec_obj_id::Union{Nothing,UInt} # Object ID of most recently pre-computed spec
+    goal_obj_id::Union{Nothing,UInt} # Object ID of most recently pre-computed goal
     goal_hash::Union{Nothing,UInt} # Hash of most recently pre-computed goal
     statics::Vector{Symbol} # Static domain fluents
     graph::PlanningGraph # Precomputed planning graph
@@ -37,6 +39,8 @@ function precompute!(h::LMCut, domain::Domain, state::State)
     # If goal specification is not provided, assume dynamic goal
     h.dynamic_goal = true
     h.goal_hash = nothing
+    h.spec_obj_id = nothing
+    h.goal_obj_id = nothing
     # Precompute static domain fluents and planning graph
     h.statics = infer_static_fluents(domain)
     h.graph = build_planning_graph(domain, state; statics=h.statics)
@@ -55,8 +59,11 @@ end
 
 function precompute!(h::LMCut, domain::Domain, state::State, spec::Specification)
     # If goal specification is provided, assume non-dynamic goal
+    goals = get_goal_terms(spec)
     h.dynamic_goal = false
-    h.goal_hash = hash(get_goal_terms(spec))
+    h.spec_obj_id = objectid(spec)
+    h.goal_obj_id = objectid(goals)
+    h.goal_hash = hash(goals)
     # Precompute static domain fluents and planning graph
     h.statics = infer_static_fluents(domain)
     h.graph = build_planning_graph(domain, state, spec; statics=h.statics)
@@ -74,23 +81,37 @@ function precompute!(h::LMCut, domain::Domain, state::State, spec::Specification
     return h
 end
 
-function compute(h::LMCut, domain::Domain, state::State, spec::Specification)
-    # If necessary, update planning graph with new goal
-    if h.dynamic_goal && hash(get_goal_terms(spec)) != h.goal_hash
-        h.graph = update_pgraph_goal!(h.graph, domain, state, spec;
-                                      statics=h.statics)
-        h.goal_hash = hash(get_goal_terms(spec))
-        n_actions = length(h.graph.actions)
-        resize!(h.act_costs, n_actions)
-        for (act_idx, act) in enumerate(h.graph.actions)
-            if h.graph.n_axioms < act_idx <= n_actions - h.graph.n_goals
-                h.act_costs[act_idx] = has_action_cost(spec) ?
-                    Float32(get_action_cost(spec, act.term)) : 1.0f0
-            else
-                h.act_costs[act_idx] = 0.0f0
-            end
+function update_spec!(h::LMCut,
+                      domain::Domain, state::State, spec::Specification)
+    !h.dynamic_goal && return h
+    objectid(spec) == h.spec_obj_id && return h
+    h.spec_obj_id = objectid(spec)
+    goals = get_goal_terms(spec)
+    objectid(goals) == h.goal_obj_id && return h
+    h.goal_obj_id = objectid(goals)
+    goal_hash = hash(goals)
+    goal_hash == h.goal_hash && return h
+    h.goal_hash = goal_hash
+    # Update planning graph
+    h.graph = update_pgraph_goal!(h.graph, domain, state, spec;
+                                  statics=h.statics)
+    # Recompute cost of each action                
+    n_actions = length(h.graph.actions)
+    resize!(h.act_costs, n_actions)
+    for (act_idx, act) in enumerate(h.graph.actions)
+        if h.graph.n_axioms < act_idx <= n_actions - h.graph.n_goals
+            h.act_costs[act_idx] = has_action_cost(spec) ?
+                Float32(get_action_cost(spec, act.term)) : 1.0f0
+        else
+            h.act_costs[act_idx] = 0.0f0
         end
     end
+    return h
+end
+
+function compute(h::LMCut, domain::Domain, state::State, spec::Specification)
+    # If necessary, update planning graph with new goal
+    update_spec!(h, domain, state, spec)
     # Calculate relaxed costs of facts and action supporters
     init_pgraph_search!(h.search_state, h.graph, domain, state)
     fill!(h.search_state.act_pathcosts, -Inf32)

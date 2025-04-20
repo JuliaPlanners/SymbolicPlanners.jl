@@ -28,11 +28,14 @@ function Base.show(io::IO, ::MIME"text/plain", h::Heuristic)
 end
 
 """
-$(SIGNATURES)
+    precompute!(heuristic, domain, [state, spec])
 
 Precomputes heuristic information given a domain, state, and specification.
 This function is typically called once during the initialization phase of
 a [`Planner`](@ref)'s search algorithm.
+
+Precomputation can optionally be made independent of the `spec` or initial
+`state` by defining specific `precompute!` methods.
 """
 precompute!(h::Heuristic, domain::Domain, state::State, spec::Specification) =
     h # Return the heuristic unmodified by default
@@ -44,16 +47,16 @@ precompute!(h::Heuristic, domain::Domain) =
     precompute!(h, domain, GenericState(Term[]))
 
 """
-$(SIGNATURES)
+    is_precomputed(heuristic)
 
 Returns whether heuristic has been precomputed.
 """
 is_precomputed(h::Heuristic) = false
 
 """
-$(SIGNATURES)
+    ensure_precomputed!(heuristic, domain, [state, spec])
 
-Precomputes a heuristic if necessary.
+Precomputes a heuristic using the provided arguments if `!is_precomputed(h)`.
 """
 ensure_precomputed!(h::Heuristic, args...) =
     !is_precomputed(h) ? precompute!(h, args...) : h
