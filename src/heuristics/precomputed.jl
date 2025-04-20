@@ -11,7 +11,7 @@ struct PrecomputedHeuristic{H <: Heuristic} <: Heuristic
 end
 
 function PrecomputedHeuristic(h::Heuristic, args...)
-    h = ensure_precomputed!(h, args...)
+    h = precompute!(h, args...)
     return PrecomputedHeuristic(h)
 end
 
