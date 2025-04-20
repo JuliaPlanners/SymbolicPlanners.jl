@@ -229,10 +229,13 @@ end
 
 function solve!(sol::ReusableTreePolicy, planner::RealTimeHeuristicSearch,
                 domain::Domain, state::State, spec::Specification)
-    @unpack n_iters, heuristic, search_neighbors = planner
+    @unpack n_iters, search_neighbors = planner
     @unpack save_search, reuse_search, reuse_paths, callback = planner
-    planner = copy(planner)
+    # Look-up heuristic stored in solution
+    heuristic = sol.value_policy.default.heuristic
+    ensure_precomputed!(heuristic, domain, state, spec)
     # Use previously computed policy values to guide search
+    planner = copy(planner)
     planner.heuristic = PruningHeuristic(PolicyValueHeuristic(sol), heuristic)
     # Ensure that search planner returns a search tree in its solution
     planner.save_search = true
