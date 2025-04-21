@@ -66,9 +66,13 @@ function auto_equals_expr(type, fields)
 end
 
 "Convert vector of unnormalized scores to probabiities."
-function softmax(scores)
+function softmax(scores, min_rel_score=nothing)
     if isempty(scores) return Float64[] end
-    ws = exp.(scores .- maximum(scores))
+    rel_scores = scores .- maximum(scores)
+    if !isnothing(min_rel_score)
+        rel_scores = max.(rel_scores, min_rel_score)
+    end
+    ws = exp.(rel_scores)
     z = sum(ws)
     return isnan(z) ? ones(length(scores)) ./ length(scores) : ws ./ z
 end
