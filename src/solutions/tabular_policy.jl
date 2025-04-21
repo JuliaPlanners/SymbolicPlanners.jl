@@ -175,7 +175,7 @@ function best_action(sol::TabularVPolicy, state::State)
     best_act = missing
     for act in available(sol.domain, state)
         val = get_value(sol, state, act)
-        if val > best_val
+        if val > best_val || ismissing(best_act)
             best_val = val
             best_act = act
         end 
