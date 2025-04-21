@@ -395,12 +395,12 @@ function update_values_dijkstra!(
 )
     @unpack trajectory, search_tree, search_frontier = search_sol
     # Construct priority queue of nodes ordered by h-values
-    updated = Set{UInt}()
     h_val_iter = Iterators.map(keys(search_tree)) do node_id
         if haskey(search_frontier, node_id)
             h_val = search_frontier[node_id][2]
         else # Set h-value to Inf for all interior nodes
             h_val = Inf32
+            set_value!(policy, node_id, -h_val)
         end
         return (node_id => h_val)::Pair{UInt,Float32}
     end
@@ -424,10 +424,8 @@ function update_values_dijkstra!(
             # Skip if parent node already has a lower h-value
             if haskey(queue, parent_id)
                 parent_h_val = queue[parent_id]
-            elseif parent_id in updated
-                parent_h_val = Float32(-get_value(policy, parent_id))
             else
-                parent_h_val = Inf32
+                parent_h_val = Float32(-get_value(policy, parent_id, -Inf32))
             end
             parent_h_val > h_val || continue
             # Skip if parent node's h-value can't be decreased
@@ -438,7 +436,6 @@ function update_values_dijkstra!(
             # Update parent's h-value and insert into priority queue
             set_value!(policy, parent_id, -parent_h_val)
             queue[parent_id] = parent_h_val
-            push!(updated, parent_id)
         end
     end
     return policy
