@@ -63,6 +63,7 @@ end
 function get_action_probs(sol::MixturePolicy, state::State)
     probs = Dict{Term, Float64}()
     for (policy, weight) in zip(sol.policies, sol.weights)
+        iszero(weight) && continue
         for (action, prob) in get_action_probs(policy, state)
             probs[action] = get(probs, action, 0.0) + prob * weight
         end
@@ -73,6 +74,7 @@ end
 function get_action_prob(sol::MixturePolicy, state::State, action::Term)
     prob = 0.0
     for (policy, weight) in zip(sol.policies, sol.weights)
+        iszero(weight) && continue
         prob += get_action_prob(policy, state, action) * weight
     end
     return prob
@@ -98,6 +100,7 @@ end
 function get_mixture_weights(sol::MixturePolicy, state::State, action::Term;
                              normalize::Bool = true)
     joint_probs = map(zip(sol.policies, sol.weights)) do (policy, weight)
+        iszero(weight) && return 0.0
         return get_action_prob(policy, state, action) * weight
     end
     new_weights = normalize ? joint_probs ./ sum(joint_probs) : joint_probs
