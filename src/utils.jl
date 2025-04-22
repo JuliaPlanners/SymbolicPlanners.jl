@@ -66,15 +66,19 @@ function auto_equals_expr(type, fields)
 end
 
 "Convert vector of unnormalized scores to probabiities."
-function softmax(scores, min_rel_score=nothing)
-    if isempty(scores) return Float64[] end
-    rel_scores = scores .- maximum(scores)
-    if !isnothing(min_rel_score)
-        rel_scores = max.(rel_scores, min_rel_score)
-    end
-    ws = exp.(rel_scores)
+function softmax(scores)
+    T = eltype(scores)
+    isempty(scores) && return Vector{T}()
+    ws = exp.(scores .- maximum(scores))
     z = sum(ws)
-    return isnan(z) ? ones(length(scores)) ./ length(scores) : ws ./ z
+    return isnan(z) ? ones(T, length(scores)) ./ length(scores) : ws ./ z
+end
+
+"Mix `probs` with an `epsilon` chance of a random element."
+function add_epsilon_probs!(probs, epsilon)
+    n = length(probs)
+    probs .= (probs .* (1 - epsilon)) .+ (epsilon / n)
+    return probs
 end
 
 "Return sample from the standard Gumbel distribution."

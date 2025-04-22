@@ -1,7 +1,7 @@
 export BoltzmannPolicy, BoltzmannMixturePolicy
 
 """
-    BoltzmannPolicy(policy, temperature, [clip_threshold, rng::AbstractRNG])
+    BoltzmannPolicy(policy, temperature, [epsilon, rng::AbstractRNG])
 
 Policy that samples actions according to a Boltzmann distribution with the 
 specified `temperature`. The unnormalized log probability of taking an action
@@ -16,10 +16,8 @@ Higher temperatures lead to an increasingly random policy, whereas a temperature
 of zero corresponds to a deterministic policy. Q-values are computed according
 to the underlying `policy` provided as an argument to the constructor.
 
-A `clip_threshold` can be specified as a negative value, so that
-``[Q(s, a) - Q_max] / T`` is clipped to a minimum of `clip_threshold`. This
-prevents zero-probabilty actions, and ensures that the relative odds of the
-most vs. least probable action is no smaller than `exp(clip_threshold)`.
+To prevent zero-probability actions, an `epsilon` chance of taking an action 
+uniformly at random can be specified.
 
 Note that wrapping an existing policy in a `BoltzmannPolicy` does not ensure
 consistency of the state values ``V`` and Q-values ``Q`` according to the 
@@ -29,16 +27,16 @@ convergence.
 @auto_hash_equals struct BoltzmannPolicy{P, R <: AbstractRNG} <: PolicySolution
     policy::P
     temperature::Float64
-    clip_threshold::Union{Float64, Nothing}
+    epsilon::Float64
     rng::R
 end
 
-BoltzmannPolicy(policy::BoltzmannPolicy, temperature, clip_threshold, rng) =
-    BoltzmannPolicy(policy.policy, temperature, clip_threshold, rng)
-BoltzmannPolicy(policy, temperature, clip_threshold = nothing) =
-    BoltzmannPolicy(policy, temperature, clip_threshold, Random.GLOBAL_RNG)
+BoltzmannPolicy(policy::BoltzmannPolicy, temperature, epsilon, rng) =
+    BoltzmannPolicy(policy.policy, temperature, epsilon, rng)
+BoltzmannPolicy(policy, temperature, epsilon = 0.0) =
+    BoltzmannPolicy(policy, temperature, epsilon, Random.GLOBAL_RNG)
 BoltzmannPolicy(policy, temperature, rng::AbstractRNG) =
-    BoltzmannPolicy(policy, temperature, nothing, rng)
+    BoltzmannPolicy(policy, temperature, 0.0, rng)
 
 function Base.show(io::IO, ::MIME"text/plain", sol::BoltzmannPolicy)
     indent = get(io, :indent, "")
@@ -47,7 +45,7 @@ end
     
 Base.copy(sol::BoltzmannPolicy) =
     BoltzmannPolicy(copy(sol.policy), sol.temperature,
-                    sol.clip_threshold, sol.rng)
+                    sol.epsilon, sol.rng)
 
 get_action(sol::BoltzmannPolicy, state::State) =
     rand_action(sol, state)
@@ -69,7 +67,10 @@ has_cached_action_values(sol::BoltzmannPolicy, state::State) =
     has_cached_action_values(sol.policy, state)
 
 function rand_action(sol::BoltzmannPolicy, state::State)
-    if sol.temperature == 0
+    if sol.epsilon > 0 && (rand(sol.rng) < sol.epsilon)
+        # Sample an action at random
+        return rand(sol.rng, keys(get_action_values(sol, state)))
+    elseif sol.temperature == 0
         # Reservoir sampling among maximal elements
         qs = get_action_values(sol, state)
         if isempty(qs) return missing end
@@ -85,18 +86,10 @@ function rand_action(sol::BoltzmannPolicy, state::State)
         return chosen_act
     else
         # Reservoir sampling via Gumbel-max trick
-        qs = get_action_values(sol, state)
-        isempty(qs) && return missing
-        if !isnothing(sol.clip_threshold)
-            max_score = maximum(values(qs)) / sol.temperature
-        end   
         chosen_act, chosen_score = missing, -Inf
-        for (act, q) in qs
-            score = q / sol.temperature
-            if !isnothing(sol.clip_threshold)
-                score = max(score, max_score - sol.clip_threshold)
-            end
-            if score + randgumbel(sol.rng) > chosen_score
+        for (act, q) in get_action_values(sol, state)
+            score = q / sol.temperature + randgumbel(sol.rng)
+            if score > chosen_score
                 chosen_act = act
                 chosen_score = score
             end
@@ -116,8 +109,9 @@ function get_action_probs(sol::BoltzmannPolicy, state::State)
         n_max = sum(q >= q_max for q in q_values)
         probs = [q >= q_max ? 1.0 / n_max : 0.0 for q in q_values]
     else
-        probs = softmax(q_values ./ sol.temperature, sol.clip_threshold)
-    end 
+        probs = softmax(q_values ./ sol.temperature)
+    end
+    sol.epsilon > 0 && add_epsilon_probs!(probs, sol.epsilon)
     probs = Dict(zip(actions, probs))
     return probs
 end
@@ -134,7 +128,8 @@ function get_action_prob(sol::BoltzmannPolicy, state::State, action::Term)
         q_act = get(action_values, action, -Inf)
         return q_act >= q_max ? 1.0 / n_max : 0.0
     else
-        probs = softmax(q_values ./ sol.temperature, sol.clip_threshold)
+        probs = softmax(q_values ./ sol.temperature)
+        sol.epsilon > 0 && add_epsilon_probs!(probs, sol.epsilon)
         for (a, p) in zip(actions, probs)
             a == action && return p
         end
@@ -144,31 +139,32 @@ end
 
 """
     BoltzmannMixturePolicy(policy, temperatures, [weights,]
-                           [clip_threshold, rng::AbstractRNG])
+                           [epsilon, rng::AbstractRNG])
 
 A mixture of Boltzmann policies with different `temperatures` and mixture 
 `weights`, specified as `Vector`s. If provided, `weights` must be non-negative
 and sum to one. Otherwise a uniform mixture is assumed. Q-values are computed
 according to the underlying `policy` provided as an argument to the constructor.
 
-Similar to the [`BoltzmannPolicy`](@ref), `clip_threshold` can be used to
-prevent zero-probability actions.
+Similar to the [`BoltzmannPolicy`](@ref), `epsilon` can be specified to add a
+an `epsilon` chance of taking an action uniformly at random.
 """
 @auto_hash_equals struct BoltzmannMixturePolicy{P, R <: AbstractRNG} <: PolicySolution
     policy::P
     temperatures::Vector{Float64}
     weights::Vector{Float64}
-    clip_threshold::Union{Float64, Nothing}
+    epsilon::Float64
     rng::R
     function BoltzmannMixturePolicy{P, R}(
-        policy::P, temperatures, weights, clip_threshold, rng::R
+        policy::P, temperatures, weights, epsilon, rng::R
     ) where {P, R <: AbstractRNG}
         @assert length(temperatures) == length(weights)
         @assert all(w >= 0 for w in weights)
         @assert isapprox(sum(weights), 1.0)
+        @assert epsilon >= 0
         temperatures = convert(Vector{Float64}, temperatures)
         weights = convert(Vector{Float64}, weights)
-        return new(policy, temperatures, weights, clip_threshold, rng)
+        return new(policy, temperatures, weights, epsilon, rng)
     end
 end
 
@@ -176,17 +172,17 @@ function BoltzmannMixturePolicy(
     policy::P,
     temperatures,
     weights = ones(length(temperatures)) ./ length(temperatures),
-    clip_threshold = nothing,
+    epsilon = 0.0,
     rng::R = Random.GLOBAL_RNG
 ) where {P, R <: AbstractRNG}
     return BoltzmannMixturePolicy{P, R}(
-        policy, temperatures, weights, clip_threshold, rng
+        policy, temperatures, weights, epsilon, rng
     )
 end
 
 function BoltzmannMixturePolicy(policy, temperatures, rng::AbstractRNG)
     weights = ones(length(temperatures)) ./ length(temperatures)
-    return BoltzmannMixturePolicy(policy, temperatures, weights, nothing, rng)
+    return BoltzmannMixturePolicy(policy, temperatures, weights, 0.0, rng)
 end
 
 function Base.show(io::IO, ::MIME"text/plain", sol::BoltzmannMixturePolicy)
@@ -197,7 +193,7 @@ end
 
 Base.copy(sol::BoltzmannMixturePolicy) =
     BoltzmannMixturePolicy(copy(sol.policy), copy(sol.temperatures),
-                           copy(sol.weights), copy(sol.clip_threshold), sol.rng)
+                           copy(sol.weights), copy(sol.epsilon), sol.rng)
 
 get_action(sol::BoltzmannMixturePolicy, state::State) =
     rand_action(sol, state)
@@ -220,7 +216,7 @@ has_cached_action_values(sol::BoltzmannMixturePolicy, state::State) =
 
 function rand_action(sol::BoltzmannMixturePolicy, state::State)
     temperature = sample(sol.rng, sol.temperatures, Weights(sol.weights))
-    policy = BoltzmannPolicy(sol.policy, temperature, sol.clip_threshold, sol.rng)
+    policy = BoltzmannPolicy(sol.policy, temperature, sol.epsilon, sol.rng)
     return rand_action(policy, state)
 end
 
@@ -240,9 +236,10 @@ function get_action_probs(sol::BoltzmannMixturePolicy, state::State)
                 probs[i] += weight / n_max
             end
         else
-            probs .+= softmax(q_values ./ temp, sol.clip_threshold) .* weight
+            probs .+= softmax(q_values ./ temp) .* weight
         end
     end
+    sol.epsilon > 0 && add_epsilon_probs!(probs, sol.epsilon)
     probs = Dict(zip(actions, probs))
     return probs
 end
@@ -263,9 +260,13 @@ function get_action_prob(sol::BoltzmannMixturePolicy,
             q_act = q_values[act_idx]
             act_prob += q_act >= q_max ? weight / n_max : 0.0
         else
-            probs = softmax(q_values ./ temp, sol.clip_threshold)
+            probs = softmax(q_values ./ temp)
             act_prob += probs[act_idx] * weight
         end
+    end
+    if sol.epsilon > 0
+        act_prob *= (1 - sol.epsilon)
+        act_prob += sol.epsilon / length(actions)
     end
     return act_prob
 end
@@ -289,11 +290,16 @@ function get_mixture_weights(sol::BoltzmannMixturePolicy,
             q_max = maximum(q_values)
             n_max = sum(q >= q_max for q in q_values)
             q_act = q_values[act_idx]
-            return q_act >= q_max ? weight / n_max : 0.0
+            act_prob = q_act >= q_max ? (1.0 / n_max) : 0.0
         else
-            probs = softmax(q_values ./ temp, sol.clip_threshold)
-            return probs[act_idx] * weight
+            probs = softmax(q_values ./ temp)
+            act_prob = probs[act_idx]
         end
+        if sol.epsilon > 0
+            act_prob *= (1 - sol.epsilon)
+            act_prob += sol.epsilon / length(actions)
+        end
+        return act_prob * weight
     end
     new_weights = normalize ? joint_probs ./ sum(joint_probs) : joint_probs
     return new_weights

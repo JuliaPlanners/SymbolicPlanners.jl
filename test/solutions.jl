@@ -333,13 +333,13 @@ probs = Dict(a => a == pddl"(pick-up a)" ? 0.0 : 0.5 for a in bw_init_actions)
 @test get_action_prob(sol, bw_state, pddl"(pick-up b)") == 0.5
 @test get_action_prob(sol, bw_state, pddl"(pick-up c)") == 0.5
 
-sol = BoltzmannPolicy(v_sol, 2.0, -8.0)
+sol = BoltzmannPolicy(v_sol, 2.0, 0.003)
 prob_a = get_action_prob(sol, bw_state, pddl"(pick-up a)")
 prob_b = get_action_prob(sol, bw_state, pddl"(pick-up b)")
 prob_c = get_action_prob(sol, bw_state, pddl"(pick-up c)")
-@test log(prob_a) - log(prob_b) ≈ -8.0
-@test log(prob_a) - log(prob_c) ≈ -8.0
-@test log(prob_b) - log(prob_c) ≈ 0.0
+@test get_action_prob(sol, bw_state, pddl"(pick-up a)") ≈ 0.001
+@test get_action_prob(sol, bw_state, pddl"(pick-up b)") ≈ 0.4995
+@test get_action_prob(sol, bw_state, pddl"(pick-up c)") ≈ 0.4995
 
 @test has_values(sol) == true
 
@@ -397,14 +397,14 @@ new_weights = [0.5, 0.4] .* get_mixture_weights(sol)
 new_weights = new_weights ./ sum(new_weights)
 @test get_mixture_weights(sol, bw_state, pddl"(pick-up b)") ≈ new_weights
 
-sol = BoltzmannMixturePolicy(v_sol, [1.0, 2.0], [0.25, 0.75], -8.0)
+sol = BoltzmannMixturePolicy(v_sol, [1.0, 2.0], [0.25, 0.75], 0.003)
 v_sol.Q[hash(bw_state)][pddl"(pick-up a)"] = -Inf
 prob_a = get_action_prob(sol, bw_state, pddl"(pick-up a)")
 prob_b = get_action_prob(sol, bw_state, pddl"(pick-up b)")
 prob_c = get_action_prob(sol, bw_state, pddl"(pick-up c)")
-@test log(prob_a) - log(prob_b) ≈ -8.0
-@test log(prob_a) - log(prob_c) ≈ -8.0
-@test log(prob_b) - log(prob_c) ≈ 0.0
+@test get_action_prob(sol, bw_state, pddl"(pick-up a)") ≈ 0.001
+@test get_action_prob(sol, bw_state, pddl"(pick-up b)") ≈ 0.4995
+@test get_action_prob(sol, bw_state, pddl"(pick-up c)") ≈ 0.4995
 
 @test has_values(sol) == true
 
