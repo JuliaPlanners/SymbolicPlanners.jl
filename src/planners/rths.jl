@@ -197,8 +197,25 @@ function Base.getproperty(planner::P, name::Symbol) where {P <: RTHS}
 end
 
 function Base.setproperty!(planner::P, name::Symbol, val) where {P <: RTHS}
-    hasfield(P, name) ?
-        setfield!(planner, name, val) : setproperty!(planner.planner, name, val)
+    if name == :reuse_search
+        setfield!(planner, name, val)
+        if val
+            planner.planner.refine_method = :reroot
+            planner.planner.save_parents = true
+            planner.planner.save_children = true
+            planner.planner.save_search = true
+        else
+            planner.planner.refine_method = :restart
+        end
+    elseif name == :update_method
+        if val == :dijkstra
+            planner.planner.save_parents = true
+        end
+    elseif hasfield(P, name)
+        setfield!(planner, name, val)
+    else
+        setproperty!(planner.planner, name, val)
+    end
 end
 
 function Base.hasproperty(planner::P, name::Symbol) where {P <: RTHS}
