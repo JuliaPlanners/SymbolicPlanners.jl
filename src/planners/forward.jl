@@ -416,14 +416,14 @@ function reroot!(
     if sol.status == :success && state in sol.trajectory
         return sol
     end
-    # Return existing solution if state is the original root
-    if search_tree[root_id].parent.id == root_id
-        return sol
-    end
     verbose && @logmsg cb.loglevel "Rerooting search tree..."
     # Restart search if initial state is not in tree interior
     if !is_expanded(root_id, sol) 
         return reinit_sol!(sol, planner, heuristic, domain, state, spec)
+    end
+    # Return existing solution if state is the original root
+    if search_tree[root_id].parent.id == root_id
+        return sol
     end
     # Set new root as its own parent
     root_node = search_tree[root_id]
