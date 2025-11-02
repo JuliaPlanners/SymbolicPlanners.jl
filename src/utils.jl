@@ -92,7 +92,7 @@ unzip_pairs(ps::AbstractArray{<:Pair}) = first.(ps), last.(ps)
 
 "Compact formatting of types."
 function compact_type_str(str::AbstractString, max_type_param_length::Int = 80)
-    m = match(r"^(\w+)\{(.+)\}$", str)
+    m = match(r"^(\@?[\w]+)\{(.+)\}$", str)
     if !isnothing(m) && length(m.captures[2]) > max_type_param_length
         str = m.captures[1] * "{...}"
     end
