@@ -375,7 +375,7 @@ function update_values!(
     end
     # Insert path to the terminal node into reusable tree
     if planner.reuse_paths && search_sol.status == :success
-        node_id, (_, h_val, _) = peek(search_sol.search_frontier)
+        node_id, (_, h_val, _) = findbest(search_sol.search_frontier)
         insert_path!(policy, search_sol.search_tree, node_id, h_val)
     end
     return policy
@@ -388,7 +388,7 @@ function update_values_costdiff!(
 )
     @unpack trajectory, search_tree, search_frontier = search_sol
     # Get value of terminal node from search frontier
-    terminal_id, (_, terminal_h_val, _) = peek(search_frontier)
+    terminal_id, (_, terminal_h_val, _) = findbest(search_frontier)
     # Recompute f-value in case g_mult != 1.0
     terminal_path_cost = search_tree[terminal_id].path_cost
     terminal_f_val = terminal_path_cost + terminal_h_val

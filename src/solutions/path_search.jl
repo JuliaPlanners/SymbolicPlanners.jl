@@ -265,16 +265,16 @@ end
 "Dequeue a key according to a Boltzmann distribution over priority values."
 function prob_dequeue!(queue::PriorityQueue, temperature::Float64)
     if temperature == 0.0 return dequeue!(queue) end
-    key, _ = prob_peek(queue, temperature)
+    key, _ = prob_findbest(queue, temperature)
     delete!(queue, key)
     return key
 end
 
 "Return a key according to a Boltzmann distribution over priority values."
-function prob_peek(queue::PriorityQueue, temperature::Float64,
-                   rng::AbstractRNG = Random.GLOBAL_RNG)
-    if temperature == 0.0 return peek(queue) end
-    _, min_priority = peek(queue)
+function prob_findbest(queue::PriorityQueue, temperature::Float64,
+                       rng::AbstractRNG = Random.GLOBAL_RNG)
+    if temperature == 0.0 return findbest(queue) end
+    _, min_priority = findbest(queue)
     min_weight = first(min_priority)
     best_key, best_weight, best_priority = nothing, -Inf, nothing
     # Use Gumbel-Max reservoir sampling
@@ -287,5 +287,5 @@ function prob_peek(queue::PriorityQueue, temperature::Float64,
             best_priority = priority
         end
     end
-    return isnothing(best_key) ? peek(queue) : best_key => best_priority
+    return isnothing(best_key) ? findbest(queue) : best_key => best_priority
 end

@@ -183,7 +183,7 @@ function search!(sol::BiPathSearchSolution, planner::BidirectionalPlanner,
         # Advance the forward search
         if !isempty(f_queue)
             f_node_id, _ = isnothing(f_search_noise) ?
-                peek(f_queue) : prob_peek(f_queue, f_search_noise)
+                findbest(f_queue) : prob_findbest(f_queue, f_search_noise)
             f_node = f_search_tree[f_node_id]
             # Check if goal is reached
             if is_goal(f_spec, domain, f_node.state)
@@ -206,7 +206,7 @@ function search!(sol::BiPathSearchSolution, planner::BidirectionalPlanner,
          # Advance the backward search
         if !isempty(b_queue)
             b_node_id, _ = isnothing(b_search_noise) ?
-                peek(b_queue) : prob_peek(b_queue, b_search_noise)
+                findbest(b_queue) : prob_findbest(b_queue, b_search_noise)
             b_node = b_search_tree[b_node_id]
             # Check if goal is reached
             if is_goal(b_spec, domain, b_node.state)

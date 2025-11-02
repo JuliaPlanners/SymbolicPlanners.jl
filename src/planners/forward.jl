@@ -272,7 +272,7 @@ function search!(sol::PathSearchSolution,
     while length(queue) > 0
         # Get state with lowest estimated cost to goal
         node_id, priority = isnothing(search_noise) ?
-            peek(queue) : prob_peek(queue, search_noise)
+            findbest(queue) : prob_findbest(queue, search_noise)
         node = search_tree[node_id]
         # Check search termination criteria
         if is_goal(spec, domain, node.state, node.parent.action)

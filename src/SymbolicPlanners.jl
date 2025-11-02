@@ -1,10 +1,10 @@
 module SymbolicPlanners
 
-using Base: @kwdef, peek
+using Base: @kwdef
 using Base.Iterators: countfrom
 using Parameters: @unpack
 using AutoHashEquals: AutoHashEquals, @auto_hash_equals
-using DataStructures: PriorityQueue, enqueue!, dequeue!, dequeue_pair!
+using DataStructures: PriorityQueue
 using StatsBase: sample, Weights
 using PDDL: flatten_conjs
 using DocStringExtensions

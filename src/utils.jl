@@ -2,6 +2,8 @@
 
 using DataStructures: DataStructures, BinaryHeap
 
+## Iteration utilities ##
+
 """
     lazy_collect(collection)
     lazy_collect(element_type, collection)
@@ -13,6 +15,12 @@ lazy_collect(collection) = collect(collection)
 lazy_collect(collection::Array) = collection
 lazy_collect(element_type::Type, collection) = collect(element_type, collection)
 lazy_collect(::Type{T}, collection::Array{T}) where {T} = collection
+
+unzip_pairs(ps) = unzip_pairs(collect(ps))
+unzip_pairs(ps::AbstractDict) = collect(keys(ps)), collect(values(ps))
+unzip_pairs(ps::AbstractArray{<:Pair}) = first.(ps), last.(ps)
+
+## Hashing and equality macros ##
 
 "Generate `Base.hash` for a user-defined (composite) type."
 macro auto_hash(type)
@@ -65,6 +73,8 @@ function auto_equals_expr(type, fields)
     end
 end
 
+## Probability and sampling utilities ##
+
 "Convert vector of unnormalized scores to probabiities."
 function softmax(scores)
     T = eltype(scores)
@@ -86,9 +96,7 @@ function randgumbel(rng::AbstractRNG=Random.GLOBAL_RNG)
     return -log(-log(rand(rng)))
 end
 
-unzip_pairs(ps) = unzip_pairs(collect(ps))
-unzip_pairs(ps::AbstractDict) = collect(keys(ps)), collect(values(ps))
-unzip_pairs(ps::AbstractArray{<:Pair}) = first.(ps), last.(ps)
+## Formatting and pretty-printing ##
 
 "Compact formatting of types."
 function compact_type_str(str::AbstractString, max_type_param_length::Int = 80)
@@ -188,6 +196,39 @@ function show_struct(
     nothing
 end
 
+## Priority queue methods and implementations ##
+
+# Ensure uniform interface across DataStructures API changes
+if hasmethod(Base.push!, (PriorityQueue, Pair))
+    enqueue!(pq::PriorityQueue, kv::Pair) = push!(pq, kv)
+    enqueue!(pq::PriorityQueue, k, v) = push!(pq, k => v) 
+else
+    enqueue!(pq::PriorityQueue, kv::Pair) = DataStructures.enqueue!(pq, kv)
+    enqueue!(pq::PriorityQueue, k, v) = DataStructures.enqueue!(pq, k, v)
+end
+
+if hasmethod(Base.popfirst!, (PriorityQueue,))
+    dequeue!(pq::PriorityQueue) = first(popfirst!(pq))
+    dequeue_pair!(pq::PriorityQueue) = popfirst!(pq)
+else
+    dequeue!(pq::PriorityQueue) = DataStructures.dequeue!(pq)
+    dequeue_pair!(pq::PriorityQueue) = DataStructures.dequeue_pair!(pq)
+end
+
+if hasmethod(Base.popat!, (PriorityQueue, Any))
+    dequeue!(pq::PriorityQueue, k) = first(popat!(pq, k))
+    dequeue_pair!(pq::PriorityQueue, k) = popat!(pq, k)
+else
+    dequeue!(pq::PriorityQueue, k) = DataStructures.dequeue!(pq, k)
+    dequeue_pair!(pq::PriorityQueue, k) = DataStructures.dequeue_pair!(pq, k)
+end
+
+if hasmethod(Base.first, (PriorityQueue,))
+    findbest(pq::PriorityQueue) = first(pq)
+else
+    findbest(pq::PriorityQueue) = Base.peek(pq)
+end
+
 """
     FastPriorityQueue{K, V}([ord])
 
@@ -232,7 +273,6 @@ FastPriorityQueue(pairs::AbstractArray{Pair{K, V}}) where {K, V} =
 Base.length(pq::FastPriorityQueue) = length(pq.heap)
 Base.isempty(pq::FastPriorityQueue) = isempty(pq.heap)
 Base.first(pq::FastPriorityQueue) = first(pq.heap)
-Base.peek(pq::FastPriorityQueue) = peek(pq.heap)
 
 Base.empty!(pq::FastPriorityQueue) =  (empty!(pq.heap.valtree); pq)
 
@@ -243,11 +283,15 @@ function Base.append!(pq::FastPriorityQueue, pairs)
     return pq
 end
 
-DataStructures.enqueue!(pq::FastPriorityQueue{K, V}, kv::Pair{K, V}) where {K, V} =
+enqueue!(pq::FastPriorityQueue{K, V}, kv::Pair{K, V}) where {K, V} =
     (push!(pq.heap, kv); return pq)
-DataStructures.enqueue!(pq::FastPriorityQueue{K, V}, k::K, v::V) where {K, V} =
+enqueue!(pq::FastPriorityQueue{K, V}, kv::Pair) where {K, V} =
+    enqueue!(pq, Pair{K, V}(kv))
+enqueue!(pq::FastPriorityQueue{K, V}, k::K, v::V) where {K, V} =
     (push!(pq.heap, k => v); return pq)
-DataStructures.dequeue!(pq::FastPriorityQueue) =
+dequeue!(pq::FastPriorityQueue) =
     first(pop!(pq.heap))
-DataStructures.dequeue_pair!(pq::FastPriorityQueue) =
+dequeue_pair!(pq::FastPriorityQueue) =
     pop!(pq.heap)
+findbest(pq::FastPriorityQueue) =
+    first(pq)
